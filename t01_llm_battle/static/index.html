@@ -408,9 +408,117 @@
     </section>
 
     <!-- View: results -->
-    <section x-show="route === 'results/detail'">
-      <h1>Results <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
-      <div class="placeholder">Results table + markdown report — implemented in #30</div>
+    <section x-show="route === 'results/detail'" x-data="resultsView()" x-init="$watch('$root.route', r => { if (r === 'results/detail' && $root.params.id) load($root.params.id); }); if (route === 'results/detail' && params.id) load(params.id);">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <h1 style="margin:0;">Results</h1>
+          <span class="badge" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button @click="downloadMarkdown()"
+            x-show="results"
+            style="background:#fff;color:#7c6af7;border:1px solid #7c6af7;padding:8px 16px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+            Download as Markdown
+          </button>
+          <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;padding:8px 0;">← Back</a>
+        </div>
+      </div>
+
+      <template x-if="loading">
+        <p style="color:#888;">Loading results...</p>
+      </template>
+
+      <template x-if="error">
+        <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;margin:0;font-size:0.9rem;" x-text="error"></p>
+      </template>
+
+      <template x-if="results">
+        <div>
+
+          <!-- Summary Table -->
+          <h2>Fighter Summary</h2>
+          <div style="overflow-x:auto;margin-bottom:2rem;">
+            <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+              <thead>
+                <tr style="background:#f0f0f8;font-size:0.85rem;text-align:left;">
+                  <th style="padding:10px 14px;font-weight:600;">Fighter</th>
+                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Avg Score</th>
+                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Total Cost USD</th>
+                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Steps</th>
+                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Items</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
+                  <tr :style="idx % 2 === 0 ? 'background:#fff;' : 'background:#fafafa;'">
+                    <td style="padding:10px 14px;font-weight:600;" x-text="f.fighter_name"></td>
+                    <td style="padding:10px 14px;text-align:right;">
+                      <span :style="scoreColor(f.avg_score)" x-text="f.avg_score.toFixed(2)"></span>
+                    </td>
+                    <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;" x-text="'$' + f.total_cost.toFixed(4)"></td>
+                    <td style="padding:10px 14px;text-align:right;" x-text="f.total_steps"></td>
+                    <td style="padding:10px 14px;text-align:right;" x-text="f.item_count"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Per-Source Breakdown -->
+          <h2>Per-Source Breakdown</h2>
+          <template x-for="source in sourceGroups()" :key="source.label">
+            <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:1.25rem;overflow:hidden;">
+              <div style="background:#f0f0f8;padding:10px 14px;font-weight:600;font-size:0.9rem;border-bottom:1px solid #e0e0e0;">
+                <span x-text="source.label"></span>
+              </div>
+              <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
+                <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
+                  <div :style="fi > 0 ? 'border-left:1px solid #e0e0e0;' : ''">
+                    <!-- Fighter header in source -->
+                    <div style="padding:8px 14px;border-bottom:1px solid #e8e8f0;display:flex;align-items:center;justify-content:space-between;">
+                      <span style="font-weight:600;font-size:0.85rem;" x-text="fighter.fighter_name"></span>
+                      <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)" x-text="fighter.score !== null ? fighter.score.toFixed(1) : 'N/A'"></span>
+                    </div>
+                    <!-- Output preview + expand -->
+                    <div style="padding:10px 14px;">
+                      <div
+                        @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
+                        style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:#7c6af7;margin-bottom:6px;user-select:none;">
+                        <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
+                      </div>
+                      <template x-if="expanded[source.label + '::' + fighter.fighter_name]">
+                        <pre style="background:#f8f8fc;border:1px solid #e0e0e0;border-radius:4px;padding:10px;font-size:0.8rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:320px;overflow-y:auto;" x-text="fighter.final_output || '(no output)'"></pre>
+                      </template>
+                      <div style="font-size:0.78rem;color:#888;margin-top:6px;">
+                        <span x-text="fighter.step_count + ' step(s)'"></span>
+                        &nbsp;·&nbsp;
+                        <span x-text="'$' + (fighter.total_cost_usd || 0).toFixed(4)"></span>
+                        <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
+                          <span>
+                            &nbsp;·&nbsp;
+                            <span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span>
+                          </span>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- Judge Report -->
+          <template x-if="results.report_markdown">
+            <div>
+              <h2>Judge Report</h2>
+              <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1.25rem 1.5rem;margin-bottom:2rem;line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
+            </div>
+          </template>
+
+        </div>
+      </template>
+
     </section>
 
     <!-- View: API key management -->
@@ -679,6 +787,131 @@
             this.error = e.message;
           }
         }
+      };
+    }
+
+    function resultsView() {
+      return {
+        runId: null,
+        results: null,
+        expanded: {},
+        error: null,
+        loading: false,
+
+        async load(runId) {
+          this.runId = runId;
+          this.results = null;
+          this.error = null;
+          this.expanded = {};
+          this.loading = true;
+          try {
+            const resp = await fetch('/runs/' + runId + '/results');
+            if (!resp.ok) throw new Error(await resp.text());
+            this.results = await resp.json();
+          } catch(e) {
+            this.error = e.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        toggleExpand(key) {
+          this.expanded[key] = !this.expanded[key];
+        },
+
+        fighterSummary() {
+          if (!this.results || !this.results.summary) return [];
+          const map = {};
+          for (const item of this.results.summary) {
+            const name = item.fighter_name;
+            if (!map[name]) {
+              map[name] = { fighter_name: name, scores: [], total_cost: 0, total_steps: 0, item_count: 0 };
+            }
+            if (item.score !== null && item.score !== undefined) map[name].scores.push(item.score);
+            map[name].total_cost += item.total_cost_usd || 0;
+            map[name].total_steps += item.step_count || 0;
+            map[name].item_count += 1;
+          }
+          return Object.values(map).map(f => ({
+            ...f,
+            avg_score: f.scores.length ? f.scores.reduce((a, b) => a + b, 0) / f.scores.length : 0,
+          })).sort((a, b) => b.avg_score - a.avg_score);
+        },
+
+        sourceGroups() {
+          if (!this.results || !this.results.summary) return [];
+          const order = [];
+          const map = {};
+          for (const item of this.results.summary) {
+            const label = item.source_label || item.source_id || 'Unknown';
+            if (!map[label]) {
+              map[label] = { label, fighters: [] };
+              order.push(label);
+            }
+            map[label].fighters.push(item);
+          }
+          return order.map(l => map[l]);
+        },
+
+        scoreColor(score) {
+          if (score === null || score === undefined) return 'color:#888;';
+          if (score >= 8) return 'color:#27ae60;';
+          if (score >= 5) return 'color:#e67e22;';
+          return 'color:#c0392b;';
+        },
+
+        renderMarkdown(text) {
+          if (typeof marked !== 'undefined') {
+            return marked.parse ? marked.parse(text) : marked(text);
+          }
+          return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        },
+
+        downloadMarkdown() {
+          if (!this.results) return;
+          const summary = this.fighterSummary();
+          const lines = [];
+          lines.push('# LLM Battle Results');
+          lines.push('');
+          lines.push('**Run ID:** ' + (this.results.run_id || this.runId));
+          if (this.results.battle_id) lines.push('**Battle ID:** ' + this.results.battle_id);
+          lines.push('');
+          lines.push('## Fighter Summary');
+          lines.push('');
+          lines.push('| Fighter | Avg Score | Total Cost USD | Steps | Items |');
+          lines.push('|---------|-----------|---------------|-------|-------|');
+          for (const f of summary) {
+            lines.push('| ' + f.fighter_name + ' | ' + f.avg_score.toFixed(2) + ' | $' + f.total_cost.toFixed(4) + ' | ' + f.total_steps + ' | ' + f.item_count + ' |');
+          }
+          lines.push('');
+          lines.push('## Per-Source Breakdown');
+          lines.push('');
+          for (const source of this.sourceGroups()) {
+            lines.push('### ' + source.label);
+            lines.push('');
+            for (const fighter of source.fighters) {
+              lines.push('**' + fighter.fighter_name + '** — Score: ' + (fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'));
+              lines.push('');
+              lines.push('```');
+              lines.push(fighter.final_output || '(no output)');
+              lines.push('```');
+              lines.push('');
+            }
+          }
+          if (this.results.report_markdown) {
+            lines.push('## Judge Report');
+            lines.push('');
+            lines.push(this.results.report_markdown);
+            lines.push('');
+          }
+          const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'battle-results-' + (this.runId || 'export') + '.md';
+          a.click();
+          URL.revokeObjectURL(url);
+        },
       };
     }
 
