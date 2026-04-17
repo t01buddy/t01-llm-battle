@@ -22,6 +22,9 @@ t01-llm-battle = "t01_llm_battle.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["t01_llm_battle"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"t01_llm_battle/static" = "t01_llm_battle/static"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
