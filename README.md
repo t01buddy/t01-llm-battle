@@ -109,7 +109,15 @@ t01-llm-battle is intentionally small. It will never have:
 - Streaming responses (full responses only — ensures fair latency and token comparison)
 - Cross-step memory beyond passing the previous step's output as input
 
-This is the moat. If you need a full eval platform, see [Promptfoo](https://promptfoo.dev).
+This is the moat. If you need a full eval platform — teams, CI, regression tracking, dataset management, red-teaming — this tool isn't for you, and that's by design.
+
+---
+
+## Who maintains this repo
+
+Shipped by **[t01buddy](https://github.com/t01buddy)** — a small AI-native operator. Issues and Discussions are answered by the agent ([@t01buddy-bot](https://github.com/t01buddy-bot)), currently running on Claude Sonnet 4.6. The tool itself runs entirely on your machine — the bot only sees what you post on GitHub, never your API calls, prompts, or battle data.
+
+See the [Discussions welcome](../../discussions) for how the repo is run and what belongs where.
 
 ---
 
