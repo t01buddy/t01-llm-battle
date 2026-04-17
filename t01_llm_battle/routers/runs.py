@@ -95,24 +95,30 @@ async def get_run_status(run_id: str):
 
     run_data = dict(run_row)
 
-    # Load fighter_results
+    # Load fighter_results with fighter name via join
     async with get_db() as db:
         cursor = await db.execute(
-            "SELECT id, fighter_id, source_id, status, final_output, "
-            "total_cost_usd, total_latency_ms, total_input_tokens, "
-            "total_output_tokens, judge_score, judge_reasoning "
-            "FROM fighter_result WHERE run_id = ?",
+            "SELECT fr.id, fr.fighter_id, f.name AS fighter_name, "
+            "fr.source_id, fr.status, fr.final_output, "
+            "fr.total_cost_usd, fr.total_latency_ms, fr.total_input_tokens, "
+            "fr.total_output_tokens, fr.judge_score, fr.judge_reasoning "
+            "FROM fighter_result fr "
+            "JOIN fighter f ON f.id = fr.fighter_id "
+            "WHERE fr.run_id = ?",
             (run_id,),
         )
         fr_rows = [dict(r) for r in await cursor.fetchall()]
 
-    # Load step_results for this run
+    # Load step_results with order_index via join on fighter_step
     async with get_db() as db:
         cursor = await db.execute(
-            "SELECT id, fighter_id, step_id, source_id, "
-            "output_text, input_tokens, output_tokens, latency_ms, "
-            "cost_usd, error, created_at "
-            "FROM step_result WHERE run_id = ?",
+            "SELECT sr.id, sr.fighter_id, sr.step_id, sr.source_id, "
+            "COALESCE(fs.position, 0) AS order_index, "
+            "sr.output_text, sr.input_tokens, sr.output_tokens, sr.latency_ms, "
+            "sr.cost_usd, sr.error, sr.created_at "
+            "FROM step_result sr "
+            "LEFT JOIN fighter_step fs ON fs.id = sr.step_id "
+            "WHERE sr.run_id = ?",
             (run_id,),
         )
         sr_rows = [dict(r) for r in await cursor.fetchall()]
@@ -124,6 +130,7 @@ async def get_run_status(run_id: str):
         sr_index.setdefault(key, []).append(
             {
                 "step_id": sr["step_id"],
+                "order_index": sr["order_index"],
                 "status": "error" if sr["error"] else "complete",
                 "error": sr["error"],
                 "output_text": sr["output_text"],
@@ -137,10 +144,11 @@ async def get_run_status(run_id: str):
     fighter_results = []
     for fr in fr_rows:
         key = (fr["fighter_id"], fr["source_id"])
-        steps = sr_index.get(key, [])
+        steps = sorted(sr_index.get(key, []), key=lambda s: s["order_index"])
         fighter_results.append(
             {
                 "fighter_id": fr["fighter_id"],
+                "fighter_name": fr["fighter_name"],
                 "source_id": fr["source_id"],
                 "status": fr["status"],
                 "final_output": fr["final_output"],
