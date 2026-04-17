@@ -210,9 +210,74 @@
     </section>
 
     <!-- View: API key management -->
-    <section x-show="route === 'keys'">
+    <section x-show="route === 'keys'" x-data="keysList()" x-init="load()">
       <h1>API Keys</h1>
-      <div class="placeholder">API key management — implemented in #31</div>
+      <p style="color:#555;font-size:0.9rem;margin-top:-0.5rem;margin-bottom:1.5rem;">
+        Keys stored in the database are used when no environment variable is set.
+        Environment variables always take precedence.
+      </p>
+
+      <template x-if="loading">
+        <p style="color:#888;">Loading...</p>
+      </template>
+
+      <template x-if="error && !loading">
+        <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;font-size:0.9rem;" x-text="error"></p>
+      </template>
+
+      <template x-if="!loading">
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.75rem;">
+          <template x-for="k in keys" :key="k.provider">
+            <li style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <span style="font-weight:600;font-size:1rem;text-transform:capitalize;" x-text="k.provider"></span>
+                  <template x-if="k.source === 'env'">
+                    <span style="display:inline-block;background:#27ae60;color:#fff;border-radius:4px;padding:2px 8px;font-size:0.75rem;">env var set</span>
+                  </template>
+                  <template x-if="k.source === 'db'">
+                    <span style="display:inline-block;background:#7c6af7;color:#fff;border-radius:4px;padding:2px 8px;font-size:0.75rem;">saved in DB</span>
+                  </template>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <template x-if="k.source === 'db'">
+                    <span style="font-size:0.85rem;color:#888;font-family:monospace;" x-text="k.masked_key"></span>
+                  </template>
+                  <template x-if="k.source === 'db'">
+                    <button
+                      @click="remove(k.provider)"
+                      style="background:#fdf0f0;color:#c0392b;border:1px solid #f5c6c6;padding:4px 12px;border-radius:5px;font-size:0.8rem;cursor:pointer;">
+                      Remove
+                    </button>
+                  </template>
+                </div>
+              </div>
+
+              <template x-if="saved[k.provider]">
+                <p style="color:#27ae60;font-size:0.85rem;margin:0 0 0.5rem;">Key saved successfully.</p>
+              </template>
+              <template x-if="saveErrors[k.provider]">
+                <p style="color:#c0392b;font-size:0.85rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
+              </template>
+
+              <template x-if="k.source !== 'env'">
+                <div style="display:flex;gap:0.5rem;align-items:center;">
+                  <input
+                    type="password"
+                    :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'"
+                    x-model="inputs[k.provider]"
+                    style="flex:1;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace;">
+                  <button
+                    @click="save(k.provider)"
+                    style="background:#7c6af7;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;">
+                    Save
+                  </button>
+                </div>
+              </template>
+            </li>
+          </template>
+        </ul>
+      </template>
     </section>
 
     <!-- View: 404 fallback -->
@@ -277,6 +342,69 @@
             this.error = e.message;
           } finally {
             this.loading = false;
+          }
+        }
+      };
+    }
+
+    function keysList() {
+      return {
+        keys: [],
+        loading: false,
+        error: null,
+        inputs: {},
+        saved: {},
+        saveErrors: {},
+
+        async load() {
+          this.loading = true;
+          this.error = null;
+          try {
+            const resp = await fetch('/keys');
+            if (!resp.ok) throw new Error(await resp.text());
+            this.keys = await resp.json();
+            this.keys.forEach(k => {
+              if (this.inputs[k.provider] === undefined) this.inputs[k.provider] = '';
+            });
+          } catch(e) {
+            this.error = e.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async save(provider) {
+          const val = (this.inputs[provider] || '').trim();
+          if (!val) {
+            this.saveErrors[provider] = 'Please enter a key before saving.';
+            return;
+          }
+          delete this.saveErrors[provider];
+          try {
+            const resp = await fetch('/keys/' + provider, {
+              method: 'PUT',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ key: val })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            this.inputs[provider] = '';
+            this.saved[provider] = true;
+            setTimeout(() => { delete this.saved[provider]; }, 3000);
+            await this.load();
+          } catch(e) {
+            this.saveErrors[provider] = e.message;
+          }
+        },
+
+        async remove(provider) {
+          delete this.saved[provider];
+          delete this.saveErrors[provider];
+          try {
+            const resp = await fetch('/keys/' + provider, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(await resp.text());
+            await this.load();
+          } catch(e) {
+            this.saveErrors[provider] = e.message;
           }
         }
       };
