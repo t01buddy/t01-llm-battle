@@ -5,11 +5,201 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LLM Battle Arena</title>
   <link rel="stylesheet" href="/vendor/easymde.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      color: #1a1a1a;
+      background: #f5f5f5;
+    }
+
+    nav {
+      background: #1a1a2e;
+      color: #fff;
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      height: 52px;
+    }
+
+    nav .brand {
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    nav a {
+      color: #c8c8e8;
+      text-decoration: none;
+      font-size: 0.9rem;
+      padding: 4px 0;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    nav a:hover { color: #fff; }
+    nav a.active { color: #fff; border-bottom-color: #7c6af7; }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    h1 { font-size: 1.5rem; margin: 0 0 1.25rem; }
+    h2 { font-size: 1.15rem; margin: 0 0 1rem; }
+
+    .placeholder {
+      background: #e8e8f0;
+      border-radius: 8px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #888;
+      font-size: 0.9rem;
+      border: 2px dashed #ccc;
+      margin-top: 1rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #7c6af7;
+      color: #fff;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+  </style>
 </head>
-<body>
-  <div id="app">Loading...</div>
+<body x-data="app()" x-init="init()">
+
+  <nav>
+    <a href="#/battles" class="brand">LLM Battle Arena</a>
+    <a href="#/battles"
+       :class="{ active: route === 'battles' || route === 'battles/new' || route === 'battles/detail' }">
+      Battles
+    </a>
+    <a href="#/keys"
+       :class="{ active: route === 'keys' }">
+      API Keys
+    </a>
+  </nav>
+
+  <main>
+
+    <!-- View: battles list -->
+    <section x-show="route === 'battles'">
+      <h1>Battles</h1>
+      <div class="placeholder">Battle list — implemented in #26</div>
+    </section>
+
+    <!-- View: new battle -->
+    <section x-show="route === 'battles/new'">
+      <h1>New Battle</h1>
+      <div class="placeholder">Create battle form — implemented in #27</div>
+    </section>
+
+    <!-- View: battle detail -->
+    <section x-show="route === 'battles/detail'">
+      <h1>Battle Detail <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
+      <div class="placeholder">Sources, fighters, run button — implemented in #28</div>
+    </section>
+
+    <!-- View: live run -->
+    <section x-show="route === 'runs/detail'">
+      <h1>Live Run <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
+      <div class="placeholder">Live run view with polling — implemented in #29</div>
+    </section>
+
+    <!-- View: results -->
+    <section x-show="route === 'results/detail'">
+      <h1>Results <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
+      <div class="placeholder">Results table + markdown report — implemented in #30</div>
+    </section>
+
+    <!-- View: API key management -->
+    <section x-show="route === 'keys'">
+      <h1>API Keys</h1>
+      <div class="placeholder">API key management — implemented in #31</div>
+    </section>
+
+    <!-- View: 404 fallback -->
+    <section x-show="route === 'not-found'">
+      <h1>Page not found</h1>
+      <p>No route matches <code x-text="window.location.hash"></code>. <a href="#/battles">Go home</a>.</p>
+    </section>
+
+  </main>
+
   <script src="/vendor/alpine.min.js" defer></script>
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/easymde.min.js"></script>
+  <script>
+    function app() {
+      return {
+        route: 'battles',
+        params: {},
+
+        init() {
+          this.parseRoute();
+          window.addEventListener('hashchange', () => this.parseRoute());
+        },
+
+        parseRoute() {
+          const raw = window.location.hash.replace(/^#\//, '').trim();
+          const hash = raw || 'battles';
+          const parts = hash.split('/');
+
+          // #/ or #/battles
+          if (hash === 'battles' || hash === '') {
+            this.route = 'battles';
+            this.params = {};
+
+          // #/battles/new
+          } else if (parts[0] === 'battles' && parts[1] === 'new') {
+            this.route = 'battles/new';
+            this.params = {};
+
+          // #/battles/:id
+          } else if (parts[0] === 'battles' && parts[1]) {
+            this.route = 'battles/detail';
+            this.params = { id: parts[1] };
+
+          // #/runs/:id
+          } else if (parts[0] === 'runs' && parts[1]) {
+            this.route = 'runs/detail';
+            this.params = { id: parts[1] };
+
+          // #/results/:id
+          } else if (parts[0] === 'results' && parts[1]) {
+            this.route = 'results/detail';
+            this.params = { id: parts[1] };
+
+          // #/keys
+          } else if (parts[0] === 'keys') {
+            this.route = 'keys';
+            this.params = {};
+
+          } else {
+            this.route = 'not-found';
+            this.params = {};
+          }
+        },
+
+        navigate(hash) {
+          window.location.hash = hash;
+        }
+      };
+    }
+  </script>
 </body>
 </html>
