@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS fighter (
     battle_id  TEXT NOT NULL REFERENCES battle(id),
     name       TEXT NOT NULL,
     is_manual  INTEGER NOT NULL DEFAULT 0,
-    position   INTEGER NOT NULL
+    position   INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS fighter_step (
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS fighter_step (
     system_prompt   TEXT,
     provider        TEXT NOT NULL,
     model_id        TEXT NOT NULL,
-    provider_config TEXT NOT NULL DEFAULT '{}'
+    provider_config TEXT NOT NULL DEFAULT '{}',
+    created_at      TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS run (
