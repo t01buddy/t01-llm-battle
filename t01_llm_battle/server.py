@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from .db import init_db, DB_PATH
 from .routers.keys import router as keys_router
 from .routers.sources import router as sources_router
+from .routers.fighters import router as fighters_router
 
 
 @asynccontextmanager
@@ -20,6 +21,7 @@ def create_app(db_path=DB_PATH) -> FastAPI:
 
     app.include_router(keys_router)
     app.include_router(sources_router)
+    app.include_router(fighters_router)
 
     # Health check
     @app.get("/healthz")
