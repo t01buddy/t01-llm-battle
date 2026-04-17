@@ -253,8 +253,152 @@
         </template>
       </div>
 
-      <!-- Remaining sections placeholder -->
-      <div class="placeholder">Fighters &amp; run button — implemented in #28</div>
+      <!-- Fighters section -->
+      <div x-data="fighterList()" x-init="load($root.params.id)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+          <h2 style="margin:0;">Fighters</h2>
+          <button @click="showAddFighter = !showAddFighter"
+            style="background:#7c6af7;color:#fff;border:none;padding:7px 14px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+            + Add Fighter
+          </button>
+        </div>
+
+        <!-- Add fighter form -->
+        <template x-if="showAddFighter">
+          <form @submit.prevent="addFighter($root.params.id)"
+            style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
+            <h3 style="margin:0;font-size:1rem;">New Fighter</h3>
+            <div style="display:flex;gap:1rem;align-items:flex-end;">
+              <div style="flex:1;">
+                <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:4px;">Fighter Name <span style="color:#c0392b;">*</span></label>
+                <input type="text" x-model="newFighter.name" required placeholder="e.g. GPT-4o pipeline"
+                  style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;">
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;padding-bottom:2px;">
+                <input type="checkbox" id="f-manual" x-model="newFighter.is_manual" style="width:16px;height:16px;cursor:pointer;">
+                <label for="f-manual" style="font-size:0.9rem;cursor:pointer;">Manual</label>
+              </div>
+            </div>
+            <template x-if="addFighterError">
+              <p style="color:#c0392b;margin:0;font-size:0.85rem;" x-text="addFighterError"></p>
+            </template>
+            <div style="display:flex;gap:0.75rem;">
+              <button type="submit" :disabled="addingFighter"
+                style="background:#7c6af7;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;"
+                :style="addingFighter ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                <span x-text="addingFighter ? 'Adding...' : 'Add Fighter'"></span>
+              </button>
+              <button type="button" @click="showAddFighter = false"
+                style="background:none;border:1px solid #ccc;padding:7px 14px;border-radius:6px;font-size:0.85rem;cursor:pointer;">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </template>
+
+        <!-- Loading fighters -->
+        <template x-if="loadingFighters">
+          <p style="color:#888;font-size:0.9rem;">Loading fighters...</p>
+        </template>
+
+        <!-- Empty state -->
+        <template x-if="!loadingFighters && fighters.length === 0">
+          <div class="placeholder" style="height:120px;">No fighters yet. Add your first fighter above.</div>
+        </template>
+
+        <!-- Fighter cards -->
+        <template x-if="!loadingFighters && fighters.length > 0">
+          <div style="display:flex;flex-direction:column;gap:1rem;">
+            <template x-for="fighter in fighters" :key="fighter.id">
+              <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span style="font-weight:600;font-size:0.95rem;" x-text="fighter.name"></span>
+                    <span x-show="fighter.is_manual" class="badge" style="background:#888;">manual</span>
+                  </div>
+                  <button x-show="!fighter.is_manual"
+                    @click="toggleAddStep(fighter.id)"
+                    style="background:#f0eeff;color:#7c6af7;border:1px solid #c8bffa;padding:5px 12px;border-radius:6px;font-size:0.82rem;font-weight:600;cursor:pointer;">
+                    + Add Step
+                  </button>
+                </div>
+
+                <!-- Steps list -->
+                <template x-if="fighter.steps && fighter.steps.length > 0">
+                  <ul style="list-style:none;padding:0;margin:0 0 0.75rem;display:flex;flex-direction:column;gap:4px;">
+                    <template x-for="(step, idx) in fighter.steps" :key="step.id">
+                      <li style="background:#f8f8fb;border:1px solid #ececf4;border-radius:6px;padding:6px 10px;font-size:0.85rem;display:flex;gap:0.75rem;align-items:center;">
+                        <span style="color:#888;font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
+                        <span style="color:#555;" x-text="step.provider"></span>
+                        <span style="color:#333;font-weight:500;" x-text="step.model_id"></span>
+                        <span x-show="step.system_prompt" style="color:#888;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;" x-text="step.system_prompt"></span>
+                      </li>
+                    </template>
+                  </ul>
+                </template>
+
+                <template x-if="!fighter.steps || fighter.steps.length === 0">
+                  <p x-show="!fighter.is_manual" style="font-size:0.85rem;color:#aaa;margin:0 0 0.5rem;">No steps yet.</p>
+                </template>
+
+                <!-- Add step form (inline) -->
+                <template x-if="activeStepFighterId === fighter.id">
+                  <form @submit.prevent="addStep($root.params.id, fighter.id)"
+                    style="background:#f8f8fb;border:1px solid #ddd;border-radius:6px;padding:0.75rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.65rem;">
+                    <h4 style="margin:0;font-size:0.9rem;">New Step</h4>
+                    <div>
+                      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">System Prompt <span style="font-weight:400;color:#888;">(optional)</span></label>
+                      <textarea x-model="newStep.system_prompt" rows="3"
+                        placeholder="You are a helpful assistant..."
+                        style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;resize:vertical;font-family:inherit;"></textarea>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                      <div>
+                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Provider <span style="color:#c0392b;">*</span></label>
+                        <select x-model="newStep.provider" required
+                          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
+                          <template x-for="p in providers" :key="p">
+                            <option :value="p" x-text="p"></option>
+                          </template>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Model <span style="color:#c0392b;">*</span></label>
+                        <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o"
+                          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+                      </div>
+                    </div>
+                    <div>
+                      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Provider Config <span style="font-weight:400;color:#888;">(JSON, optional)</span></label>
+                      <textarea x-model="newStep.provider_config" rows="2"
+                        placeholder="{}"
+                        style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;resize:vertical;font-family:monospace;"></textarea>
+                    </div>
+                    <template x-if="addStepError">
+                      <p style="color:#c0392b;margin:0;font-size:0.82rem;" x-text="addStepError"></p>
+                    </template>
+                    <div style="display:flex;gap:0.75rem;">
+                      <button type="submit" :disabled="addingStep"
+                        style="background:#7c6af7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.83rem;font-weight:600;cursor:pointer;"
+                        :style="addingStep ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                        <span x-text="addingStep ? 'Adding...' : 'Add Step'"></span>
+                      </button>
+                      <button type="button" @click="activeStepFighterId = null"
+                        style="background:none;border:1px solid #ccc;padding:6px 12px;border-radius:6px;font-size:0.83rem;cursor:pointer;">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="fightersError">
+          <p style="color:#c0392b;font-size:0.9rem;" x-text="fightersError"></p>
+        </template>
+      </div>
     </section>
 
     <!-- View: live run -->
@@ -533,6 +677,112 @@
             this.sources = this.sources.filter(s => s.id !== sourceId);
           } catch(e) {
             this.error = e.message;
+          }
+        }
+      };
+    }
+
+    function fighterList() {
+      return {
+        fighters: [],
+        loadingFighters: false,
+        fightersError: null,
+
+        showAddFighter: false,
+        newFighter: { name: '', is_manual: false },
+        addingFighter: false,
+        addFighterError: null,
+
+        activeStepFighterId: null,
+        newStep: { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' },
+        addingStep: false,
+        addStepError: null,
+
+        providers: ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'],
+
+        async load(battleId) {
+          this.loadingFighters = true;
+          this.fightersError = null;
+          try {
+            const resp = await fetch('/battles/' + battleId + '/fighters');
+            if (!resp.ok) throw new Error(await resp.text());
+            const fighters = await resp.json();
+            // Load steps for each fighter
+            const withSteps = await Promise.all(fighters.map(async f => {
+              try {
+                const r = await fetch('/battles/' + battleId + '/fighters/' + f.id);
+                if (r.ok) return await r.json();
+              } catch(_) {}
+              return { ...f, steps: [] };
+            }));
+            this.fighters = withSteps;
+          } catch(e) {
+            this.fightersError = e.message;
+          } finally {
+            this.loadingFighters = false;
+          }
+        },
+
+        async addFighter(battleId) {
+          this.addingFighter = true;
+          this.addFighterError = null;
+          try {
+            const resp = await fetch('/battles/' + battleId + '/fighters', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: this.newFighter.name, is_manual: this.newFighter.is_manual })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const fighter = await resp.json();
+            this.fighters.push({ ...fighter, steps: [] });
+            this.newFighter = { name: '', is_manual: false };
+            this.showAddFighter = false;
+          } catch(e) {
+            this.addFighterError = e.message;
+          } finally {
+            this.addingFighter = false;
+          }
+        },
+
+        toggleAddStep(fighterId) {
+          if (this.activeStepFighterId === fighterId) {
+            this.activeStepFighterId = null;
+          } else {
+            this.activeStepFighterId = fighterId;
+            this.newStep = { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' };
+            this.addStepError = null;
+          }
+        },
+
+        async addStep(battleId, fighterId) {
+          this.addingStep = true;
+          this.addStepError = null;
+          try {
+            const fighter = this.fighters.find(f => f.id === fighterId);
+            const position = fighter ? (fighter.steps ? fighter.steps.length : 0) : 0;
+            const resp = await fetch('/battles/' + battleId + '/fighters/' + fighterId + '/steps', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                position: position,
+                system_prompt: this.newStep.system_prompt || null,
+                provider: this.newStep.provider,
+                model_id: this.newStep.model_id,
+                provider_config: this.newStep.provider_config || '{}'
+              })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const step = await resp.json();
+            if (fighter) {
+              if (!fighter.steps) fighter.steps = [];
+              fighter.steps.push(step);
+            }
+            this.activeStepFighterId = null;
+            this.newStep = { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' };
+          } catch(e) {
+            this.addStepError = e.message;
+          } finally {
+            this.addingStep = false;
           }
         }
       };
