@@ -258,7 +258,7 @@ async def get_run_results(run_id: str):
 
     async with get_db() as db:
         cursor = await db.execute(
-            "SELECT id, battle_id, status FROM run WHERE id = ?",
+            "SELECT id, battle_id, status, report_markdown FROM run WHERE id = ?",
             (run_id,),
         )
         run_row = await cursor.fetchone()
@@ -362,5 +362,6 @@ async def get_run_results(run_id: str):
         "run_id": run_id,
         "battle_id": run_data["battle_id"],
         "status": run_data["status"],
+        "report_markdown": run_data.get("report_markdown"),
         "summary": summary,
     }

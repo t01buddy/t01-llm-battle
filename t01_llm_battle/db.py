@@ -47,11 +47,12 @@ CREATE TABLE IF NOT EXISTS fighter_step (
 );
 
 CREATE TABLE IF NOT EXISTS run (
-    id          TEXT PRIMARY KEY,
-    battle_id   TEXT NOT NULL REFERENCES battle(id),
-    status      TEXT NOT NULL DEFAULT 'pending',
-    started_at  TEXT NOT NULL,
-    finished_at TEXT
+    id               TEXT PRIMARY KEY,
+    battle_id        TEXT NOT NULL REFERENCES battle(id),
+    status           TEXT NOT NULL DEFAULT 'pending',
+    started_at       TEXT NOT NULL,
+    finished_at      TEXT,
+    report_markdown  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS step_result (
