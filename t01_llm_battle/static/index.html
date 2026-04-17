@@ -136,13 +136,13 @@
     </section>
 
     <!-- View: new battle -->
-    <section x-show="route === 'battles/new'" x-data="battleForm()">
+    <section x-show="route === 'battles/new'" x-data="battleForm()" x-init="init()">
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
         <h1 style="margin:0;">New Battle</h1>
         <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;">← Cancel</a>
       </div>
 
-      <form @submit.prevent="submit()" style="max-width:560px;display:flex;flex-direction:column;gap:1.25rem;">
+      <form @submit.prevent="submit()" style="max-width:600px;display:flex;flex-direction:column;gap:1.25rem;">
 
         <div>
           <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-name">Battle Name <span style="color:#c0392b;">*</span></label>
@@ -153,26 +153,64 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
           <div>
             <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-provider">Judge Provider</label>
-            <select id="bf-provider" x-model="judge_provider"
+            <select id="bf-provider" x-model="judge_provider" @change="onProviderChange()"
               style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;background:#fff;">
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="google">Google</option>
-              <option value="groq">Groq</option>
+              <template x-if="providers.length === 0">
+                <option value="">Loading…</option>
+              </template>
+              <template x-for="p in providers" :key="p">
+                <option :value="p" x-text="p"></option>
+              </template>
             </select>
           </div>
           <div>
             <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-model">Judge Model</label>
-            <input id="bf-model" type="text" x-model="judge_model" placeholder="e.g. gpt-4o"
+            <input id="bf-model" type="text" x-model="judge_model"
+              :placeholder="modelPlaceholder()"
+              :list="'bf-model-suggestions-' + judge_provider"
               style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
+            <!-- datalist for suggestions per provider -->
+            <datalist id="bf-model-suggestions-openai">
+              <option value="gpt-4o"></option>
+              <option value="gpt-4o-mini"></option>
+              <option value="gpt-4-turbo"></option>
+              <option value="o1-mini"></option>
+            </datalist>
+            <datalist id="bf-model-suggestions-anthropic">
+              <option value="claude-opus-4-5"></option>
+              <option value="claude-sonnet-4-5"></option>
+              <option value="claude-haiku-3-5"></option>
+            </datalist>
+            <datalist id="bf-model-suggestions-google">
+              <option value="gemini-2.0-flash"></option>
+              <option value="gemini-1.5-pro"></option>
+              <option value="gemini-1.5-flash"></option>
+            </datalist>
+            <datalist id="bf-model-suggestions-groq">
+              <option value="llama-3.3-70b-versatile"></option>
+              <option value="mixtral-8x7b-32768"></option>
+            </datalist>
+            <datalist id="bf-model-suggestions-openrouter">
+              <option value="openai/gpt-4o"></option>
+              <option value="anthropic/claude-opus-4-5"></option>
+            </datalist>
+            <datalist id="bf-model-suggestions-ollama">
+              <option value="llama3.2"></option>
+              <option value="mistral"></option>
+              <option value="phi4"></option>
+            </datalist>
           </div>
         </div>
 
         <div>
-          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-rubric">Judge Rubric <span style="color:#888;font-weight:400;">(optional)</span></label>
-          <textarea id="bf-rubric" x-model="judge_rubric" rows="4"
-            placeholder="Describe how the judge should score outputs (0-10). Leave blank to use the default rubric."
-            style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;resize:vertical;font-family:inherit;"></textarea>
+          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:6px;" for="bf-rubric">
+            Judge Rubric
+            <span style="color:#888;font-weight:400;">(optional — edit or replace the default)</span>
+          </label>
+          <textarea id="bf-rubric" x-ref="rubricTextarea"
+            style="display:none;"
+            x-model="judge_rubric"></textarea>
+          <!-- EasyMDE is mounted here; actual value synced via x-model above -->
         </div>
 
         <template x-if="error">
@@ -401,12 +439,19 @@
       </div>
 
       <!-- Run Battle button -->
-      <div style="margin-top:1.5rem;display:flex;align-items:center;gap:1rem;">
-        <button @click="runBattle()" :disabled="running"
+      <div style="margin-top:1.5rem;display:flex;align-items:center;gap:1rem;"
+           @fighters-updated.window="fighterCount = $event.detail.count">
+        <button @click="runBattle()"
+          :disabled="running || sources.length === 0 || fighterCount === 0"
           style="background:#7c6af7;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;"
-          :style="running ? 'opacity:0.6;cursor:not-allowed;' : ''">
+          :style="(running || sources.length === 0 || fighterCount === 0) ? 'opacity:0.5;cursor:not-allowed;' : ''">
           <span x-text="running ? 'Starting...' : 'Run Battle'"></span>
         </button>
+        <template x-if="sources.length === 0 || fighterCount === 0">
+          <span style="font-size:0.85rem;color:#888;"
+            x-text="sources.length === 0 && fighterCount === 0 ? 'Add at least 1 source and 1 fighter to run.' : sources.length === 0 ? 'Add at least 1 source to run.' : 'Add at least 1 fighter to run.'">
+          </span>
+        </template>
         <template x-if="runError">
           <p style="color:#c0392b;margin:0;font-size:0.9rem;" x-text="runError"></p>
         </template>
@@ -753,15 +798,91 @@
       };
     }
 
+    const DEFAULT_RUBRIC = `Score the following LLM output on a scale from 0 to 10.
+
+**Criteria:**
+- **Relevance** (0-2): Does the output directly address the input/task?
+- **Accuracy** (0-3): Is the content factually correct and free of hallucinations?
+- **Conciseness** (0-2): Is the output appropriately brief without omitting important details?
+- **Helpfulness** (0-3): Would the output genuinely help someone accomplish their goal?
+
+**Instructions:**
+Return a JSON object with exactly these fields:
+- \`score\`: integer 0-10
+- \`reasoning\`: a brief explanation (2-4 sentences) justifying the score
+
+Do not wrap the JSON in markdown fences.`;
+
+    const DEFAULT_MODELS = {
+      openai: 'gpt-4o',
+      anthropic: 'claude-sonnet-4-5',
+      google: 'gemini-2.0-flash',
+      groq: 'llama-3.3-70b-versatile',
+      openrouter: 'openai/gpt-4o',
+      ollama: 'llama3.2',
+    };
+
     function battleForm() {
       return {
         name: '',
         judge_provider: 'openai',
         judge_model: 'gpt-4o',
-        judge_rubric: '',
+        judge_rubric: DEFAULT_RUBRIC,
         loading: false,
         error: null,
+        providers: [],
+        _mde: null,
+
+        async init() {
+          // Load available providers from GET /keys
+          try {
+            const resp = await fetch('/keys');
+            if (resp.ok) {
+              const keys = await resp.json();
+              this.providers = keys.map(k => k.provider);
+              if (this.providers.length > 0 && !this.providers.includes(this.judge_provider)) {
+                this.judge_provider = this.providers[0];
+                this.judge_model = DEFAULT_MODELS[this.judge_provider] || '';
+              }
+            }
+          } catch(_) {}
+          // Fallback to default providers list if keys endpoint unavailable
+          if (this.providers.length === 0) {
+            this.providers = ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'];
+          }
+
+          // Mount EasyMDE on the rubric textarea
+          await this.$nextTick();
+          const ta = this.$refs.rubricTextarea;
+          if (ta && typeof EasyMDE !== 'undefined') {
+            this._mde = new EasyMDE({
+              element: ta,
+              initialValue: this.judge_rubric,
+              spellChecker: false,
+              autosave: { enabled: false },
+              toolbar: ['bold', 'italic', '|', 'unordered-list', 'ordered-list', '|', 'preview'],
+              minHeight: '180px',
+              placeholder: 'Describe how the judge should score outputs (0-10)…',
+            });
+            this._mde.codemirror.on('change', () => {
+              this.judge_rubric = this._mde.value();
+            });
+          }
+        },
+
+        onProviderChange() {
+          this.judge_model = DEFAULT_MODELS[this.judge_provider] || '';
+        },
+
+        modelPlaceholder() {
+          return DEFAULT_MODELS[this.judge_provider]
+            ? `e.g. ${DEFAULT_MODELS[this.judge_provider]}`
+            : 'e.g. my-custom-model';
+        },
+
         async submit() {
+          // Sync EasyMDE value before submitting
+          if (this._mde) this.judge_rubric = this._mde.value();
           this.loading = true;
           this.error = null;
           try {
@@ -777,6 +898,8 @@
             });
             if (!resp.ok) throw new Error(await resp.text());
             const data = await resp.json();
+            // Destroy EasyMDE before navigating away to avoid ghost instances
+            if (this._mde) { try { this._mde.toTextArea(); } catch(_) {} this._mde = null; }
             window.location.hash = 'battles/' + data.id;
           } catch(e) {
             this.error = e.message;
@@ -856,6 +979,7 @@
         uploading: false,
         error: null,
         running: false,
+        fighterCount: 0,
         runError: null,
         currentBattleId: null,
 
@@ -1170,6 +1294,10 @@
 
         providers: ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'],
 
+        _dispatchCount() {
+          window.dispatchEvent(new CustomEvent('fighters-updated', { detail: { count: this.fighters.length } }));
+        },
+
         async load(battleId) {
           this.loadingFighters = true;
           this.fightersError = null;
@@ -1186,6 +1314,7 @@
               return { ...f, steps: [] };
             }));
             this.fighters = withSteps;
+            this._dispatchCount();
           } catch(e) {
             this.fightersError = e.message;
           } finally {
@@ -1207,6 +1336,7 @@
             this.fighters.push({ ...fighter, steps: [] });
             this.newFighter = { name: '', is_manual: false };
             this.showAddFighter = false;
+            this._dispatchCount();
           } catch(e) {
             this.addFighterError = e.message;
           } finally {
