@@ -18,6 +18,15 @@ class CreateRunRequest(BaseModel):
     battle_id: str
 
 
+class ManualSubmitRequest(BaseModel):
+    content: str
+
+
+class ManualSubmitResponse(BaseModel):
+    step_result_id: str
+    status: str
+
+
 @router.post("")
 async def create_run(body: CreateRunRequest):
     """Create a new run for a battle and kick off background execution."""
@@ -152,3 +161,82 @@ async def get_run_status(run_id: str):
         "finished_at": run_data["finished_at"],
         "fighter_results": fighter_results,
     }
+
+
+@router.post(
+    "/{run_id}/steps/{step_result_id}/submit",
+    response_model=ManualSubmitResponse,
+)
+async def submit_manual_step(
+    run_id: str,
+    step_result_id: str,
+    body: ManualSubmitRequest,
+) -> ManualSubmitResponse:
+    """Submit a human response for a manual fighter awaiting input.
+
+    ``step_result_id`` identifies a ``fighter_result`` row whose status is
+    ``awaiting_input``.  After updating it to ``complete`` the endpoint checks
+    whether all fighter_results in the run are done and, if so, marks the run
+    as ``complete``.
+    """
+    async with get_db() as db:
+        # 1. Look up the fighter_result by id
+        cursor = await db.execute(
+            "SELECT id, run_id, status FROM fighter_result WHERE id = ?",
+            (step_result_id,),
+        )
+        row = await cursor.fetchone()
+
+        if row is None:
+            raise HTTPException(status_code=404, detail="Step result not found")
+
+        # 2. Verify it belongs to the given run_id
+        if row["run_id"] != run_id:
+            raise HTTPException(
+                status_code=404,
+                detail="Step result does not belong to this run",
+            )
+
+        # 3. Verify status is awaiting_input
+        if row["status"] != "awaiting_input":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Step result status is '{row['status']}', expected 'awaiting_input'",
+            )
+
+        # 4. Update fighter_result: final_output = content, status = complete,
+        #    tokens/cost = 0 (manual — no LLM call)
+        await db.execute(
+            """
+            UPDATE fighter_result
+               SET final_output = ?,
+                   status = 'complete',
+                   total_cost_usd = 0,
+                   total_input_tokens = 0,
+                   total_output_tokens = 0
+             WHERE id = ?
+            """,
+            (body.content, step_result_id),
+        )
+        await db.commit()
+
+        # 5. Check whether all fighter_results for this run are now complete
+        cursor = await db.execute(
+            "SELECT status FROM fighter_result WHERE run_id = ?",
+            (run_id,),
+        )
+        all_results = await cursor.fetchall()
+
+    # 6. If all fighter_results are done, mark run as complete
+    all_done = all(r["status"] in ("complete", "error") for r in all_results)
+
+    if all_done:
+        finished_at = datetime.now(timezone.utc).isoformat()
+        async with get_db() as db:
+            await db.execute(
+                "UPDATE run SET status = 'complete', finished_at = ? WHERE id = ?",
+                (finished_at, run_id),
+            )
+            await db.commit()
+
+    return ManualSubmitResponse(step_result_id=step_result_id, status="complete")

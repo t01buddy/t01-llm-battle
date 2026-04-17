@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from .db import DB_PATH, get_db
 from .providers.base import CompletionRequest, CompletionResult
 from .providers.registry import get_provider
+from . import rate_limiter
 
 
 async def execute_run(run_id: str, db_path=DB_PATH) -> None:
@@ -127,6 +128,7 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                         max_tokens=max_tokens,
                     )
 
+                    await rate_limiter.acquire(step["provider"])
                     t0 = time.monotonic()
                     result: CompletionResult = await provider.complete(request)
                     latency_ms = int((time.monotonic() - t0) * 1000)
