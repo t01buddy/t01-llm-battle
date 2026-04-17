@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 
 from .db import DB_PATH, get_db
-from .judge import score_response
+from .judge import score_response, generate_report
 from .providers.base import CompletionRequest, CompletionResult
 from .providers.registry import get_provider
 from . import rate_limiter
@@ -242,6 +242,10 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
             (run_status, finished_at, run_id),
         )
         await db.commit()
+
+    # Generate markdown report after all judging is complete
+    if judge_provider and judge_model:
+        await generate_report(run_id, judge_provider, judge_model, db_path)
 
 
 def start_run_background(run_id: str, db_path=DB_PATH) -> None:
