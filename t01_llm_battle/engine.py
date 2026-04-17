@@ -1,0 +1,224 @@
+"""Run execution engine — executes all fighters x sources for a given run."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import threading
+import time
+import uuid
+from datetime import datetime, timezone
+
+from .db import DB_PATH, get_db
+from .providers.base import CompletionRequest, CompletionResult
+from .providers.registry import get_provider
+
+
+async def execute_run(run_id: str, db_path=DB_PATH) -> None:
+    """Execute a run: for each fighter x source pair, run all steps sequentially."""
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Mark run as running
+    async with get_db(db_path) as db:
+        await db.execute(
+            "UPDATE run SET status = ?, started_at = ? WHERE id = ?",
+            ("running", now, run_id),
+        )
+        await db.commit()
+
+    # Load run to get battle_id
+    async with get_db(db_path) as db:
+        cursor = await db.execute("SELECT battle_id FROM run WHERE id = ?", (run_id,))
+        run_row = await cursor.fetchone()
+        if not run_row:
+            return
+        battle_id = run_row["battle_id"]
+
+    # Load fighters for this battle
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT id, name, is_manual FROM fighter WHERE battle_id = ? ORDER BY position",
+            (battle_id,),
+        )
+        fighters = [dict(r) for r in await cursor.fetchall()]
+
+    # Load sources for this battle
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT id, content FROM battle_source WHERE battle_id = ? ORDER BY position",
+            (battle_id,),
+        )
+        sources = [dict(r) for r in await cursor.fetchall()]
+
+    all_errored = True
+
+    for fighter in fighters:
+        fighter_id = fighter["id"]
+        is_manual = fighter["is_manual"]
+
+        # Load steps for this fighter (ordered by position)
+        async with get_db(db_path) as db:
+            cursor = await db.execute(
+                "SELECT id, position, system_prompt, provider, model_id, provider_config "
+                "FROM fighter_step WHERE fighter_id = ? ORDER BY position",
+                (fighter_id,),
+            )
+            steps = [dict(r) for r in await cursor.fetchall()]
+
+        for source in sources:
+            source_id = source["id"]
+            source_content = source["content"]
+
+            # Create fighter_result row
+            fr_id = str(uuid.uuid4())
+            fr_now = datetime.now(timezone.utc).isoformat()
+
+            if is_manual:
+                # Manual fighters enter awaiting_input status
+                async with get_db(db_path) as db:
+                    await db.execute(
+                        "INSERT INTO fighter_result "
+                        "(id, run_id, fighter_id, source_id, status, created_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?)",
+                        (fr_id, run_id, fighter_id, source_id, "awaiting_input", fr_now),
+                    )
+                    await db.commit()
+                all_errored = False
+                continue
+
+            # Mark fighter_result as running
+            async with get_db(db_path) as db:
+                await db.execute(
+                    "INSERT INTO fighter_result "
+                    "(id, run_id, fighter_id, source_id, status, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (fr_id, run_id, fighter_id, source_id, "running", fr_now),
+                )
+                await db.commit()
+
+            # Execute steps sequentially
+            step_input = source_content
+            had_error = False
+            total_cost: float = 0.0
+            total_latency: int = 0
+            total_input_tokens: int = 0
+            total_output_tokens: int = 0
+            final_output: str | None = None
+
+            for step in steps:
+                step_id = step["id"]
+                sr_id = str(uuid.uuid4())
+                sr_now = datetime.now(timezone.utc).isoformat()
+
+                try:
+                    provider = get_provider(step["provider"])
+
+                    # Parse provider_config
+                    config = json.loads(step["provider_config"]) if step["provider_config"] else {}
+                    temperature = config.pop("temperature", 0.7)
+                    max_tokens = config.pop("max_tokens", 2048)
+
+                    request = CompletionRequest(
+                        model=step["model_id"],
+                        system_prompt=step["system_prompt"] or "",
+                        user_prompt=step_input,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+
+                    t0 = time.monotonic()
+                    result: CompletionResult = await provider.complete(request)
+                    latency_ms = int((time.monotonic() - t0) * 1000)
+
+                    # Store step_result
+                    async with get_db(db_path) as db:
+                        await db.execute(
+                            "INSERT INTO step_result "
+                            "(id, run_id, fighter_id, step_id, source_id, "
+                            "input_text, output_text, input_tokens, output_tokens, "
+                            "latency_ms, cost_usd, error, created_at) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (
+                                sr_id, run_id, fighter_id, step_id, source_id,
+                                step_input, result.content, result.input_tokens,
+                                result.output_tokens, latency_ms, result.cost_usd,
+                                result.error, sr_now,
+                            ),
+                        )
+                        await db.commit()
+
+                    # If the provider returned an error in the result
+                    if result.error:
+                        had_error = True
+                        break
+
+                    # Accumulate totals
+                    total_cost += result.cost_usd or 0.0
+                    total_latency += latency_ms
+                    total_input_tokens += result.input_tokens or 0
+                    total_output_tokens += result.output_tokens or 0
+
+                    # Next step input = this step's output
+                    step_input = result.content
+                    final_output = result.content
+
+                except Exception as exc:
+                    # Store error step_result
+                    async with get_db(db_path) as db:
+                        await db.execute(
+                            "INSERT INTO step_result "
+                            "(id, run_id, fighter_id, step_id, source_id, "
+                            "input_text, output_text, input_tokens, output_tokens, "
+                            "latency_ms, cost_usd, error, created_at) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (
+                                sr_id, run_id, fighter_id, step_id, source_id,
+                                step_input, None, None, None, None, None,
+                                str(exc), sr_now,
+                            ),
+                        )
+                        await db.commit()
+                    had_error = True
+                    break
+
+            # Update fighter_result
+            fr_status = "error" if had_error else "complete"
+            async with get_db(db_path) as db:
+                await db.execute(
+                    "UPDATE fighter_result SET "
+                    "status = ?, final_output = ?, total_cost_usd = ?, "
+                    "total_latency_ms = ?, total_input_tokens = ?, total_output_tokens = ? "
+                    "WHERE id = ?",
+                    (
+                        fr_status, final_output, total_cost if total_cost else None,
+                        total_latency if total_latency else None,
+                        total_input_tokens if total_input_tokens else None,
+                        total_output_tokens if total_output_tokens else None,
+                        fr_id,
+                    ),
+                )
+                await db.commit()
+
+            if not had_error:
+                all_errored = False
+
+    # Mark run as complete (or error if ALL fighter_results errored)
+    finished_at = datetime.now(timezone.utc).isoformat()
+    run_status = "error" if all_errored else "complete"
+    async with get_db(db_path) as db:
+        await db.execute(
+            "UPDATE run SET status = ?, finished_at = ? WHERE id = ?",
+            (run_status, finished_at, run_id),
+        )
+        await db.commit()
+
+
+def start_run_background(run_id: str, db_path=DB_PATH) -> None:
+    """Start run execution in a background thread."""
+
+    def _run():
+        asyncio.run(execute_run(run_id, db_path))
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
