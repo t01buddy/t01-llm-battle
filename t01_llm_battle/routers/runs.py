@@ -147,6 +147,7 @@ async def get_run_status(run_id: str):
         steps = sorted(sr_index.get(key, []), key=lambda s: s["order_index"])
         fighter_results.append(
             {
+                "fighter_result_id": fr["id"],
                 "fighter_id": fr["fighter_id"],
                 "fighter_name": fr["fighter_name"],
                 "source_id": fr["source_id"],

@@ -399,12 +399,140 @@
           <p style="color:#c0392b;font-size:0.9rem;" x-text="fightersError"></p>
         </template>
       </div>
+
+      <!-- Run Battle button -->
+      <div style="margin-top:1.5rem;display:flex;align-items:center;gap:1rem;">
+        <button @click="runBattle()" :disabled="running"
+          style="background:#7c6af7;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;"
+          :style="running ? 'opacity:0.6;cursor:not-allowed;' : ''">
+          <span x-text="running ? 'Starting...' : 'Run Battle'"></span>
+        </button>
+        <template x-if="runError">
+          <p style="color:#c0392b;margin:0;font-size:0.9rem;" x-text="runError"></p>
+        </template>
+      </div>
     </section>
 
     <!-- View: live run -->
-    <section x-show="route === 'runs/detail'">
-      <h1>Live Run <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
-      <div class="placeholder">Live run view with polling — implemented in #29</div>
+    <section x-show="route === 'runs/detail'" x-data="runView()" x-init="$watch('$root.params.id', id => { if (id && $root.route === 'runs/detail') init(id); }); if ($root.params.id && $root.route === 'runs/detail') init($root.params.id);">
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
+        <h1 style="margin:0;">Live Run</h1>
+        <template x-if="run">
+          <span class="badge" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
+        </template>
+      </div>
+
+      <template x-if="error">
+        <p style="color:#c0392b;" x-text="error"></p>
+      </template>
+
+      <template x-if="!run && !error">
+        <p style="color:#888;">Loading run status...</p>
+      </template>
+
+      <template x-if="run">
+        <div>
+          <!-- Status bar -->
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+            <span style="font-size:0.9rem;color:#555;">Status:</span>
+            <span x-text="run.status"
+              :style="run.status === 'complete' ? 'color:#27ae60;font-weight:600;' : run.status === 'error' ? 'color:#c0392b;font-weight:600;' : 'color:#7c6af7;font-weight:600;'"></span>
+            <template x-if="run.status === 'complete'">
+              <a :href="'#/results/' + runId" style="background:#27ae60;color:#fff;padding:6px 14px;border-radius:6px;font-size:0.85rem;font-weight:600;text-decoration:none;">View Results →</a>
+            </template>
+          </div>
+
+          <!-- Progress grid -->
+          <template x-if="sources().length > 0 && fighters().length > 0">
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+                <thead>
+                  <tr style="background:#f5f5f5;">
+                    <th style="padding:10px 14px;text-align:left;font-size:0.85rem;color:#555;border-bottom:1px solid #e0e0e0;min-width:140px;">Source</th>
+                    <template x-for="fighter in fighters()" :key="fighter.fighter_id">
+                      <th style="padding:10px 14px;text-align:left;font-size:0.85rem;color:#555;border-bottom:1px solid #e0e0e0;min-width:180px;" x-text="fighter.fighter_name"></th>
+                    </template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="source in sources()" :key="source.source_id">
+                    <tr style="border-bottom:1px solid #f0f0f0;">
+                      <td style="padding:10px 14px;font-size:0.85rem;color:#555;vertical-align:top;max-width:160px;word-break:break-word;" x-text="source.source_label"></td>
+                      <template x-for="fighter in fighters()" :key="fighter.fighter_id">
+                        <td style="padding:10px 14px;vertical-align:top;">
+                          <template x-if="getCellResult(fighter.fighter_id, source.source_id)">
+                            <div x-data="{ cell: getCellResult(fighter.fighter_id, source.source_id), submitContent: '', submitting: false, submitError: null }">
+                              <!-- Step chips -->
+                              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                                <template x-for="(step, idx) in (cell.steps || [])" :key="idx">
+                                  <span
+                                    :title="step.status === 'error' ? (step.error || 'Error') : ''"
+                                    :style="step.status === 'complete'
+                                      ? 'background:#d4edda;color:#155724;border:1px solid #c3e6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
+                                      : step.status === 'error'
+                                        ? 'background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;cursor:help;'
+                                        : 'background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;border-radius:4px;padding:2px 7px;font-size:0.75rem;'">
+                                    <span x-text="step.status === 'complete' ? '✓ ' + (step.label || ('step ' + (idx+1))) : step.status === 'error' ? '✗ ' + (step.label || ('step ' + (idx+1))) : (step.label || ('step ' + (idx+1)))"></span>
+                                  </span>
+                                </template>
+                                <!-- Overall cell status chip when no steps yet -->
+                                <template x-if="!cell.steps || cell.steps.length === 0">
+                                  <span :style="cell.status === 'complete'
+                                    ? 'background:#d4edda;color:#155724;border:1px solid #c3e6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
+                                    : cell.status === 'error'
+                                      ? 'background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
+                                      : cell.status === 'running'
+                                        ? 'background:#cce5ff;color:#004085;border:1px solid #b8daff;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
+                                        : cell.status === 'awaiting_input'
+                                          ? 'background:#fff3cd;color:#856404;border:1px solid #ffeeba;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
+                                          : 'background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;border-radius:4px;padding:2px 7px;font-size:0.75rem;'">
+                                    <span x-text="cell.status === 'complete' ? '✓ done' : cell.status === 'error' ? '✗ error' : cell.status === 'running' ? '⟳ running' : cell.status === 'awaiting_input' ? '⌛ awaiting input' : '· pending'"></span>
+                                  </span>
+                                </template>
+                              </div>
+                              <!-- Manual input area for awaiting_input -->
+                              <template x-if="cell.status === 'awaiting_input'">
+                                <div style="margin-top:6px;">
+                                  <textarea x-model="submitContent" rows="3"
+                                    placeholder="Enter result..."
+                                    style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;font-family:inherit;resize:vertical;"></textarea>
+                                  <template x-if="submitError">
+                                    <p style="color:#c0392b;font-size:0.8rem;margin:2px 0;" x-text="submitError"></p>
+                                  </template>
+                                  <button @click="async () => {
+                                      submitting = true; submitError = null;
+                                      try {
+                                        const r = await fetch('/runs/' + runId + '/steps/' + cell.fighter_result_id + '/submit', {
+                                          method: 'POST',
+                                          headers: {'Content-Type': 'application/json'},
+                                          body: JSON.stringify({ content: submitContent })
+                                        });
+                                        if (!r.ok) throw new Error(await r.text());
+                                      } catch(e) { submitError = e.message; }
+                                      finally { submitting = false; }
+                                    }"
+                                    :disabled="submitting || !submitContent.trim()"
+                                    style="margin-top:4px;background:#7c6af7;color:#fff;border:none;padding:5px 14px;border-radius:4px;font-size:0.85rem;cursor:pointer;"
+                                    :style="(submitting || !submitContent.trim()) ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                                    <span x-text="submitting ? 'Submitting...' : 'Submit'"></span>
+                                  </button>
+                                </div>
+                              </template>
+                            </div>
+                          </template>
+                          <template x-if="!getCellResult(fighter.fighter_id, source.source_id)">
+                            <span style="background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;border-radius:4px;padding:2px 7px;font-size:0.75rem;">· pending</span>
+                          </template>
+                        </td>
+                      </template>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </template>
+        </div>
+      </template>
     </section>
 
     <!-- View: results -->
@@ -727,9 +855,13 @@
         sources: [],
         uploading: false,
         error: null,
+        running: false,
+        runError: null,
+        currentBattleId: null,
 
         async load(battleId) {
           if (!battleId) return;
+          this.currentBattleId = battleId;
           this.error = null;
           try {
             const resp = await fetch(`/battles/${battleId}/sources`);
@@ -738,6 +870,25 @@
             this.sources = data.sources || [];
           } catch(e) {
             this.error = e.message;
+          }
+        },
+
+        async runBattle() {
+          if (!this.currentBattleId) return;
+          this.running = true;
+          this.runError = null;
+          try {
+            const resp = await fetch('/runs', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ battle_id: this.currentBattleId })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            window.location.hash = '/runs/' + data.run_id;
+          } catch(e) {
+            this.runError = e.message;
+            this.running = false;
           }
         },
 
@@ -786,6 +937,92 @@
           } catch(e) {
             this.error = e.message;
           }
+        }
+      };
+    }
+
+    function runView() {
+      return {
+        runId: null,
+        run: null,
+        polling: null,
+        error: null,
+
+        init(runId) {
+          if (this.polling) { clearInterval(this.polling); this.polling = null; }
+          this.runId = runId;
+          this.run = null;
+          this.error = null;
+          this.startPolling();
+        },
+
+        async fetchStatus() {
+          try {
+            const resp = await fetch('/runs/' + this.runId + '/status');
+            if (!resp.ok) throw new Error(await resp.text());
+            this.run = await resp.json();
+            if (this.run.status === 'complete' || this.run.status === 'error') {
+              this.stopPolling();
+            }
+          } catch(e) {
+            this.error = e.message;
+            this.stopPolling();
+          }
+        },
+
+        startPolling() {
+          this.fetchStatus();
+          this.polling = setInterval(() => this.fetchStatus(), 2000);
+        },
+
+        stopPolling() {
+          if (this.polling) {
+            clearInterval(this.polling);
+            this.polling = null;
+          }
+        },
+
+        sources() {
+          if (!this.run || !this.run.fighter_results) return [];
+          const seen = new Set();
+          return this.run.fighter_results.filter(fr => {
+            if (seen.has(fr.source_id)) return false;
+            seen.add(fr.source_id);
+            return true;
+          }).map(fr => ({
+            source_id: fr.source_id,
+            source_label: fr.source_id ? fr.source_id.slice(0, 12) + '...' : fr.source_id
+          }));
+        },
+
+        fighters() {
+          if (!this.run || !this.run.fighter_results) return [];
+          const seen = new Set();
+          return this.run.fighter_results.filter(fr => {
+            if (seen.has(fr.fighter_id)) return false;
+            seen.add(fr.fighter_id);
+            return true;
+          }).map(fr => ({
+            fighter_id: fr.fighter_id,
+            fighter_name: fr.fighter_name || fr.fighter_id
+          }));
+        },
+
+        getCellResult(fighter_id, source_id) {
+          if (!this.run || !this.run.fighter_results) return null;
+          return this.run.fighter_results.find(
+            fr => fr.fighter_id === fighter_id && fr.source_id === source_id
+          ) || null;
+        },
+
+        async submit(stepResultId, content) {
+          const resp = await fetch('/runs/' + this.runId + '/steps/' + stepResultId + '/submit', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ content })
+          });
+          if (!resp.ok) throw new Error(await resp.text());
+          return resp.json();
         }
       };
     }
