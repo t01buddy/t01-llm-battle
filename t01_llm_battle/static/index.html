@@ -97,39 +97,121 @@
   <main>
 
     <!-- View: battles list -->
-    <section x-show="route === 'battles'">
-      <h1>Battles</h1>
-      <div class="placeholder">Battle list — implemented in #26</div>
+    <section x-show="route === 'battles'" x-data="battlesList()" x-init="load()">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
+        <h1 style="margin:0;">Battles</h1>
+        <a href="#/battles/new" style="background:#7c6af7;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:0.9rem;font-weight:600;">+ New Battle</a>
+      </div>
+
+      <template x-if="loading">
+        <p style="color:#888;">Loading...</p>
+      </template>
+
+      <template x-if="!loading && battles.length === 0">
+        <div class="placeholder">
+          No battles yet. <a href="#/battles/new" style="color:#7c6af7;">Create your first battle</a> to get started.
+        </div>
+      </template>
+
+      <template x-if="!loading && battles.length > 0">
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.75rem;">
+          <template x-for="b in battles" :key="b.id">
+            <li style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <a :href="'#/battles/' + b.id" style="font-weight:600;color:#1a1a2e;text-decoration:none;font-size:1rem;" x-text="b.name"></a>
+                <div style="font-size:0.8rem;color:#888;margin-top:2px;">
+                  <span x-text="b.judge_provider"></span> / <span x-text="b.judge_model"></span>
+                </div>
+              </div>
+              <a :href="'#/battles/' + b.id" style="color:#7c6af7;font-size:0.85rem;text-decoration:none;">View</a>
+            </li>
+          </template>
+        </ul>
+      </template>
+
+      <template x-if="error">
+        <p style="color:#c0392b;" x-text="error"></p>
+      </template>
     </section>
 
     <!-- View: new battle -->
-    <section x-show="route === 'battles/new'">
-      <h1>New Battle</h1>
-      <div class="placeholder">Create battle form — implemented in #27</div>
+    <section x-show="route === 'battles/new'" x-data="battleForm()">
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+        <h1 style="margin:0;">New Battle</h1>
+        <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;">Cancel</a>
+      </div>
+
+      <form @submit.prevent="submit()" style="max-width:560px;display:flex;flex-direction:column;gap:1.25rem;">
+
+        <div>
+          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-name">Battle Name</label>
+          <input id="bf-name" type="text" x-model="name" required placeholder="e.g. Summarisation quality test"
+            style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div>
+            <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-provider">Judge Provider</label>
+            <select id="bf-provider" x-model="judge_provider"
+              style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;background:#fff;">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="google">Google</option>
+              <option value="groq">Groq</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-model">Judge Model</label>
+            <input id="bf-model" type="text" x-model="judge_model" placeholder="e.g. gpt-4o"
+              style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-rubric">Judge Rubric (optional)</label>
+          <textarea id="bf-rubric" x-model="judge_rubric" rows="4"
+            placeholder="Describe how the judge should score outputs (0-10). Leave blank to use the default rubric."
+            style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;resize:vertical;font-family:inherit;"></textarea>
+        </div>
+
+        <template x-if="error">
+          <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;margin:0;font-size:0.9rem;" x-text="error"></p>
+        </template>
+
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <button type="submit" :disabled="loading"
+            style="background:#7c6af7;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;"
+            :style="loading ? 'opacity:0.6;cursor:not-allowed;' : 'opacity:1;'">
+            <span x-text="loading ? 'Creating...' : 'Create Battle'"></span>
+          </button>
+          <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;">Cancel</a>
+        </div>
+
+      </form>
     </section>
 
     <!-- View: battle detail -->
     <section x-show="route === 'battles/detail'">
       <h1>Battle Detail <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
-      <div class="placeholder">Sources, fighters, run button — implemented in #28</div>
+      <div class="placeholder">Sources, fighters, run button - implemented in #28</div>
     </section>
 
     <!-- View: live run -->
     <section x-show="route === 'runs/detail'">
       <h1>Live Run <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
-      <div class="placeholder">Live run view with polling — implemented in #29</div>
+      <div class="placeholder">Live run view with polling - implemented in #29</div>
     </section>
 
     <!-- View: results -->
     <section x-show="route === 'results/detail'">
       <h1>Results <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span></h1>
-      <div class="placeholder">Results table + markdown report — implemented in #30</div>
+      <div class="placeholder">Results table + markdown report - implemented in #30</div>
     </section>
 
     <!-- View: API key management -->
     <section x-show="route === 'keys'">
       <h1>API Keys</h1>
-      <div class="placeholder">API key management — implemented in #31</div>
+      <div class="placeholder">API key management - implemented in #31</div>
     </section>
 
     <!-- View: 404 fallback -->
@@ -144,6 +226,61 @@
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/easymde.min.js"></script>
   <script>
+    function battlesList() {
+      return {
+        battles: [],
+        loading: false,
+        error: null,
+        async load() {
+          this.loading = true;
+          this.error = null;
+          try {
+            const resp = await fetch('/battles');
+            if (!resp.ok) throw new Error(await resp.text());
+            this.battles = await resp.json();
+          } catch(e) {
+            this.error = e.message;
+          } finally {
+            this.loading = false;
+          }
+        }
+      };
+    }
+
+    function battleForm() {
+      return {
+        name: '',
+        judge_provider: 'openai',
+        judge_model: 'gpt-4o',
+        judge_rubric: '',
+        loading: false,
+        error: null,
+        async submit() {
+          this.loading = true;
+          this.error = null;
+          try {
+            const resp = await fetch('/battles', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                name: this.name,
+                judge_provider: this.judge_provider,
+                judge_model: this.judge_model,
+                judge_rubric: this.judge_rubric,
+              })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            window.location.hash = 'battles/' + data.id;
+          } catch(e) {
+            this.error = e.message;
+          } finally {
+            this.loading = false;
+          }
+        }
+      };
+    }
+
     function app() {
       return {
         route: 'battles',
@@ -159,36 +296,24 @@
           const hash = raw || 'battles';
           const parts = hash.split('/');
 
-          // #/ or #/battles
           if (hash === 'battles' || hash === '') {
             this.route = 'battles';
             this.params = {};
-
-          // #/battles/new
           } else if (parts[0] === 'battles' && parts[1] === 'new') {
             this.route = 'battles/new';
             this.params = {};
-
-          // #/battles/:id
           } else if (parts[0] === 'battles' && parts[1]) {
             this.route = 'battles/detail';
             this.params = { id: parts[1] };
-
-          // #/runs/:id
           } else if (parts[0] === 'runs' && parts[1]) {
             this.route = 'runs/detail';
             this.params = { id: parts[1] };
-
-          // #/results/:id
           } else if (parts[0] === 'results' && parts[1]) {
             this.route = 'results/detail';
             this.params = { id: parts[1] };
-
-          // #/keys
           } else if (parts[0] === 'keys') {
             this.route = 'keys';
             this.params = {};
-
           } else {
             this.route = 'not-found';
             this.params = {};
