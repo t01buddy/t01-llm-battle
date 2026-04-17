@@ -248,3 +248,117 @@ async def submit_manual_step(
             await db.commit()
 
     return ManualSubmitResponse(step_result_id=step_result_id, status="complete")
+
+
+@router.get("/{run_id}/results")
+async def get_run_results(run_id: str):
+    """Aggregate final results for display."""
+
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id, battle_id, status FROM run WHERE id = ?",
+            (run_id,),
+        )
+        run_row = await cursor.fetchone()
+        if not run_row:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+    run_data = dict(run_row)
+
+    # Load fighter_results joined with fighter and battle_source
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT
+                fr.fighter_id,
+                fr.source_id,
+                fr.final_output,
+                fr.total_cost_usd,
+                fr.total_input_tokens,
+                fr.total_output_tokens,
+                fr.judge_score,
+                f.name           AS fighter_name,
+                bs.label         AS source_label
+            FROM fighter_result fr
+            JOIN fighter      f  ON f.id  = fr.fighter_id
+            JOIN battle_source bs ON bs.id = fr.source_id
+            WHERE fr.run_id = ?
+            ORDER BY f.position, bs.position
+            """,
+            (run_id,),
+        )
+        fr_rows = [dict(r) for r in await cursor.fetchall()]
+
+    # Per (fighter_id, source_id): aggregate step counts and token/cost sums
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT
+                sr.fighter_id,
+                sr.source_id,
+                COUNT(*)                               AS step_count,
+                SUM(COALESCE(sr.input_tokens, 0))      AS agg_input_tokens,
+                SUM(COALESCE(sr.output_tokens, 0))     AS agg_output_tokens,
+                SUM(COALESCE(sr.cost_usd, 0))          AS agg_cost_usd
+            FROM step_result sr
+            WHERE sr.run_id = ?
+            GROUP BY sr.fighter_id, sr.source_id
+            """,
+            (run_id,),
+        )
+        sr_agg = {
+            (r["fighter_id"], r["source_id"]): dict(r)
+            for r in await cursor.fetchall()
+        }
+
+    # Fetch last step output per (fighter_id, source_id) ordered by step position
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT sr.fighter_id, sr.source_id, sr.output_text
+            FROM step_result sr
+            JOIN fighter_step fs ON fs.id = sr.step_id
+            WHERE sr.run_id = ?
+              AND fs.position = (
+                  SELECT MAX(fs2.position)
+                  FROM step_result sr2
+                  JOIN fighter_step fs2 ON fs2.id = sr2.step_id
+                  WHERE sr2.run_id     = sr.run_id
+                    AND sr2.fighter_id = sr.fighter_id
+                    AND sr2.source_id  = sr.source_id
+              )
+            """,
+            (run_id,),
+        )
+        last_output = {
+            (r["fighter_id"], r["source_id"]): r["output_text"]
+            for r in await cursor.fetchall()
+        }
+
+    summary = []
+    for fr in fr_rows:
+        key = (fr["fighter_id"], fr["source_id"])
+        agg = sr_agg.get(key)
+        # Manual fighters have no step_results; fall back to fighter_result columns
+        final_output = last_output.get(key) or fr["final_output"]
+        summary.append(
+            {
+                "fighter_id": fr["fighter_id"],
+                "fighter_name": fr["fighter_name"],
+                "source_id": fr["source_id"],
+                "source_label": fr["source_label"],
+                "score": fr["judge_score"],
+                "total_cost_usd": agg["agg_cost_usd"] if agg else fr["total_cost_usd"],
+                "total_input_tokens": agg["agg_input_tokens"] if agg else fr["total_input_tokens"],
+                "total_output_tokens": agg["agg_output_tokens"] if agg else fr["total_output_tokens"],
+                "final_output": final_output,
+                "step_count": agg["step_count"] if agg else 0,
+            }
+        )
+
+    return {
+        "run_id": run_id,
+        "battle_id": run_data["battle_id"],
+        "status": run_data["status"],
+        "summary": summary,
+    }
