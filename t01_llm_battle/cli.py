@@ -10,10 +10,19 @@ def serve(
     no_browser: bool = typer.Option(False, "--no-browser", help="Don't open browser"),
 ) -> None:
     """Start the LLM Battle server."""
+    print(f"LLM Battle Arena running at http://localhost:{port}")
     if not no_browser:
-        import webbrowser, threading
+        import threading
+        import webbrowser
+
         threading.Timer(1.5, lambda: webbrowser.open(f"http://localhost:{port}")).start()
-    uvicorn.run("t01_llm_battle.server:create_app", factory=True, host="127.0.0.1", port=port)
+    uvicorn.run(
+        "t01_llm_battle.server:create_app",
+        factory=True,
+        host="127.0.0.1",
+        port=port,
+        reload=False,
+    )
 
 
 def main() -> None:
