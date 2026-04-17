@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timezone
 
 from .db import DB_PATH, get_db
+from .judge import score_response
 from .providers.base import CompletionRequest, CompletionResult
 from .providers.registry import get_provider
 from . import rate_limiter
@@ -35,6 +36,17 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
         if not run_row:
             return
         battle_id = run_row["battle_id"]
+
+    # Load judge config from battle
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT judge_provider, judge_model, judge_rubric FROM battle WHERE id = ?",
+            (battle_id,),
+        )
+        battle_row = await cursor.fetchone()
+        judge_provider = battle_row["judge_provider"] if battle_row else None
+        judge_model = battle_row["judge_model"] if battle_row else None
+        judge_rubric = battle_row["judge_rubric"] if battle_row else None
 
     # Load fighters for this battle
     async with get_db(db_path) as db:
@@ -204,6 +216,22 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
 
             if not had_error:
                 all_errored = False
+
+            # Run judge scoring for completed results with a final output
+            if not had_error and final_output and judge_provider and judge_model:
+                judge_score, judge_reasoning = await score_response(
+                    judge_provider=judge_provider,
+                    judge_model=judge_model,
+                    judge_rubric=judge_rubric or "",
+                    source_content=source_content,
+                    response_content=final_output,
+                )
+                async with get_db(db_path) as db:
+                    await db.execute(
+                        "UPDATE fighter_result SET judge_score = ?, judge_reasoning = ? WHERE id = ?",
+                        (judge_score, judge_reasoning, fr_id),
+                    )
+                    await db.commit()
 
     # Mark run as complete (or error if ALL fighter_results errored)
     finished_at = datetime.now(timezone.utc).isoformat()
