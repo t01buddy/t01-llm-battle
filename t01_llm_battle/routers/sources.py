@@ -132,7 +132,7 @@ async def list_sources(battle_id: str):
     return {"sources": [{"id": r["id"], "label": r["label"], "position": r["position"]} for r in rows]}
 
 
-@router.delete("/{source_id}", status_code=204)
+@router.delete("/{source_id}", status_code=204, response_model=None)
 async def delete_source(battle_id: str, source_id: str):
     """Delete a single source item."""
     await _battle_exists(battle_id)

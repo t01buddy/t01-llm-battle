@@ -104,7 +104,7 @@ async def get_battle(battle_id: str) -> BattleDetail:
     )
 
 
-@router.delete("/{battle_id}", status_code=204)
+@router.delete("/{battle_id}", status_code=204, response_model=None)
 async def delete_battle(battle_id: str) -> None:
     """Delete a battle and all related data via cascade."""
     async with get_db() as db:
