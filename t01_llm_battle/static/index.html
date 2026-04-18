@@ -120,7 +120,7 @@
               <div>
                 <a :href="'#/battles/' + b.id" style="font-weight:600;color:#1a1a2e;text-decoration:none;font-size:1rem;" x-text="b.name"></a>
                 <div style="font-size:0.8rem;color:#888;margin-top:2px;">
-                  <span x-text="b.judge_provider"></span> / <span x-text="b.judge_model"></span>
+                  <span x-text="b.judge_provider || '—'"></span> / <span x-text="b.judge_model || '—'"></span>
                   &nbsp;·&nbsp; <span x-text="b.created_at ? new Date(b.created_at).toLocaleDateString() : ''"></span>
                 </div>
               </div>
@@ -788,7 +788,8 @@
           try {
             const resp = await fetch('/battles');
             if (!resp.ok) throw new Error(await resp.text());
-            this.battles = await resp.json();
+            const data = await resp.json();
+            this.battles = (Array.isArray(data) ? data : []).filter(b => b && b.id);
           } catch(e) {
             this.error = e.message;
           } finally {
