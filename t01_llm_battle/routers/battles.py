@@ -78,7 +78,7 @@ async def list_battles() -> list[BattleSummary]:
         )
         rows = await cursor.fetchall()
 
-    return [BattleSummary(id=row["id"], name=row["name"], created_at=row["created_at"]) for row in rows]
+    return [BattleSummary(id=row["id"], name=row["name"], created_at=row["created_at"]) for row in rows if row["id"]]
 
 
 @router.get("/{battle_id}", response_model=BattleDetail)
