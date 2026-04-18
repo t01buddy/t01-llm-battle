@@ -900,7 +900,7 @@ Do not wrap the JSON in markdown fences.`;
             const data = await resp.json();
             // Destroy EasyMDE before navigating away to avoid ghost instances
             if (this._mde) { try { this._mde.toTextArea(); } catch(_) {} this._mde = null; }
-            window.location.hash = 'battles/' + data.id;
+            window.location.hash = '/battles/' + data.id;
           } catch(e) {
             this.error = e.message;
           } finally {
