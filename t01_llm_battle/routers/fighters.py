@@ -165,7 +165,7 @@ async def get_fighter(battle_id: str, fighter_id: str):
     return FighterWithSteps(**fighter.model_dump(), steps=steps)
 
 
-@router.delete("/{fighter_id}", status_code=204)
+@router.delete("/{fighter_id}", status_code=204, response_model=None)
 async def delete_fighter(battle_id: str, fighter_id: str):
     """Delete a fighter and all its steps."""
     async with get_db() as db:
@@ -210,7 +210,7 @@ async def add_step(battle_id: str, fighter_id: str, body: StepCreate):
     return _row_to_step_out(row)
 
 
-@router.delete("/{fighter_id}/steps/{step_id}", status_code=204)
+@router.delete("/{fighter_id}/steps/{step_id}", status_code=204, response_model=None)
 async def delete_step(battle_id: str, fighter_id: str, step_id: str):
     """Delete a step from a fighter."""
     async with get_db() as db:
