@@ -48,6 +48,20 @@ class BattleDetail(BaseModel):
     created_at: str
 
 
+class BattleUpdate(BaseModel):
+    name: Optional[str] = None
+    judge_provider: Optional[str] = None
+    judge_model: Optional[str] = None
+    judge_rubric: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_whitespace(cls, v: str | None) -> str | None:
+        if v is not None and not v.strip():
+            raise ValueError("Battle name cannot be blank")
+        return v.strip() if v is not None else v
+
+
 class BattleCreated(BaseModel):
     id: str
 
@@ -109,6 +123,39 @@ async def get_battle(battle_id: str) -> BattleDetail:
         judge_provider=row["judge_provider"],
         judge_model=row["judge_model"],
         judge_rubric=row["judge_rubric"],
+        created_at=row["created_at"],
+    )
+
+
+@router.put("/{battle_id}", response_model=BattleDetail)
+async def update_battle(battle_id: str, body: BattleUpdate) -> BattleDetail:
+    """Update name and/or judge config for a battle."""
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id, name, judge_provider, judge_model, judge_rubric, created_at FROM battle WHERE id = ?",
+            (battle_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Battle not found")
+
+        new_name = body.name if body.name is not None else row["name"]
+        new_provider = body.judge_provider if body.judge_provider is not None else row["judge_provider"]
+        new_model = body.judge_model if body.judge_model is not None else row["judge_model"]
+        new_rubric = body.judge_rubric if body.judge_rubric is not None else row["judge_rubric"]
+
+        await db.execute(
+            "UPDATE battle SET name = ?, judge_provider = ?, judge_model = ?, judge_rubric = ? WHERE id = ?",
+            (new_name, new_provider, new_model, new_rubric, battle_id),
+        )
+        await db.commit()
+
+    return BattleDetail(
+        id=battle_id,
+        name=new_name,
+        judge_provider=new_provider,
+        judge_model=new_model,
+        judge_rubric=new_rubric,
         created_at=row["created_at"],
     )
 
