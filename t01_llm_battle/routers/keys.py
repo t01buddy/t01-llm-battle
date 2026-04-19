@@ -23,6 +23,9 @@ _ENV_VARS = {
     "google": "GOOGLE_API_KEY",
     "groq": "GROQ_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    "serper": "SERPER_API_KEY",
+    "tavily": "TAVILY_API_KEY",
+    "firecrawl": "FIRECRAWL_API_KEY",
 }
 
 
