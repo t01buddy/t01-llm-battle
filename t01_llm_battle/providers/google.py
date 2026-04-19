@@ -51,8 +51,15 @@ class GoogleProvider(BaseProvider):
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
+
+        if response.status_code != 200:
+            try:
+                err = response.json().get("error", {}).get("message", response.text)
+            except Exception:
+                err = response.text
+            raise RuntimeError(f"Google API error {response.status_code}: {err}")
+
+        data = response.json()
 
         content = data["candidates"][0]["content"]["parts"][0]["text"]
         usage = data.get("usageMetadata", {})
