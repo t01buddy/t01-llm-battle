@@ -7,6 +7,8 @@ GET    /battles/{battle_id}/fighters/{fighter_id}            — get fighter wit
 DELETE /battles/{battle_id}/fighters/{fighter_id}            — delete fighter + steps
 POST   /battles/{battle_id}/fighters/{fighter_id}/steps      — add a step to a fighter
 DELETE /battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}  — delete step
+
+GET    /providers                                             — list all providers with type, models/functions, pricing
 """
 from __future__ import annotations
 
@@ -18,8 +20,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..db import get_db
+from ..providers.registry import list_providers, get_provider
+from ..providers.base import ProviderType, TokenPricing, CreditPricing
 
 router = APIRouter(prefix="/battles/{battle_id}/fighters", tags=["fighters"])
+
+providers_router = APIRouter(prefix="/providers", tags=["providers"])
 
 
 # ---------------------------------------------------------------------------
@@ -223,3 +229,81 @@ async def delete_step(battle_id: str, fighter_id: str, step_id: str):
         await db.commit()
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Step not found")
+
+
+# ---------------------------------------------------------------------------
+# Provider info endpoint (mounted separately at /providers)
+# ---------------------------------------------------------------------------
+
+class ProviderModelInfo(BaseModel):
+    id: str
+    pricing_label: str  # e.g. "$2.50 / $10.00 per 1M tokens" or "1 credit ($0.001)"
+
+
+class ProviderInfo(BaseModel):
+    name: str
+    display_name: str
+    provider_type: str  # "llm" or "tool"
+    models: list[ProviderModelInfo]
+    native_tools: list[str]  # only for LLM providers; empty list for tool providers
+
+
+def _build_provider_info(name: str) -> ProviderInfo | None:
+    import sys
+    try:
+        p = get_provider(name)
+    except KeyError:
+        return None
+
+    model_ids = p.models()
+    models: list[ProviderModelInfo] = []
+
+    # Locate the provider's module to read module-level pricing constants
+    provider_module = sys.modules.get(type(p).__module__)
+
+    if p.provider_type == ProviderType.LLM:
+        # Get per-model pricing dict from module (_PRICING or PRICING)
+        pricing_dict: dict = {}
+        if provider_module:
+            pricing_dict = getattr(provider_module, "_PRICING", None) or getattr(provider_module, "PRICING", None) or {}
+        for mid in model_ids:
+            if mid in pricing_dict:
+                inp, out = pricing_dict[mid]
+                label = f"${inp:.2f} in / ${out:.2f} out per 1M tokens"
+            else:
+                label = "pricing unknown"
+            models.append(ProviderModelInfo(id=mid, pricing_label=label))
+        native_tools: list[str] = list(getattr(p, "native_tools", []))
+    else:
+        # TOOL provider — models() returns function names; get credit pricing from module
+        pricing: CreditPricing | None = None
+        if provider_module:
+            pricing = getattr(provider_module, "_PRICING", None) or getattr(provider_module, "PRICING", None)
+        for fn in model_ids:
+            if pricing:
+                usd = pricing.credits_per_call * pricing.usd_per_credit
+                label = f"{pricing.credits_per_call:.0f} credit (${usd:.4f} per call)"
+            else:
+                label = "pricing unknown"
+            models.append(ProviderModelInfo(id=fn, pricing_label=label))
+        native_tools = []
+
+    return ProviderInfo(
+        name=name,
+        display_name=getattr(p, "display_name", name),
+        provider_type=p.provider_type.value,
+        models=models,
+        native_tools=native_tools,
+    )
+
+
+@providers_router.get("", response_model=list[ProviderInfo])
+async def list_provider_info() -> list[ProviderInfo]:
+    """Return all registered providers with type, models/functions, and pricing."""
+    names = list_providers()
+    result = []
+    for name in names:
+        info = _build_provider_info(name)
+        if info:
+            result.append(info)
+    return result

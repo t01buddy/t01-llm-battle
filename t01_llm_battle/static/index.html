@@ -384,28 +384,100 @@
                   <form @submit.prevent="addStep($root.params.id, fighter.id)"
                     style="background:#f8f8fb;border:1px solid #ddd;border-radius:6px;padding:0.75rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.65rem;">
                     <h4 style="margin:0;font-size:0.9rem;">New Step</h4>
-                    <div>
-                      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">System Prompt <span style="font-weight:400;color:#888;">(optional)</span></label>
-                      <textarea x-model="newStep.system_prompt" rows="3"
-                        placeholder="You are a helpful assistant..."
-                        style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;resize:vertical;font-family:inherit;"></textarea>
-                    </div>
+                    <!-- System prompt: only for LLM providers -->
+                    <template x-if="stepProviderType() === 'llm'">
+                      <div>
+                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">System Prompt <span style="font-weight:400;color:#888;">(optional)</span></label>
+                        <textarea x-model="newStep.system_prompt" rows="3"
+                          placeholder="You are a helpful assistant..."
+                          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;resize:vertical;font-family:inherit;"></textarea>
+                      </div>
+                    </template>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
                       <div>
                         <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Provider <span style="color:#c0392b;">*</span></label>
-                        <select x-model="newStep.provider" required
+                        <select x-model="newStep.provider" @change="onStepProviderChange()" required
                           style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
-                          <template x-for="p in providers" :key="p">
-                            <option :value="p" x-text="p"></option>
+                          <!-- LLM group -->
+                          <template x-if="providerInfoList.filter(p => p.provider_type === 'llm').length > 0">
+                            <optgroup label="LLM Providers">
+                              <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm')" :key="p.name">
+                                <option :value="p.name" x-text="p.display_name"></option>
+                              </template>
+                            </optgroup>
+                          </template>
+                          <!-- Tool group -->
+                          <template x-if="providerInfoList.filter(p => p.provider_type === 'tool').length > 0">
+                            <optgroup label="Tool Providers">
+                              <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool')" :key="p.name">
+                                <option :value="p.name" x-text="p.display_name"></option>
+                              </template>
+                            </optgroup>
+                          </template>
+                          <!-- Fallback if providerInfoList empty -->
+                          <template x-if="providerInfoList.length === 0">
+                            <template x-for="p in providers" :key="p">
+                              <option :value="p" x-text="p"></option>
+                            </template>
                           </template>
                         </select>
                       </div>
-                      <div>
-                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Model <span style="color:#c0392b;">*</span></label>
-                        <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o"
-                          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
-                      </div>
+                      <!-- Model dropdown for LLM providers -->
+                      <template x-if="stepProviderType() === 'llm'">
+                        <div>
+                          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Model <span style="color:#c0392b;">*</span></label>
+                          <select x-model="newStep.model_id" required
+                            style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
+                            <template x-for="m in stepProviderModels()" :key="m.id">
+                              <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                            </template>
+                            <option value="">Custom…</option>
+                          </select>
+                          <template x-if="newStep.model_id === ''">
+                            <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID"
+                              style="width:100%;margin-top:4px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+                          </template>
+                        </div>
+                      </template>
+                      <!-- Function dropdown for tool providers -->
+                      <template x-if="stepProviderType() === 'tool'">
+                        <div>
+                          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Function <span style="color:#c0392b;">*</span></label>
+                          <select x-model="newStep.model_id" required
+                            style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
+                            <template x-for="m in stepProviderModels()" :key="m.id">
+                              <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                            </template>
+                          </select>
+                        </div>
+                      </template>
+                      <!-- Fallback text input if no providerInfoList -->
+                      <template x-if="stepProviderType() === null">
+                        <div>
+                          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Model <span style="color:#c0392b;">*</span></label>
+                          <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o"
+                            style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+                        </div>
+                      </template>
                     </div>
+                    <!-- Pricing hint -->
+                    <template x-if="stepPricingHint()">
+                      <p style="margin:0;font-size:0.78rem;color:#7c6af7;background:#f0eeff;border:1px solid #d8d0fa;border-radius:4px;padding:4px 8px;" x-text="stepPricingHint()"></p>
+                    </template>
+                    <!-- Native tools multi-select (LLM providers only) -->
+                    <template x-if="stepNativeTools().length > 0">
+                      <div>
+                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Tools <span style="font-weight:400;color:#888;">(optional model-native tools)</span></label>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                          <template x-for="tool in stepNativeTools()" :key="tool">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;">
+                              <input type="checkbox" :value="tool" x-model="newStep.selected_tools">
+                              <span x-text="tool"></span>
+                            </label>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
                     <div>
                       <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Provider Config <span style="font-weight:400;color:#888;">(JSON, optional)</span></label>
                       <textarea x-model="newStep.provider_config" rows="2"
@@ -618,6 +690,8 @@
                   <th style="padding:10px 14px;font-weight:600;">Fighter</th>
                   <th style="padding:10px 14px;font-weight:600;text-align:right;">Avg Score</th>
                   <th style="padding:10px 14px;font-weight:600;text-align:right;">Total Cost USD</th>
+                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Token Cost</th>
+                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Credit Cost</th>
                   <th style="padding:10px 14px;font-weight:600;text-align:right;">Steps</th>
                   <th style="padding:10px 14px;font-weight:600;text-align:right;">Items</th>
                 </tr>
@@ -630,6 +704,8 @@
                       <span :style="scoreColor(f.avg_score)" x-text="f.avg_score.toFixed(2)"></span>
                     </td>
                     <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;" x-text="'$' + f.total_cost.toFixed(4)"></td>
+                    <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;color:#555;" x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
+                    <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;color:#7c6af7;" x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
                     <td style="padding:10px 14px;text-align:right;" x-text="f.total_steps"></td>
                     <td style="padding:10px 14px;text-align:right;" x-text="f.item_count"></td>
                   </tr>
@@ -666,12 +742,16 @@
                       <div style="font-size:0.78rem;color:#888;margin-top:6px;">
                         <span x-text="fighter.step_count + ' step(s)'"></span>
                         &nbsp;·&nbsp;
-                        <span x-text="'$' + (fighter.total_cost_usd || 0).toFixed(4)"></span>
+                        <span style="font-family:monospace;" x-text="'$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
                         <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
                           <span>
                             &nbsp;·&nbsp;
                             <span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span>
                           </span>
+                        </template>
+                        <!-- Credit cost indicator for tool steps (no tokens) -->
+                        <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
+                          <span>&nbsp;·&nbsp;<span style="color:#7c6af7;">credit-based</span></span>
                         </template>
                       </div>
                     </div>
@@ -1191,10 +1271,17 @@ Do not wrap the JSON in markdown fences.`;
           for (const item of this.results.summary) {
             const name = item.fighter_name;
             if (!map[name]) {
-              map[name] = { fighter_name: name, scores: [], total_cost: 0, total_steps: 0, item_count: 0 };
+              map[name] = { fighter_name: name, scores: [], total_cost: 0, token_cost: 0, credit_cost: 0, total_steps: 0, item_count: 0 };
             }
             if (item.score !== null && item.score !== undefined) map[name].scores.push(item.score);
             map[name].total_cost += item.total_cost_usd || 0;
+            // Token cost: steps that consumed tokens
+            if (item.total_input_tokens || item.total_output_tokens) {
+              map[name].token_cost += item.total_cost_usd || 0;
+            } else if (item.total_cost_usd) {
+              // No tokens → credit-based cost
+              map[name].credit_cost += item.total_cost_usd || 0;
+            }
             map[name].total_steps += item.step_count || 0;
             map[name].item_count += 1;
           }
@@ -1293,23 +1380,74 @@ Do not wrap the JSON in markdown fences.`;
         addFighterError: null,
 
         activeStepFighterId: null,
-        newStep: { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' },
+        newStep: { system_prompt: '', provider: 'openai', model_id: '', model_id_custom: '', provider_config: '{}', selected_tools: [] },
         addingStep: false,
         addStepError: null,
 
         providers: ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'],
+        providerInfoList: [],  // [{name, display_name, provider_type, models:[{id,pricing_label}], native_tools:[]}]
 
         _dispatchCount() {
           window.dispatchEvent(new CustomEvent('fighters-updated', { detail: { count: this.fighters.length } }));
         },
 
+        // Return provider_type ('llm'|'tool'|null) for currently selected provider
+        stepProviderType() {
+          const info = this.providerInfoList.find(p => p.name === this.newStep.provider);
+          return info ? info.provider_type : null;
+        },
+
+        // Return model/function list for selected provider
+        stepProviderModels() {
+          const info = this.providerInfoList.find(p => p.name === this.newStep.provider);
+          return info ? info.models : [];
+        },
+
+        // Return pricing hint for selected model/function
+        stepPricingHint() {
+          const models = this.stepProviderModels();
+          const mid = this.newStep.model_id;
+          if (!mid || !models.length) return null;
+          const m = models.find(x => x.id === mid);
+          return m ? m.pricing_label : null;
+        },
+
+        // Return native tools for selected LLM provider
+        stepNativeTools() {
+          const info = this.providerInfoList.find(p => p.name === this.newStep.provider);
+          return (info && info.native_tools) ? info.native_tools : [];
+        },
+
+        // When provider changes, reset model selection and auto-select first model
+        onStepProviderChange() {
+          const models = this.stepProviderModels();
+          this.newStep.model_id = models.length ? models[0].id : '';
+          this.newStep.model_id_custom = '';
+          this.newStep.selected_tools = [];
+        },
+
         async load(battleId) {
           this.loadingFighters = true;
           this.fightersError = null;
+          // Load provider info in parallel
           try {
-            const resp = await fetch('/battles/' + battleId + '/fighters');
-            if (!resp.ok) throw new Error(await resp.text());
-            const fighters = await resp.json();
+            const [fightersResp, provResp] = await Promise.all([
+              fetch('/battles/' + battleId + '/fighters'),
+              fetch('/providers'),
+            ]);
+            if (!fightersResp.ok) throw new Error(await fightersResp.text());
+            const fighters = await fightersResp.json();
+            if (provResp.ok) {
+              this.providerInfoList = await provResp.json();
+              this.providers = this.providerInfoList.map(p => p.name);
+            }
+            // Default provider = first LLM provider available
+            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
+            if (firstLlm) {
+              this.newStep.provider = firstLlm.name;
+              const models = firstLlm.models;
+              this.newStep.model_id = models.length ? models[0].id : '';
+            }
             // Load steps for each fighter
             const withSteps = await Promise.all(fighters.map(async f => {
               try {
@@ -1354,7 +1492,18 @@ Do not wrap the JSON in markdown fences.`;
             this.activeStepFighterId = null;
           } else {
             this.activeStepFighterId = fighterId;
-            this.newStep = { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' };
+            // Default to first LLM provider
+            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
+            const defaultProvider = firstLlm ? firstLlm.name : 'openai';
+            const defaultModels = firstLlm ? firstLlm.models : [];
+            this.newStep = {
+              system_prompt: '',
+              provider: defaultProvider,
+              model_id: defaultModels.length ? defaultModels[0].id : '',
+              model_id_custom: '',
+              provider_config: '{}',
+              selected_tools: [],
+            };
             this.addStepError = null;
           }
         },
@@ -1365,6 +1514,14 @@ Do not wrap the JSON in markdown fences.`;
           try {
             const fighter = this.fighters.find(f => f.id === fighterId);
             const position = fighter ? (fighter.steps ? fighter.steps.length : 0) : 0;
+            // Resolve final model_id (may be 'Custom...' sentinel → use model_id_custom)
+            const finalModelId = this.newStep.model_id === '' ? this.newStep.model_id_custom : this.newStep.model_id;
+            // Merge selected_tools into provider_config if any are selected
+            let configObj = {};
+            try { configObj = JSON.parse(this.newStep.provider_config || '{}'); } catch(_) {}
+            if (this.newStep.selected_tools && this.newStep.selected_tools.length > 0) {
+              configObj.tools = this.newStep.selected_tools;
+            }
             const resp = await fetch('/battles/' + battleId + '/fighters/' + fighterId + '/steps', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1372,8 +1529,8 @@ Do not wrap the JSON in markdown fences.`;
                 position: position,
                 system_prompt: this.newStep.system_prompt || null,
                 provider: this.newStep.provider,
-                model_id: this.newStep.model_id,
-                provider_config: this.newStep.provider_config || '{}'
+                model_id: finalModelId,
+                provider_config: JSON.stringify(configObj),
               })
             });
             if (!resp.ok) throw new Error(await resp.text());
@@ -1383,7 +1540,17 @@ Do not wrap the JSON in markdown fences.`;
               fighter.steps.push(step);
             }
             this.activeStepFighterId = null;
-            this.newStep = { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' };
+            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
+            const defaultProvider = firstLlm ? firstLlm.name : 'openai';
+            const defaultModels = firstLlm ? firstLlm.models : [];
+            this.newStep = {
+              system_prompt: '',
+              provider: defaultProvider,
+              model_id: defaultModels.length ? defaultModels[0].id : '',
+              model_id_custom: '',
+              provider_config: '{}',
+              selected_tools: [],
+            };
           } catch(e) {
             this.addStepError = e.message;
           } finally {

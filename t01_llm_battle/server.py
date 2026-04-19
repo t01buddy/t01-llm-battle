@@ -9,7 +9,7 @@ from .routers.battles import router as battles_router
 from .routers.keys import router as keys_router
 from .routers.runs import router as runs_router
 from .routers.sources import router as sources_router
-from .routers.fighters import router as fighters_router
+from .routers.fighters import router as fighters_router, providers_router
 
 
 @asynccontextmanager
@@ -26,6 +26,7 @@ def create_app(db_path=DB_PATH) -> FastAPI:
     app.include_router(runs_router)
     app.include_router(sources_router)
     app.include_router(fighters_router)
+    app.include_router(providers_router)
 
     # Health check
     @app.get("/healthz")
