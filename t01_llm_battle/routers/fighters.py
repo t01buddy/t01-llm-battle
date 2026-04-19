@@ -19,9 +19,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..db import get_db
+from ..db import get_db, DB_PATH
 from ..providers.registry import list_providers, get_provider
 from ..providers.base import ProviderType, TokenPricing, CreditPricing
+
+_SYSTEM_PROVIDERS = {
+    "openai", "anthropic", "google", "groq",
+    "openrouter", "ollama", "serper", "tavily", "firecrawl",
+}
 
 router = APIRouter(prefix="/battles/{battle_id}/fighters", tags=["fighters"])
 
@@ -246,6 +251,9 @@ class ProviderInfo(BaseModel):
     provider_type: str  # "llm" or "tool"
     models: list[ProviderModelInfo]
     native_tools: list[str]  # only for LLM providers; empty list for tool providers
+    enabled: bool = True
+    is_system: bool = True
+    config: dict = {}
 
 
 def _build_provider_info(name: str) -> ProviderInfo | None:
@@ -299,11 +307,27 @@ def _build_provider_info(name: str) -> ProviderInfo | None:
 
 @providers_router.get("", response_model=list[ProviderInfo])
 async def list_provider_info() -> list[ProviderInfo]:
-    """Return all registered providers with type, models/functions, and pricing."""
+    """Return all registered providers with type, models/functions, pricing, enabled state, and config."""
     names = list_providers()
+
+    # Fetch all provider_config rows in one query
+    provider_configs: dict[str, dict] = {}
+    async with get_db(DB_PATH) as db:
+        cur = await db.execute("SELECT provider, enabled, server_url FROM provider_config")
+        rows = await cur.fetchall()
+        for row in rows:
+            provider_configs[row["provider"]] = {
+                "enabled": bool(row["enabled"]),
+                "server_url": row["server_url"],
+            }
+
     result = []
     for name in names:
         info = _build_provider_info(name)
         if info:
+            cfg = provider_configs.get(name, {"enabled": True, "server_url": None})
+            info.enabled = cfg["enabled"]
+            info.is_system = name in _SYSTEM_PROVIDERS
+            info.config = {"server_url": cfg["server_url"]} if cfg["server_url"] else {}
             result.append(info)
     return result
