@@ -35,9 +35,18 @@ class OpenAIProvider(BaseProvider):
         model = OpenAIChatModel(request.model, provider=provider)
         agent = Agent(model)
 
+        # Build model_settings from known extra keys; unknown keys are ignored (forward-compat)
+        model_settings: dict = {
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+        }
+        if "top_p" in request.extra:
+            model_settings["top_p"] = request.extra["top_p"]
+
         result = await agent.run(
             request.user_prompt,
             system_prompt=request.system_prompt or "",
+            model_settings=model_settings,
         )
 
         usage = result.usage()
