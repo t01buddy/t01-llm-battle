@@ -20,6 +20,47 @@
 | FR-14 | Results View | Side-by-side final scores, cost, latency; expandable step drill-down |
 | FR-15 | SQLite Persistence | All battles, sources, fighters, steps, runs, results, judgments, api_keys |
 | FR-16 | Custom Model IDs | Override catalog slugs; pricing shown as "unknown" |
+| FR-19 | Provider Management UI | Sidebar lists providers with enable/disable toggle; edit popup for API key, server URL (Ollama/LLM Studio); uninstall non-system providers |
+| FR-20 | Sidebar Layout | Single page: left sidebar (app name, battle list, providers section) + main content area (selected battle or default empty battle with 2 fighters) |
+
+---
+
+## Detail: FR-19 Provider Management UI
+
+- **Provider list** in sidebar: name, enabled/disabled toggle, edit button
+- **Edit popup**: API key field, server URL field (Ollama/LLM Studio only), uninstall button (non-system providers only)
+- System providers (built-in) cannot be uninstalled; uninstall returns 403
+- Provider config (enabled state, server URL) stored in SQLite alongside API keys
+- Disabled providers are excluded from fighter step provider dropdowns
+
+---
+
+## Detail: FR-20 Sidebar Layout
+
+- **Single page** with left sidebar (~260 px) + main content area (fills remaining width)
+- **Sidebar contents**:
+  - App name: "T01 LLM Battle"
+  - Battle list: + New button; each entry shows name + created time + delete button; click name to load in main area
+  - Providers section: list of providers with enable/disable toggle and edit button
+- **Main area**: selected battle (Input / Definition / Result sections) or default empty battle (2 manual fighters) if none selected
+- Sidebar collapses on narrow viewports
+
+---
+
+## Brand Theme (Gold-on-Ink)
+
+Applies to FR-20 sidebar layout and all UI components:
+
+| Token | Value |
+|-------|-------|
+| `bg.ink` | `#0d0f13` |
+| `bg.card` | `#14181f` |
+| Gold accent | `#F0B90B` |
+| `text.high` | `#E7ECF3` |
+| `text.mid` | `#8A93A3` |
+| Typography | system-ui stack, weight 600, `letter-spacing: -0.01em` |
+
+Replaces previous purple (`#7c6af7`) on light background (`#f5f5f5`) theme.
 
 ---
 
