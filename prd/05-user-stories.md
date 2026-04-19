@@ -16,6 +16,8 @@
 | US-12 | Any user | Drill down into each step's input/output | I can debug which step in a pipeline caused a poor result |
 | US-13 | Developer | Use Serper search as step 1, GPT-4o as step 2 | I can compare pipelines that include web search |
 | US-14 | Developer | See credit costs alongside token costs in results | I can compare total cost of mixed LLM+tool pipelines |
+| US-15 | Any user | Manage providers in the sidebar (enable/disable, edit API key, server URL) | I can configure my providers without touching env vars or config files |
+| US-16 | Any user | Navigate battles from a persistent sidebar | I can switch between battles without losing my place |
 
 ---
 
