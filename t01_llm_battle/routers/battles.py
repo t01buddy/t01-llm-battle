@@ -53,6 +53,8 @@ class BattleCreated(BaseModel):
 @router.post("", response_model=BattleCreated, status_code=201)
 async def create_battle(body: BattleCreate) -> BattleCreated:
     """Create a new battle and return its id."""
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="Battle name must not be empty or whitespace.")
     battle_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
 
