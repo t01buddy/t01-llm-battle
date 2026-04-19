@@ -884,6 +884,10 @@ Do not wrap the JSON in markdown fences.`;
         async submit() {
           // Sync EasyMDE value before submitting
           if (this._mde) this.judge_rubric = this._mde.value();
+          if (!this.name.trim()) {
+            this.error = 'Battle name is required.';
+            return;
+          }
           this.loading = true;
           this.error = null;
           try {

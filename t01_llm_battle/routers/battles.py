@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from ..db import get_db
 
@@ -20,10 +20,17 @@ router = APIRouter(prefix="/battles", tags=["battles"])
 
 
 class BattleCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1)
     judge_provider: str
     judge_model: str
     judge_rubric: str
+
+    @field_validator("name")
+    @classmethod
+    def name_not_whitespace(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Battle name cannot be blank")
+        return v.strip()
 
 
 class BattleSummary(BaseModel):
@@ -53,6 +60,8 @@ class BattleCreated(BaseModel):
 @router.post("", response_model=BattleCreated, status_code=201)
 async def create_battle(body: BattleCreate) -> BattleCreated:
     """Create a new battle and return its id."""
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="Battle name must not be empty or whitespace.")
     battle_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
 
