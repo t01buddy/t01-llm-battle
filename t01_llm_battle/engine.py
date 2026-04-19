@@ -9,11 +9,31 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from .db import DB_PATH, get_db
+from .db import DB_PATH, get_db, resolve_api_key, _PROVIDER_ENV_VARS
 from .judge import score_response, generate_report
 from .providers.base import CompletionRequest, CompletionResult
 from .providers.registry import get_provider
 from . import rate_limiter
+
+
+async def _inject_api_key(provider_name: str, db_path) -> str | None:
+    """If the env var for provider is not set, look up DB and set it temporarily.
+
+    Returns the env var name that was set (so the caller can restore it), or None.
+    """
+    import os
+
+    env_var = _PROVIDER_ENV_VARS.get(provider_name)
+    if not env_var:
+        return None
+    if os.environ.get(env_var):
+        return None  # env already set; nothing to do
+
+    key = await resolve_api_key(provider_name, db_path)
+    if key:
+        os.environ[env_var] = key
+        return env_var
+    return None
 
 
 async def execute_run(run_id: str, db_path=DB_PATH) -> None:
@@ -141,9 +161,15 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                     )
 
                     await rate_limiter.acquire(step["provider"])
+                    # Inject DB key into env if env var not already set
+                    injected_env_var = await _inject_api_key(step["provider"], db_path)
                     t0 = time.monotonic()
                     result: CompletionResult = await provider.complete(request)
                     latency_ms = int((time.monotonic() - t0) * 1000)
+                    # Remove injected env var so it doesn't persist across steps
+                    if injected_env_var:
+                        import os
+                        os.environ.pop(injected_env_var, None)
 
                     # Store step_result
                     async with get_db(db_path) as db:
@@ -219,6 +245,7 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
 
             # Run judge scoring for completed results with a final output
             if not had_error and final_output and judge_provider and judge_model:
+                injected_judge_env_var = await _inject_api_key(judge_provider, db_path)
                 judge_score, judge_reasoning = await score_response(
                     judge_provider=judge_provider,
                     judge_model=judge_model,
@@ -226,6 +253,9 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                     source_content=source_content,
                     response_content=final_output,
                 )
+                if injected_judge_env_var:
+                    import os
+                    os.environ.pop(injected_judge_env_var, None)
                 async with get_db(db_path) as db:
                     await db.execute(
                         "UPDATE fighter_result SET judge_score = ?, judge_reasoning = ? WHERE id = ?",
@@ -245,7 +275,11 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
 
     # Generate markdown report after all judging is complete
     if judge_provider and judge_model:
+        injected_report_env_var = await _inject_api_key(judge_provider, db_path)
         await generate_report(run_id, judge_provider, judge_model, db_path)
+        if injected_report_env_var:
+            import os
+            os.environ.pop(injected_report_env_var, None)
 
 
 def start_run_background(run_id: str, db_path=DB_PATH) -> None:
