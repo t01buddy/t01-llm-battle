@@ -55,7 +55,7 @@ One row per step within a pipeline fighter. Steps are executed sequentially in `
 | system_prompt | TEXT | Nullable — omit to pass input as user message only |
 | provider | TEXT | Provider slug |
 | model_id | TEXT | Model slug (catalog or custom) |
-| provider_config | TEXT | JSON: `{"temperature": 0.7, "tools": ["web_search"], ...}` |
+| provider_config | TEXT | JSON: `{"temperature": 0.7, "tools": ["web_search"], ...}`. For tool providers, include `"function"` key (e.g. `{"function": "search"}` for Serper/Tavily, `{"function": "scrape"}` for Firecrawl). |
 
 ---
 
@@ -86,10 +86,10 @@ One row per (run × fighter × step × source item). Stores intermediate step I/
 | source_id | TEXT FK | → battle_source.id |
 | input_text | TEXT | Text fed into this step (source content or previous step output) |
 | output_text | TEXT | Full model response; nullable if error |
-| input_tokens | INTEGER | Nullable |
-| output_tokens | INTEGER | Nullable |
+| input_tokens | INTEGER | Nullable. Always null for tool providers (credit-based). |
+| output_tokens | INTEGER | Nullable. Always null for tool providers (credit-based). |
 | latency_ms | INTEGER | Nullable |
-| cost_usd | REAL | Nullable (unknown for custom models) |
+| cost_usd | REAL | Nullable (unknown for custom models). For tool providers, reflects credits consumed converted to USD. |
 | error | TEXT | Nullable — error message if the step failed |
 | created_at | TEXT | ISO-8601 |
 
@@ -127,7 +127,7 @@ One row per (run × fighter × source item). Aggregates step results and stores 
 | key_value | TEXT | Stored in plaintext (local machine only) |
 | updated_at | TEXT | ISO-8601 |
 
-> Env vars always override `api_key` table values at runtime.
+> Env vars always override `api_key` table values at runtime. Tool providers (Serper, Tavily, Firecrawl) also store keys here using their provider slug (e.g. `serper`, `tavily`, `firecrawl`).
 
 ---
 

@@ -8,7 +8,7 @@
 |------|-------------|
 | CLI | `t01-llm-battle serve` starts server + opens browser |
 | UI | Single-page Alpine.js app (battle creation, live run, results table) |
-| Providers | OpenAI, Anthropic, Google, Groq, OpenRouter, Ollama |
+| Providers | LLM (via Pydantic AI): OpenAI, Anthropic, Google, Groq, OpenRouter, Ollama; Tool: Serper, Tavily, Firecrawl |
 | Judge | LLM-as-judge (0–10 + reasoning, editable rubric, markdown report) |
 | Persistence | SQLite (battles, sources, fighters, steps, runs, results, judgments, api_keys) |
 | Distribution | `pipx install t01-llm-battle` on PyPI |

@@ -11,6 +11,7 @@
 | Frontend | **Alpine.js 3.x** (bundled in wheel) | No build step, 15 KB, directive-based reactive UI |
 | Markdown render | **marked.js** (bundled in wheel) | Render LLM responses + judge report via `marked.parse()` → `x-html` |
 | Markdown editor | **EasyMDE** (bundled in wheel) | Rich editor for system prompt + judge rubric; split write/preview |
+| LLM abstraction | **pydantic-ai** | Unified model interface across LLM providers; tool-calling, structured output |
 | Plugin system | **Folder-based + BaseProvider ABC** | Drop a `.py` file in `~/.t01-llm-battle/providers/` — no packaging required |
 
 **Estimated install size**: ~10–12 MB (well under 15 MB target).
@@ -26,20 +27,30 @@ See `01-prd.md` → Architecture Principles for the full list. Key constraints:
 - **One process**: FastAPI + asyncio + SQLite in one Python process. No Celery, Redis, or worker pool.
 - **Keys in browser → provider direct**: No server-side proxy of API calls (exception: Ollama requires CORS bypass via backend).
 - **No streaming in v0.1**: Full responses only for fair latency/token comparison.
-- **No official LLM SDKs**: `httpx` only — adapters won't break on SDK upgrades.
+- **Pydantic AI for LLM providers**: `pydantic-ai` is the unified abstraction layer for all LLM providers — tool-calling, structured output, and model switching without SDK churn. Tool providers (Serper, Tavily, Firecrawl) use plain `httpx` — no SDK needed.
 
 ## Plugin Architecture
 
 ### BaseProvider ABC (`t01_llm_battle/providers/base.py`)
 
 ```python
+class ProviderType(Enum):
+    LLM = "llm"   # uses Pydantic AI; token-based pricing
+    TOOL = "tool" # httpx client; credit-based pricing
+
 class BaseProvider(ABC):
     name: str           # e.g. "openai"
     display_name: str   # e.g. "OpenAI"
+    provider_type: ProviderType
     models: list[ModelInfo]  # curated catalog; custom IDs always accepted
 
     @abstractmethod
-    async def complete(self, request: CompletionRequest) -> CompletionResult:
+    async def run(self, request: ProviderRequest) -> ProviderResult:
+        ...
+
+    @abstractmethod
+    def estimate_cost(self, result: ProviderResult) -> float | None:
+        """Token-based (LLM) or credit-based (tool) cost in USD."""
         ...
 ```
 
@@ -106,7 +117,8 @@ dependencies = [
     "uvicorn>=0.29",
     "httpx>=0.27",
     "aiosqlite>=0.20",
+    "pydantic-ai>=0.0.36",
 ]
 ```
 
-No `rich`, no `pydantic-settings`, no official LLM SDKs — intentionally minimal.
+No `rich`, no `pydantic-settings` — intentionally minimal. `pydantic-ai` is the single LLM SDK dependency; tool providers use plain `httpx`.
