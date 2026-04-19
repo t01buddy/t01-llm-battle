@@ -94,6 +94,13 @@ CREATE TABLE IF NOT EXISTS api_key (
     key_value   TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS provider_config (
+    provider    TEXT PRIMARY KEY,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    server_url  TEXT,
+    updated_at  TEXT NOT NULL
+);
 """
 
 
