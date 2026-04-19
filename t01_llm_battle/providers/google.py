@@ -1,15 +1,12 @@
-"""Google (Gemini) provider adapter — thin httpx client, no official SDK."""
+"""Google (Gemini) provider adapter — uses Pydantic AI."""
 
 import os
 
-import httpx
+from pydantic_ai import Agent
+from pydantic_ai.models.gemini import GeminiModel
+from pydantic_ai.providers.google_gla import GoogleGLAProvider
 
-from .base import BaseProvider, CompletionRequest, CompletionResult
-
-_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models"
-    "/{model}:generateContent?key={api_key}"
-)
+from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
 
 _PRICING: dict[str, tuple[float, float]] = {
     # (input $/1M tokens, output $/1M tokens)
@@ -21,56 +18,39 @@ _PRICING: dict[str, tuple[float, float]] = {
 
 class GoogleProvider(BaseProvider):
     name = "google"
+    display_name = "Google"
+    provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
         return ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
 
-    def cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
+    def _calc_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
         if model not in _PRICING:
             return 0.0
         input_price, output_price = _PRICING[model]
         return (input_tokens * input_price + output_tokens * output_price) / 1_000_000
 
-    async def complete(self, request: CompletionRequest) -> CompletionResult:
+    async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("GOOGLE_API_KEY", "")
-        url = _ENDPOINT.format(model=request.model, api_key=api_key)
+        provider = GoogleGLAProvider(api_key=api_key)
+        model = GeminiModel(request.model, provider=provider)
+        agent = Agent(model)
 
-        payload: dict = {
-            "contents": [
-                {"role": "user", "parts": [{"text": request.user_prompt}]}
-            ],
-            "generationConfig": {
-                "temperature": request.temperature,
-                "maxOutputTokens": request.max_tokens,
-            },
-        }
-        if request.system_prompt:
-            payload["system_instruction"] = {
-                "parts": [{"text": request.system_prompt}]
-            }
+        result = await agent.run(
+            request.user_prompt,
+            system_prompt=request.system_prompt or "",
+        )
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(url, json=payload)
+        usage = result.usage()
+        input_tokens = usage.request_tokens or 0
+        output_tokens = usage.response_tokens or 0
+        cost_usd = self._calc_cost(input_tokens, output_tokens, request.model)
 
-        if response.status_code != 200:
-            try:
-                err = response.json().get("error", {}).get("message", response.text)
-            except Exception:
-                err = response.text
-            raise RuntimeError(f"Google API error {response.status_code}: {err}")
-
-        data = response.json()
-
-        content = data["candidates"][0]["content"]["parts"][0]["text"]
-        usage = data.get("usageMetadata", {})
-        input_tokens = usage.get("promptTokenCount", 0)
-        output_tokens = usage.get("candidatesTokenCount", 0)
-        cost_usd = self.cost(input_tokens, output_tokens, request.model)
-
-        return CompletionResult(
-            content=content,
+        return ProviderResult(
+            content=result.data,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            credits_used=None,
             cost_usd=cost_usd,
             model=request.model,
             provider=self.name,

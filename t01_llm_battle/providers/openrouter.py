@@ -1,10 +1,10 @@
 import os
 
-import httpx
+from pydantic_ai import Agent
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider as PAIOpenAIProvider
 
-from .base import BaseProvider, CompletionRequest, CompletionResult
-
-_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
 
 _MODELS = [
     "openai/gpt-4o",
@@ -17,61 +17,36 @@ _MODELS = [
 
 class OpenRouterProvider(BaseProvider):
     name = "openrouter"
+    display_name = "OpenRouter"
+    provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
         return list(_MODELS)
 
-    def cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
-        # OpenRouter pricing varies per model and is fetched dynamically in a real app.
-        # For v0.1, return 0.0 (unknown).
-        return 0.0
-
-    async def complete(self, request: CompletionRequest) -> CompletionResult:
+    async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        provider = PAIOpenAIProvider(
+            api_key=api_key,
+            base_url="https://openrouter.ai/api/v1",
+        )
+        model = OpenAIChatModel(request.model, provider=provider)
+        agent = Agent(model)
 
-        messages = []
-        if request.system_prompt:
-            messages.append({"role": "system", "content": request.system_prompt})
-        messages.append({"role": "user", "content": request.user_prompt})
+        result = await agent.run(
+            request.user_prompt,
+            system_prompt=request.system_prompt or "",
+        )
 
-        payload = {
-            "model": request.model,
-            "messages": messages,
-            "temperature": request.temperature,
-            "max_tokens": request.max_tokens,
-        }
+        usage = result.usage()
+        input_tokens = usage.request_tokens or 0
+        output_tokens = usage.response_tokens or 0
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                _API_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:7700",
-                    "X-Title": "t01-llm-battle",
-                },
-                json=payload,
-            )
-
-        if response.status_code != 200:
-            try:
-                err = response.json().get("error", {}).get("message", response.text)
-            except Exception:
-                err = response.text
-            raise RuntimeError(f"OpenRouter API error {response.status_code}: {err}")
-
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        usage = data.get("usage", {})
-        input_tokens = usage.get("prompt_tokens", 0)
-        output_tokens = usage.get("completion_tokens", 0)
-        cost_usd = self.cost(input_tokens, output_tokens, request.model)
-
-        return CompletionResult(
-            content=content,
+        return ProviderResult(
+            content=result.data,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            cost_usd=cost_usd,
+            credits_used=None,
+            cost_usd=0.0,
             model=request.model,
             provider="openrouter",
         )

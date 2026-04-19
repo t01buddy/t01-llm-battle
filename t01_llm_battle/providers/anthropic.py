@@ -1,8 +1,10 @@
 import os
 
-import httpx
+from pydantic_ai import Agent
+from pydantic_ai.models.anthropic import AnthropicModel
+from pydantic_ai.providers.anthropic import AnthropicProvider as PAIAnthropicProvider
 
-from .base import BaseProvider, CompletionRequest, CompletionResult
+from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
 
 PRICING = {
     "claude-opus-4-6": (15.00, 75.00),
@@ -10,59 +12,45 @@ PRICING = {
     "claude-haiku-4-5-20251001": (0.80, 4.00),
 }
 
-API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_VERSION = "2023-06-01"
-
 
 class AnthropicProvider(BaseProvider):
     name = "anthropic"
+    display_name = "Anthropic"
+    provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
         return ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
 
-    def cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
+    def _calc_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
         if model not in PRICING:
             return 0.0
         input_rate, output_rate = PRICING[model]
         return (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
 
-    async def complete(self, request: CompletionRequest) -> CompletionResult:
+    async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
 
-        payload = {
-            "model": request.model,
-            "system": request.system_prompt,
-            "messages": [{"role": "user", "content": request.user_prompt}],
-            "max_tokens": request.max_tokens,
-            "temperature": request.temperature,
-        }
+        provider = PAIAnthropicProvider(api_key=api_key)
+        model = AnthropicModel(request.model, provider=provider)
+        agent = Agent(model)
 
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-            "content-type": "application/json",
-        }
+        result = await agent.run(
+            request.user_prompt,
+            system_prompt=request.system_prompt or "",
+        )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(API_URL, json=payload, headers=headers)
+        usage = result.usage()
+        input_tokens = usage.request_tokens or 0
+        output_tokens = usage.response_tokens or 0
+        cost_usd = self._calc_cost(input_tokens, output_tokens, request.model)
 
-        if response.status_code != 200:
-            data = response.json()
-            error_msg = data.get("error", {}).get("message", response.text)
-            raise RuntimeError(f"Anthropic API error {response.status_code}: {error_msg}")
-
-        data = response.json()
-        content = data["content"][0]["text"]
-        input_tokens = data["usage"]["input_tokens"]
-        output_tokens = data["usage"]["output_tokens"]
-        cost_usd = self.cost(input_tokens, output_tokens, request.model)
-
-        return CompletionResult(
-            content=content,
+        return ProviderResult(
+            content=result.data,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            credits_used=None,
             cost_usd=cost_usd,
             model=request.model,
             provider="anthropic",

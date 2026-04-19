@@ -1,10 +1,10 @@
 import os
 
-import httpx
+from pydantic_ai import Agent
+from pydantic_ai.models.groq import GroqModel
+from pydantic_ai.providers.groq import GroqProvider as PAIGroqProvider
 
-from .base import BaseProvider, CompletionRequest, CompletionResult
-
-_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
 
 _PRICING: dict[str, tuple[float, float]] = {
     # model: (input $/1M tokens, output $/1M tokens)
@@ -18,6 +18,8 @@ _DEFAULT_PRICING: tuple[float, float] = (0.10, 0.10)
 
 class GroqProvider(BaseProvider):
     name = "groq"
+    display_name = "Groq"
+    provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
         return [
@@ -27,53 +29,31 @@ class GroqProvider(BaseProvider):
             "gemma2-9b-it",
         ]
 
-    def cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
+    def _calc_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
         input_rate, output_rate = _PRICING.get(model, _DEFAULT_PRICING)
         return (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
 
-    async def complete(self, request: CompletionRequest) -> CompletionResult:
+    async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("GROQ_API_KEY", "")
+        provider = PAIGroqProvider(api_key=api_key)
+        model = GroqModel(request.model, provider=provider)
+        agent = Agent(model)
 
-        messages = []
-        if request.system_prompt:
-            messages.append({"role": "system", "content": request.system_prompt})
-        messages.append({"role": "user", "content": request.user_prompt})
+        result = await agent.run(
+            request.user_prompt,
+            system_prompt=request.system_prompt or "",
+        )
 
-        payload = {
-            "model": request.model,
-            "messages": messages,
-            "temperature": request.temperature,
-            "max_tokens": request.max_tokens,
-        }
+        usage = result.usage()
+        input_tokens = usage.request_tokens or 0
+        output_tokens = usage.response_tokens or 0
+        cost_usd = self._calc_cost(input_tokens, output_tokens, request.model)
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                _API_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-
-        if response.status_code != 200:
-            try:
-                err = response.json().get("error", {}).get("message", response.text)
-            except Exception:
-                err = response.text
-            raise RuntimeError(f"Groq API error {response.status_code}: {err}")
-
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        usage = data.get("usage", {})
-        input_tokens = usage.get("prompt_tokens", 0)
-        output_tokens = usage.get("completion_tokens", 0)
-        cost_usd = self.cost(input_tokens, output_tokens, request.model)
-
-        return CompletionResult(
-            content=content,
+        return ProviderResult(
+            content=result.data,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            credits_used=None,
             cost_usd=cost_usd,
             model=request.model,
             provider="groq",
