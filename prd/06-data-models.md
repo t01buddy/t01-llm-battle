@@ -57,6 +57,8 @@ One row per step within a pipeline fighter. Steps are executed sequentially in `
 | model_id | TEXT | Model slug (catalog or custom) |
 | provider_config | TEXT | JSON: `{"temperature": 0.7, "tools": ["web_search"], ...}` |
 
+> For tool provider steps, `provider_config` must include `"function"` (e.g. `"search"`, `"scrape"`). Token fields are null for tool steps; `cost_usd` reflects credits consumed.
+
 ---
 
 ### `run`
@@ -86,10 +88,10 @@ One row per (run × fighter × step × source item). Stores intermediate step I/
 | source_id | TEXT FK | → battle_source.id |
 | input_text | TEXT | Text fed into this step (source content or previous step output) |
 | output_text | TEXT | Full model response; nullable if error |
-| input_tokens | INTEGER | Nullable |
-| output_tokens | INTEGER | Nullable |
+| input_tokens | INTEGER | Nullable (null for tool provider steps) |
+| output_tokens | INTEGER | Nullable (null for tool provider steps) |
 | latency_ms | INTEGER | Nullable |
-| cost_usd | REAL | Nullable (unknown for custom models) |
+| cost_usd | REAL | Nullable (unknown for custom models). For tool providers, reflects credits consumed converted to USD. |
 | error | TEXT | Nullable — error message if the step failed |
 | created_at | TEXT | ISO-8601 |
 
@@ -124,7 +126,7 @@ One row per (run × fighter × source item). Aggregates step results and stores 
 | Column | Type | Notes |
 |--------|------|-------|
 | provider | TEXT PK | Provider slug |
-| key_value | TEXT | Stored in plaintext (local machine only) |
+| key_value | TEXT | Stored in plaintext (local machine only). Used by both LLM and tool providers (Serper, Tavily, Firecrawl). |
 | updated_at | TEXT | ISO-8601 |
 
 > Env vars always override `api_key` table values at runtime.

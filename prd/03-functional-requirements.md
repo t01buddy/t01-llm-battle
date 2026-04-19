@@ -7,8 +7,10 @@
 | FR-3 | Sources | Upload text/md files or a CSV; each file or CSV row = one input item |
 | FR-4 | Fighters & Steps | Named pipelines; each step has system prompt, provider, model, config |
 | FR-5 | Manual Fighter | No steps; user enters result per source item during a run |
-| FR-6 | Provider Adapters | OpenAI, Anthropic, Google, Groq, OpenRouter, Ollama |
-| FR-7 | Provider Config | Per-step: temperature, tools (e.g. OpenAI web_search), max_tokens, etc. |
+| FR-6 | Provider Adapters | LLM (via Pydantic AI): OpenAI, Anthropic, Google, Groq, OpenRouter, Ollama; Tool (httpx): Serper (search/scrape), Tavily (search), Firecrawl (scrape/crawl) |
+| FR-7 | Provider Config | Per-step: temperature, max_tokens, function (for tool providers, e.g. `serper:search`), etc. |
+| FR-17 | Provider Types | Each provider has a type (LLM or TOOL); LLM providers use token-based pricing; tool providers use credit-based pricing |
+| FR-18 | Pricing Models | Token-based (LLM): input/output $/1M tokens; credit-based (TOOL): fixed cost per function call. Provider calculates and reports usage after each run |
 | FR-8 | API Key Management | Env vars OR UI entry → stored in SQLite; env wins; masked in UI |
 | FR-9 | Rate Limiting | Per-provider RPM throttling with bounded concurrency |
 | FR-10 | Run Execution | Parallel across fighters × sources; sequential within a fighter's steps |
@@ -78,11 +80,12 @@ Each step stores a `provider_config` JSON object. Supported keys:
 
 | Key | Type | Notes |
 |-----|------|-------|
-| `temperature` | float | 0.0–2.0; provider default if omitted |
-| `max_tokens` | int | Provider default if omitted |
+| `temperature` | float | 0.0–2.0; provider default if omitted (LLM only) |
+| `max_tokens` | int | Provider default if omitted (LLM only) |
 | `tools` | list[str] | Tool slugs to enable (e.g. `["web_search"]` for OpenAI) |
-| `top_p` | float | Optional nucleus sampling |
+| `top_p` | float | Optional nucleus sampling (LLM only) |
 | `system_prompt_role` | str | `"system"` (default) or `"developer"` (OpenAI o-series) |
+| `function` | str | Function to invoke for tool providers (e.g. `"search"`, `"scrape"` for Serper/Firecrawl) |
 
 Unknown keys are passed through to the provider as-is — forward-compatible with new provider options.
 

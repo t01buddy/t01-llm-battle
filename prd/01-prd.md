@@ -11,7 +11,7 @@
 
 A tiny, local tool that helps a developer answer one question at the start of a project: **"Which approach should I use for this job?"**
 
-The user runs a CLI, opens a browser, defines a "battle" — a set of source inputs (text/markdown files or a CSV) and a list of **fighters**, each representing a different approach. A fighter is a pipeline of one or more LLM steps: the output of each step feeds into the next, with the first step receiving source inputs. Fighters can also be manual: the user enters results by hand, enabling human-vs-AI or baseline comparisons.
+The user runs a CLI, opens a browser, defines a "battle" — a set of source inputs (text/markdown files or a CSV) and a list of **fighters**, each representing a different approach. A fighter is a pipeline of one or more steps: the output of each step feeds into the next, with the first step receiving source inputs. Steps can use LLM providers (OpenAI, Anthropic, etc.) or non-LLM tool providers (Serper search/scrape, Tavily search, Firecrawl scraping). Fighters can also be manual: the user enters results by hand, enabling human-vs-AI or baseline comparisons.
 
 After running, the final output of each fighter is judged side-by-side: quality score, cost, latency, token usage. No accounts, no cloud, no SaaS. Keys live on the developer's machine.
 
@@ -61,7 +61,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
     - One or more **steps**: system prompt (optional), provider, model ID, provider config (temperature, tools, etc.)
     - Step N input = step N-1 output; step 1 input = source item
     - OR **manual fighter**: no steps — user enters result per source item after run starts
-- Provider adapters: **OpenAI, Anthropic, Google, Groq, OpenRouter, Ollama**
+- Provider adapters: **LLM (via Pydantic AI): OpenAI, Anthropic, Google, Groq, OpenRouter, Ollama; Tool: Serper, Tavily, Firecrawl**
 - Per-provider RPM throttling with bounded concurrency
 - LLM-as-judge scoring (0–10 + reasoning, user-editable rubric, tolerant JSON parsing) on final step output
 - SQLite persistence (battles, sources, fighters, steps, runs, results, judgments, api_keys)
@@ -91,7 +91,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | Weekly active installs at 90 days | 1,000 | Real usage, not launch spike |
 | Install size (wheels + deps) | < 15 MB | Matches the "small" ethos |
 | Cold start to UI ready | < 3 seconds | Equivalent to `npx promptfoo init` |
-| Providers supported at launch | 6 | Matches v0.1 scope |
+| Providers supported at launch | 9 (6 LLM + 3 tool) | Matches v0.1 scope |
 
 ## Architecture Principles
 
@@ -100,7 +100,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | **Keys in browser → provider direct** | No server-side proxy of API calls. Zero infra cost, zero liability, no abuse handling. Exception: local Ollama calls go through the Python backend (CORS). |
 | **One process, one file** | FastAPI + asyncio event loop + SQLite in one Python process. No Celery, Redis, or worker pool. |
 | **Bring-your-own-keys, stored locally** | Env vars or SQLite. Keys never leave the user's machine. |
-| **Provider adapters are thin HTTP clients** | No official SDK dependencies. `httpx` is enough. Adding a provider is one ~80-line file. |
+| **Provider adapters use appropriate abstractions** | LLM providers use Pydantic AI as a unified abstraction layer (tool-calling, structured output, model switching). Tool providers (Serper, Tavily, Firecrawl) remain thin `httpx` clients — no SDK needed. Adding a provider is one file. |
 | **Custom model IDs always allowed** | Curated model catalog is a starting point; users can enter any model slug. Pricing is just "unknown" for custom models. Tool ages well when providers ship new models. |
 | **No streaming in v0.1** | We need full responses to compare final token counts and latency apples-to-apples. Streaming adds complexity and asymmetric UX. |
 

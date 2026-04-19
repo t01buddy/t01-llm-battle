@@ -14,6 +14,8 @@
 | US-10 | Power user | Enter a custom model ID not in the catalog | I can test new models as soon as providers ship them |
 | US-11 | Any user | See a markdown report summarising fighter rankings | I can share findings with a colleague by copy-pasting the markdown |
 | US-12 | Any user | Drill down into each step's input/output | I can debug which step in a pipeline caused a poor result |
+| US-13 | Developer | Use Serper search as step 1, GPT-4o as step 2 | I can compare pipelines that include web search |
+| US-14 | Developer | See credit costs alongside token costs in results | I can compare total cost of mixed LLM+tool pipelines |
 
 ---
 
