@@ -4,7 +4,7 @@ After a run completes, score each fighter_result using the battle's judge_provid
 """
 import re
 from .providers.registry import get_provider
-from .providers.base import CompletionRequest
+from .providers.base import ProviderRequest
 from .db import get_db
 
 DEFAULT_JUDGE_PROMPT = """You are evaluating an AI assistant's response to a task.
@@ -42,8 +42,8 @@ async def score_response(
             response=response_content,
             rubric=judge_rubric or "Quality, accuracy, and helpfulness.",
         )
-        result = await provider.complete(
-            CompletionRequest(
+        result = await provider.run(
+            ProviderRequest(
                 model=judge_model,
                 system_prompt="You are an objective evaluator. Always end with 'SCORE: <0-10>'.",
                 user_prompt=prompt,
@@ -153,10 +153,10 @@ async def generate_report(
             "Use proper markdown formatting with headers, tables where appropriate, and bullet points."
         )
 
-        # 4. Call provider.complete
+        # 4. Call provider.run
         provider = get_provider(judge_provider)
-        result = await provider.complete(
-            CompletionRequest(
+        result = await provider.run(
+            ProviderRequest(
                 model=judge_model,
                 system_prompt="You are an expert technical writer producing clear, insightful battle reports.",
                 user_prompt=report_prompt,

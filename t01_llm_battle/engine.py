@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from .db import DB_PATH, get_db, resolve_api_key, _PROVIDER_ENV_VARS
 from .judge import score_response, generate_report
-from .providers.base import CompletionRequest, CompletionResult
+from .providers.base import ProviderRequest, ProviderResult
 from .providers.registry import get_provider
 from . import rate_limiter
 
@@ -152,7 +152,7 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                     temperature = config.pop("temperature", 0.7)
                     max_tokens = config.pop("max_tokens", 2048)
 
-                    request = CompletionRequest(
+                    request = ProviderRequest(
                         model=step["model_id"],
                         system_prompt=step["system_prompt"] or "",
                         user_prompt=step_input,
@@ -164,7 +164,7 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                     # Inject DB key into env if env var not already set
                     injected_env_var = await _inject_api_key(step["provider"], db_path)
                     t0 = time.monotonic()
-                    result: CompletionResult = await provider.complete(request)
+                    result: ProviderResult = await provider.run(request)
                     latency_ms = int((time.monotonic() - t0) * 1000)
                     # Remove injected env var so it doesn't persist across steps
                     if injected_env_var:
