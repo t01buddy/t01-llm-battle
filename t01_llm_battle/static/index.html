@@ -1394,9 +1394,21 @@ Do not wrap the JSON in markdown fences.`;
         route: 'battles',
         params: {},
 
-        init() {
+        async init() {
           this.parseRoute();
           window.addEventListener('hashchange', () => this.parseRoute());
+          // Smart landing: if no specific route is requested, go to most recent battle or new battle form
+          if (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#/battles') {
+            const resp = await fetch('/battles');
+            const battles = await resp.json();
+            if (battles && battles.length > 0) {
+              // Sort by created_at desc to get most recent, navigate to it
+              const sorted = battles.sort((a, b) => b.created_at > a.created_at ? 1 : -1);
+              window.location.hash = '/battles/' + sorted[0].id;
+            } else {
+              window.location.hash = '/battles/new';
+            }
+          }
         },
 
         parseRoute() {
