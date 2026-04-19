@@ -3,879 +3,1242 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LLM Battle Arena</title>
+  <title>T01 LLM Battle</title>
   <link rel="stylesheet" href="/vendor/easymde.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --ink:    #0d0f13;
+      --card:   #14181f;
+      --border: #1f2530;
+      --gold:   #F0B90B;
+      --gold-dim: #b08a08;
+      --high:   #E7ECF3;
+      --mid:    #8A93A3;
+      --low:    #4a5568;
+      --red:    #e53e3e;
+      --green:  #38a169;
+      --amber:  #d69e2e;
+    }
 
     body {
       margin: 0;
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 15px;
-      color: #1a1a1a;
-      background: #f5f5f5;
+      color: var(--high);
+      background: var(--ink);
     }
 
-    nav {
-      background: #1a1a2e;
-      color: #fff;
-      padding: 0 1.5rem;
+    /* Layout */
+    .layout {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-brand {
+      padding: 1rem 1rem 0.75rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--gold);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 0;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .sidebar-section {
+      padding: 0 0.75rem 0.5rem;
+    }
+
+    .sidebar-section-header {
       display: flex;
       align-items: center;
-      gap: 2rem;
-      height: 52px;
-    }
-
-    nav .brand {
+      justify-content: space-between;
+      font-size: 0.7rem;
       font-weight: 700;
-      font-size: 1.05rem;
-      letter-spacing: -0.01em;
-      color: #fff;
-      text-decoration: none;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mid);
+      padding: 0.5rem 0.25rem 0.4rem;
     }
 
-    nav a {
-      color: #c8c8e8;
-      text-decoration: none;
-      font-size: 0.9rem;
-      padding: 4px 0;
-      border-bottom: 2px solid transparent;
+    .sidebar-btn-icon {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--mid);
+      font-size: 0.8rem;
+      padding: 1px 7px;
+      cursor: pointer;
       transition: color 0.15s, border-color 0.15s;
     }
+    .sidebar-btn-icon:hover { color: var(--gold); border-color: var(--gold); }
 
-    nav a:hover { color: #fff; }
-    nav a.active { color: #fff; border-bottom-color: #7c6af7; }
+    .battle-item {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border-radius: 6px;
+      margin-bottom: 2px;
+      transition: background 0.12s;
+    }
+    .battle-item:hover { background: rgba(240,185,11,0.07); }
+    .battle-item.active { background: rgba(240,185,11,0.12); }
 
-    main {
-      max-width: 960px;
+    .battle-item-link {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 0.85rem;
+      color: var(--high);
+      text-decoration: none;
+      min-width: 0;
+      cursor: pointer;
+    }
+    .battle-item.active .battle-item-link { color: var(--gold); font-weight: 600; }
+
+    .battle-item-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .battle-item-meta {
+      font-size: 0.72rem;
+      color: var(--mid);
+      margin-top: 1px;
+    }
+
+    .battle-item-del {
+      background: none;
+      border: none;
+      color: var(--low);
+      font-size: 0.8rem;
+      padding: 4px 6px;
+      cursor: pointer;
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .battle-item-del:hover { color: var(--red); }
+
+    /* Provider list in sidebar */
+    .provider-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 5px 6px;
+      border-radius: 6px;
+      margin-bottom: 2px;
+      font-size: 0.85rem;
+      color: var(--high);
+    }
+    .provider-item:hover { background: rgba(255,255,255,0.04); }
+
+    .provider-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .toggle {
+      position: relative;
+      width: 30px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 8px;
+      background: var(--low);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--gold); }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      pointer-events: none;
+      transition: transform 0.2s;
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(14px); }
+
+    .provider-edit-btn {
+      background: none;
+      border: none;
+      color: var(--mid);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .provider-edit-btn:hover { color: var(--gold); }
+
+    /* Main content */
+    .content {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      background: var(--ink);
+    }
+
+    .content-inner {
+      max-width: 900px;
       margin: 0 auto;
       padding: 2rem 1.5rem;
     }
 
-    h1 { font-size: 1.5rem; margin: 0 0 1.25rem; }
-    h2 { font-size: 1.15rem; margin: 0 0 1rem; }
+    h1 { font-size: 1.4rem; margin: 0 0 1.25rem; font-weight: 700; letter-spacing: -0.01em; color: var(--high); }
+    h2 { font-size: 1.1rem; margin: 0 0 1rem; font-weight: 600; color: var(--high); }
 
-    .placeholder {
-      background: #e8e8f0;
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      height: 180px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #888;
-      font-size: 0.9rem;
-      border: 2px dashed #ccc;
-      margin-top: 1rem;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 7px 14px;
+      transition: opacity 0.15s;
+      text-decoration: none;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-gold { background: var(--gold); color: var(--ink); }
+    .btn-gold:hover:not(:disabled) { background: #d4a509; }
+    .btn-ghost { background: none; color: var(--mid); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { color: var(--high); border-color: var(--mid); }
+    .btn-danger { background: none; color: var(--red); border: 1px solid var(--border); }
+    .btn-danger:hover { background: rgba(229,62,62,0.1); }
+
+    /* Inputs */
+    .input, .select, .textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: var(--ink);
+      color: var(--high);
+      transition: border-color 0.15s;
+    }
+    .input:focus, .select:focus, .textarea:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+    .select { background-image: none; }
+
+    label.field-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: var(--mid);
+    }
+
+    /* Badge */
     .badge {
       display: inline-block;
-      background: #7c6af7;
-      color: #fff;
+      background: var(--gold);
+      color: var(--ink);
       border-radius: 4px;
-      padding: 2px 8px;
-      font-size: 0.75rem;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      font-weight: 700;
       margin-left: 0.5rem;
       vertical-align: middle;
     }
+    .badge-muted {
+      background: var(--low);
+      color: var(--mid);
+    }
+
+    /* Placeholder */
+    .placeholder {
+      background: var(--card);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mid);
+      font-size: 0.9rem;
+    }
+
+    /* Errors / messages */
+    .error-box {
+      color: var(--red);
+      background: rgba(229,62,62,0.08);
+      border: 1px solid rgba(229,62,62,0.3);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      margin: 0.5rem 0;
+    }
+
+    /* Provider popup modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      width: 380px;
+      max-width: 95vw;
+    }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--high);
+      margin: 0 0 1rem;
+    }
+
+    /* Tabs in battle detail */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 8px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--mid);
+      cursor: pointer;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--high); }
+    .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* Step chips in run view */
+    .chip {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 0.75rem;
+      border: 1px solid;
+    }
+    .chip-ok { background: rgba(56,161,105,0.15); color: #68d391; border-color: rgba(56,161,105,0.3); }
+    .chip-err { background: rgba(229,62,62,0.15); color: #fc8181; border-color: rgba(229,62,62,0.3); }
+    .chip-run { background: rgba(99,179,237,0.15); color: #90cdf4; border-color: rgba(99,179,237,0.3); }
+    .chip-wait { background: rgba(214,158,46,0.15); color: #f6e05e; border-color: rgba(214,158,46,0.3); }
+    .chip-pend { background: rgba(160,174,192,0.1); color: var(--mid); border-color: var(--border); }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    th, td { padding: 9px 13px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { font-size: 0.82rem; color: var(--mid); font-weight: 600; background: rgba(255,255,255,0.02); }
+    td { font-size: 0.87rem; }
+    tr:last-child td { border-bottom: none; }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .sidebar { width: 220px; min-width: 220px; }
+      .layout.sidebar-collapsed .sidebar { display: none; }
+      .sidebar-toggle { display: flex; }
+    }
+
+    .sidebar-toggle {
+      display: none;
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 50;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--gold);
+      font-size: 1.1rem;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+
+    /* EasyMDE dark override */
+    .EasyMDEContainer .CodeMirror {
+      background: var(--ink) !important;
+      color: var(--high) !important;
+      border-color: var(--border) !important;
+    }
+    .editor-toolbar { background: var(--card) !important; border-color: var(--border) !important; }
+    .editor-toolbar button { color: var(--mid) !important; }
+    .editor-toolbar button:hover, .editor-toolbar button.active { background: var(--border) !important; color: var(--high) !important; }
   </style>
 </head>
 <body x-data="app()" x-init="init()">
 
-  <nav>
-    <a href="#/battles" class="brand">LLM Battle Arena</a>
-    <a href="#/battles"
-       :class="{ active: route === 'battles' || route === 'battles/new' || route === 'battles/detail' }">
-      Battles
-    </a>
-    <a href="#/keys"
-       :class="{ active: route === 'keys' }">
-      API Keys
-    </a>
-  </nav>
+  <button class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">☰</button>
 
-  <main>
+  <div class="layout" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
 
-    <!-- View: battles list -->
-    <section x-show="route === 'battles'" x-data="battlesList()" x-init="load()">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
-        <h1 style="margin:0;">Battles</h1>
-        <a href="#/battles/new" style="background:#7c6af7;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:0.9rem;font-weight:600;">+ New Battle</a>
-      </div>
+    <!-- Sidebar -->
+    <aside class="sidebar" x-data="sidebarData()" x-init="loadBattles(); loadProviders()">
 
-      <template x-if="loading">
-        <p style="color:#888;">Loading...</p>
-      </template>
+      <div class="sidebar-brand">T01 LLM Battle</div>
 
-      <template x-if="!loading && battles.length === 0">
-        <div class="placeholder">
-          No battles yet. <a href="#/battles/new" style="color:#7c6af7;">Create your first battle</a> to get started.
-        </div>
-      </template>
+      <div class="sidebar-scroll">
 
-      <template x-if="!loading && battles.length > 0">
-        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.75rem;">
+        <!-- Battles section -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            Battles
+            <button class="sidebar-btn-icon" @click="newBattle()" title="New battle">+</button>
+          </div>
+
+          <template x-if="battlesLoading">
+            <p style="font-size:0.8rem;color:var(--mid);padding:4px 6px;">Loading...</p>
+          </template>
+
+          <template x-if="!battlesLoading && battles.length === 0">
+            <p style="font-size:0.8rem;color:var(--mid);padding:4px 6px;">No battles yet.</p>
+          </template>
+
           <template x-for="b in battles" :key="b.id">
-            <li style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;">
+            <div class="battle-item" :class="{ active: $root.params.id === b.id }">
+              <div class="battle-item-link" @click="selectBattle(b.id)">
+                <div class="battle-item-name" x-text="b.name"></div>
+                <div class="battle-item-meta" x-text="b.created_at ? new Date(b.created_at).toLocaleDateString() : ''"></div>
+              </div>
+              <button class="battle-item-del" @click.stop="deleteBattle(b.id)" title="Delete battle">✕</button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Providers section -->
+        <div class="sidebar-section" style="margin-top:1rem;">
+          <div class="sidebar-section-header">Providers</div>
+
+          <template x-if="providersLoading">
+            <p style="font-size:0.8rem;color:var(--mid);padding:4px 6px;">Loading...</p>
+          </template>
+
+          <template x-for="p in providers" :key="p.name">
+            <div class="provider-item">
+              <span class="provider-item-name" x-text="p.display_name || p.name"></span>
+              <label class="toggle" :title="p.enabled ? 'Disable' : 'Enable'">
+                <input type="checkbox" :checked="p.enabled" @change="toggleProvider(p.name, $event.target.checked)">
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+              </label>
+              <button class="provider-edit-btn" @click="openProviderEdit(p)" title="Edit">✎</button>
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+      <!-- Provider edit popup -->
+      <template x-if="editProvider">
+        <div class="modal-backdrop" @click.self="editProvider = null">
+          <div class="modal">
+            <div class="modal-title" x-text="(editProvider.display_name || editProvider.name) + ' — Settings'"></div>
+
+            <div style="display:flex;flex-direction:column;gap:0.9rem;">
               <div>
-                <a :href="'#/battles/' + b.id" style="font-weight:600;color:#1a1a2e;text-decoration:none;font-size:1rem;" x-text="b.name"></a>
-                <div style="font-size:0.8rem;color:#888;margin-top:2px;">
-                  <span x-text="b.judge_provider || '—'"></span> / <span x-text="b.judge_model || '—'"></span>
-                  &nbsp;·&nbsp; <span x-text="b.created_at ? new Date(b.created_at).toLocaleDateString() : ''"></span>
+                <label class="field-label">API Key</label>
+                <div style="display:flex;gap:0.5rem;">
+                  <input type="password" class="input" x-model="editApiKey" placeholder="Paste to update…" style="flex:1;">
+                  <button class="btn btn-gold" @click="saveApiKey(editProvider.name)" :disabled="!editApiKey.trim()">Save</button>
                 </div>
+                <p x-show="editKeyMsg" style="font-size:0.8rem;color:var(--green);margin:4px 0 0;" x-text="editKeyMsg"></p>
               </div>
-              <a :href="'#/battles/' + b.id" style="color:#7c6af7;font-size:0.85rem;text-decoration:none;">View →</a>
-            </li>
-          </template>
-        </ul>
-      </template>
 
-      <template x-if="error">
-        <p style="color:#c0392b;" x-text="error"></p>
-      </template>
-    </section>
-
-    <!-- View: new battle -->
-    <section x-show="route === 'battles/new'" x-data="battleForm()" x-init="init()">
-      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-        <h1 style="margin:0;">New Battle</h1>
-        <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;">← Cancel</a>
-      </div>
-
-      <form @submit.prevent="submit()" style="max-width:600px;display:flex;flex-direction:column;gap:1.25rem;">
-
-        <div>
-          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-name">Battle Name <span style="color:#c0392b;">*</span></label>
-          <input id="bf-name" type="text" x-model="name" required placeholder="e.g. Summarisation quality test"
-            style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-          <div>
-            <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-provider">Judge Provider</label>
-            <select id="bf-provider" x-model="judge_provider" @change="onProviderChange()"
-              style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;background:#fff;">
-              <template x-if="providers.length === 0">
-                <option value="">Loading…</option>
-              </template>
-              <template x-for="p in providers" :key="p">
-                <option :value="p" x-text="p"></option>
-              </template>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:4px;" for="bf-model">Judge Model</label>
-            <input id="bf-model" type="text" x-model="judge_model"
-              :placeholder="modelPlaceholder()"
-              :list="'bf-model-suggestions-' + judge_provider"
-              style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
-            <!-- datalist for suggestions per provider -->
-            <datalist id="bf-model-suggestions-openai">
-              <option value="gpt-4o"></option>
-              <option value="gpt-4o-mini"></option>
-              <option value="gpt-4-turbo"></option>
-              <option value="o1-mini"></option>
-            </datalist>
-            <datalist id="bf-model-suggestions-anthropic">
-              <option value="claude-opus-4-5"></option>
-              <option value="claude-sonnet-4-5"></option>
-              <option value="claude-haiku-3-5"></option>
-            </datalist>
-            <datalist id="bf-model-suggestions-google">
-              <option value="gemini-2.0-flash"></option>
-              <option value="gemini-1.5-pro"></option>
-              <option value="gemini-1.5-flash"></option>
-            </datalist>
-            <datalist id="bf-model-suggestions-groq">
-              <option value="llama-3.3-70b-versatile"></option>
-              <option value="mixtral-8x7b-32768"></option>
-            </datalist>
-            <datalist id="bf-model-suggestions-openrouter">
-              <option value="openai/gpt-4o"></option>
-              <option value="anthropic/claude-opus-4-5"></option>
-            </datalist>
-            <datalist id="bf-model-suggestions-ollama">
-              <option value="llama3.2"></option>
-              <option value="mistral"></option>
-              <option value="phi4"></option>
-            </datalist>
-          </div>
-        </div>
-
-        <div>
-          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:6px;" for="bf-rubric">
-            Judge Rubric
-            <span style="color:#888;font-weight:400;">(optional — edit or replace the default)</span>
-          </label>
-          <textarea id="bf-rubric" x-ref="rubricTextarea"
-            style="display:none;"
-            x-model="judge_rubric"></textarea>
-          <!-- EasyMDE is mounted here; actual value synced via x-model above -->
-        </div>
-
-        <template x-if="error">
-          <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;margin:0;font-size:0.9rem;" x-text="error"></p>
-        </template>
-
-        <div style="display:flex;align-items:center;gap:1rem;">
-          <button type="submit" :disabled="loading"
-            style="background:#7c6af7;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;opacity:1;"
-            :style="loading ? 'opacity:0.6;cursor:not-allowed;' : ''">
-            <span x-text="loading ? 'Creating...' : 'Create Battle'"></span>
-          </button>
-          <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;">Cancel</a>
-        </div>
-
-      </form>
-    </section>
-
-    <!-- View: battle detail -->
-    <section x-show="route === 'battles/detail'"
-             x-data="battleDetail()"
-             x-init="$watch('$root.params.id', id => { if (id) load(id); }); if ($root.params.id) load($root.params.id);">
-
-      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-        <h1 style="margin:0;">
-          Battle Detail
-          <span class="badge" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span>
-        </h1>
-        <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;">← Back to Battles</a>
-      </div>
-
-      <!-- Sources section -->
-      <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;">
-        <h2 style="margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
-          Sources
-          <span class="badge" x-text="sources.length"></span>
-        </h2>
-
-        <!-- Upload area -->
-        <div style="margin-bottom:1.25rem;">
-          <label style="display:block;font-weight:600;font-size:0.9rem;margin-bottom:6px;">Upload files</label>
-          <p style="font-size:0.82rem;color:#666;margin:0 0 8px;">
-            Accepts <code>.txt</code>, <code>.md</code> (one source per file) and <code>.csv</code> (one source per row).
-            Multiple files supported for text/markdown.
-          </p>
-          <input type="file" accept=".txt,.md,.csv" multiple
-                 :disabled="uploading"
-                 @change="upload($event, $root.params.id)"
-                 style="display:block;font-size:0.9rem;">
-          <template x-if="uploading">
-            <p style="color:#7c6af7;font-size:0.9rem;margin:6px 0 0;">Uploading...</p>
-          </template>
-        </div>
-
-        <!-- Error message -->
-        <template x-if="error">
-          <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;margin:0 0 1rem;font-size:0.9rem;" x-text="error"></p>
-        </template>
-
-        <!-- Source list -->
-        <template x-if="sources.length === 0">
-          <p style="color:#888;font-size:0.9rem;margin:0;">No sources yet. Upload files above to add source items.</p>
-        </template>
-
-        <template x-if="sources.length > 0">
-          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.5rem;">
-            <template x-for="s in sources" :key="s.id">
-              <li style="display:flex;align-items:center;justify-content:space-between;background:#f8f8fc;border:1px solid #e8e8f0;border-radius:6px;padding:8px 12px;">
-                <span style="font-size:0.9rem;color:#1a1a2e;" x-text="s.label"></span>
-                <button @click="remove($root.params.id, s.id)"
-                        style="background:none;border:1px solid #e0e0e0;border-radius:4px;padding:3px 10px;font-size:0.8rem;color:#c0392b;cursor:pointer;transition:background 0.15s;"
-                        onmouseover="this.style.background='#fdf0f0'" onmouseout="this.style.background='none'">
-                  Delete
-                </button>
-              </li>
-            </template>
-          </ul>
-        </template>
-      </div>
-
-      <!-- Fighters section -->
-      <div x-data="fighterList()" x-init="load($root.params.id)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-          <h2 style="margin:0;">Fighters</h2>
-          <button @click="showAddFighter = !showAddFighter"
-            style="background:#7c6af7;color:#fff;border:none;padding:7px 14px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">
-            + Add Fighter
-          </button>
-        </div>
-
-        <!-- Add fighter form -->
-        <template x-if="showAddFighter">
-          <form @submit.prevent="addFighter($root.params.id)"
-            style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
-            <h3 style="margin:0;font-size:1rem;">New Fighter</h3>
-            <div style="display:flex;gap:1rem;align-items:flex-end;">
-              <div style="flex:1;">
-                <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:4px;">Fighter Name <span style="color:#c0392b;">*</span></label>
-                <input type="text" x-model="newFighter.name" required placeholder="e.g. GPT-4o pipeline"
-                  style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;">
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;padding-bottom:2px;">
-                <input type="checkbox" id="f-manual" x-model="newFighter.is_manual" style="width:16px;height:16px;cursor:pointer;">
-                <label for="f-manual" style="font-size:0.9rem;cursor:pointer;">Manual</label>
-              </div>
-            </div>
-            <template x-if="addFighterError">
-              <p style="color:#c0392b;margin:0;font-size:0.85rem;" x-text="addFighterError"></p>
-            </template>
-            <div style="display:flex;gap:0.75rem;">
-              <button type="submit" :disabled="addingFighter"
-                style="background:#7c6af7;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;"
-                :style="addingFighter ? 'opacity:0.6;cursor:not-allowed;' : ''">
-                <span x-text="addingFighter ? 'Adding...' : 'Add Fighter'"></span>
-              </button>
-              <button type="button" @click="showAddFighter = false"
-                style="background:none;border:1px solid #ccc;padding:7px 14px;border-radius:6px;font-size:0.85rem;cursor:pointer;">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </template>
-
-        <!-- Loading fighters -->
-        <template x-if="loadingFighters">
-          <p style="color:#888;font-size:0.9rem;">Loading fighters...</p>
-        </template>
-
-        <!-- Empty state -->
-        <template x-if="!loadingFighters && fighters.length === 0">
-          <div class="placeholder" style="height:120px;">No fighters yet. Add your first fighter above.</div>
-        </template>
-
-        <!-- Fighter cards -->
-        <template x-if="!loadingFighters && fighters.length > 0">
-          <div style="display:flex;flex-direction:column;gap:1rem;">
-            <template x-for="fighter in fighters" :key="fighter.id">
-              <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-                  <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <span style="font-weight:600;font-size:0.95rem;" x-text="fighter.name"></span>
-                    <span x-show="fighter.is_manual" class="badge" style="background:#888;">manual</span>
+              <template x-if="editProvider.supports_server_url">
+                <div>
+                  <label class="field-label">Server URL</label>
+                  <input type="text" class="input" x-model="editServerUrl" placeholder="http://localhost:11434">
+                  <div style="display:flex;gap:0.5rem;margin-top:6px;">
+                    <button class="btn btn-gold" @click="saveServerUrl(editProvider.name)">Save URL</button>
                   </div>
-                  <button x-show="!fighter.is_manual"
-                    @click="toggleAddStep(fighter.id)"
-                    style="background:#f0eeff;color:#7c6af7;border:1px solid #c8bffa;padding:5px 12px;border-radius:6px;font-size:0.82rem;font-weight:600;cursor:pointer;">
-                    + Add Step
-                  </button>
+                  <p x-show="editUrlMsg" style="font-size:0.8rem;color:var(--green);margin:4px 0 0;" x-text="editUrlMsg"></p>
                 </div>
+              </template>
 
-                <!-- Steps list -->
-                <template x-if="fighter.steps && fighter.steps.length > 0">
-                  <ul style="list-style:none;padding:0;margin:0 0 0.75rem;display:flex;flex-direction:column;gap:4px;">
-                    <template x-for="(step, idx) in fighter.steps" :key="step.id">
-                      <li style="background:#f8f8fb;border:1px solid #ececf4;border-radius:6px;padding:6px 10px;font-size:0.85rem;display:flex;gap:0.75rem;align-items:center;">
-                        <span style="color:#888;font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
-                        <span style="color:#555;" x-text="step.provider"></span>
-                        <span style="color:#333;font-weight:500;" x-text="step.model_id"></span>
-                        <span x-show="step.system_prompt" style="color:#888;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;" x-text="step.system_prompt"></span>
-                      </li>
-                    </template>
-                  </ul>
-                </template>
+              <template x-if="!editProvider.is_system">
+                <div style="padding-top:0.5rem;border-top:1px solid var(--border);">
+                  <button class="btn btn-danger" @click="uninstallProvider(editProvider.name)">Uninstall Provider</button>
+                </div>
+              </template>
+            </div>
 
-                <template x-if="!fighter.steps || fighter.steps.length === 0">
-                  <p x-show="!fighter.is_manual" style="font-size:0.85rem;color:#aaa;margin:0 0 0.5rem;">No steps yet.</p>
-                </template>
+            <div style="margin-top:1.2rem;text-align:right;">
+              <button class="btn btn-ghost" @click="editProvider = null">Close</button>
+            </div>
+          </div>
+        </div>
+      </template>
 
-                <!-- Add step form (inline) -->
-                <template x-if="activeStepFighterId === fighter.id">
-                  <form @submit.prevent="addStep($root.params.id, fighter.id)"
-                    style="background:#f8f8fb;border:1px solid #ddd;border-radius:6px;padding:0.75rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.65rem;">
-                    <h4 style="margin:0;font-size:0.9rem;">New Step</h4>
-                    <!-- System prompt: only for LLM providers -->
-                    <template x-if="stepProviderType() === 'llm'">
-                      <div>
-                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">System Prompt <span style="font-weight:400;color:#888;">(optional)</span></label>
-                        <textarea x-model="newStep.system_prompt" rows="3"
-                          placeholder="You are a helpful assistant..."
-                          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;resize:vertical;font-family:inherit;"></textarea>
-                      </div>
-                    </template>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-                      <div>
-                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Provider <span style="color:#c0392b;">*</span></label>
-                        <select x-model="newStep.provider" @change="onStepProviderChange()" required
-                          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
-                          <!-- LLM group -->
-                          <template x-if="providerInfoList.filter(p => p.provider_type === 'llm').length > 0">
-                            <optgroup label="LLM Providers">
-                              <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm')" :key="p.name">
-                                <option :value="p.name" x-text="p.display_name"></option>
-                              </template>
-                            </optgroup>
-                          </template>
-                          <!-- Tool group -->
-                          <template x-if="providerInfoList.filter(p => p.provider_type === 'tool').length > 0">
-                            <optgroup label="Tool Providers">
-                              <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool')" :key="p.name">
-                                <option :value="p.name" x-text="p.display_name"></option>
-                              </template>
-                            </optgroup>
-                          </template>
-                          <!-- Fallback if providerInfoList empty -->
-                          <template x-if="providerInfoList.length === 0">
-                            <template x-for="p in providers" :key="p">
-                              <option :value="p" x-text="p"></option>
-                            </template>
-                          </template>
-                        </select>
-                      </div>
-                      <!-- Model dropdown for LLM providers -->
-                      <template x-if="stepProviderType() === 'llm'">
-                        <div>
-                          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Model <span style="color:#c0392b;">*</span></label>
-                          <select x-model="newStep.model_id" required
-                            style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
-                            <template x-for="m in stepProviderModels()" :key="m.id">
-                              <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
-                            </template>
-                            <option value="">Custom…</option>
-                          </select>
-                          <template x-if="newStep.model_id === ''">
-                            <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID"
-                              style="width:100%;margin-top:4px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
-                          </template>
-                        </div>
-                      </template>
-                      <!-- Function dropdown for tool providers -->
-                      <template x-if="stepProviderType() === 'tool'">
-                        <div>
-                          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Function <span style="color:#c0392b;">*</span></label>
-                          <select x-model="newStep.model_id" required
-                            style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;background:#fff;">
-                            <template x-for="m in stepProviderModels()" :key="m.id">
-                              <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
-                            </template>
-                          </select>
-                        </div>
-                      </template>
-                      <!-- Fallback text input if no providerInfoList -->
-                      <template x-if="stepProviderType() === null">
-                        <div>
-                          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Model <span style="color:#c0392b;">*</span></label>
-                          <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o"
-                            style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
-                        </div>
-                      </template>
-                    </div>
-                    <!-- Pricing hint -->
-                    <template x-if="stepPricingHint()">
-                      <p style="margin:0;font-size:0.78rem;color:#7c6af7;background:#f0eeff;border:1px solid #d8d0fa;border-radius:4px;padding:4px 8px;" x-text="stepPricingHint()"></p>
-                    </template>
-                    <!-- Native tools multi-select (LLM providers only) -->
-                    <template x-if="stepNativeTools().length > 0">
-                      <div>
-                        <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Tools <span style="font-weight:400;color:#888;">(optional model-native tools)</span></label>
-                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                          <template x-for="tool in stepNativeTools()" :key="tool">
-                            <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;">
-                              <input type="checkbox" :value="tool" x-model="newStep.selected_tools">
-                              <span x-text="tool"></span>
-                            </label>
-                          </template>
-                        </div>
-                      </div>
-                    </template>
-                    <div>
-                      <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:3px;">Provider Config <span style="font-weight:400;color:#888;">(JSON, optional)</span></label>
-                      <textarea x-model="newStep.provider_config" rows="2"
-                        placeholder="{}"
-                        style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;resize:vertical;font-family:monospace;"></textarea>
-                    </div>
-                    <template x-if="addStepError">
-                      <p style="color:#c0392b;margin:0;font-size:0.82rem;" x-text="addStepError"></p>
-                    </template>
-                    <div style="display:flex;gap:0.75rem;">
-                      <button type="submit" :disabled="addingStep"
-                        style="background:#7c6af7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.83rem;font-weight:600;cursor:pointer;"
-                        :style="addingStep ? 'opacity:0.6;cursor:not-allowed;' : ''">
-                        <span x-text="addingStep ? 'Adding...' : 'Add Step'"></span>
-                      </button>
-                      <button type="button" @click="activeStepFighterId = null"
-                        style="background:none;border:1px solid #ccc;padding:6px 12px;border-radius:6px;font-size:0.83rem;cursor:pointer;">
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+    </aside>
+
+    <!-- Main content -->
+    <main class="content">
+      <div class="content-inner">
+
+        <!-- View: new battle form -->
+        <section x-show="route === 'battles/new'" x-data="battleForm()" x-init="init()">
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+            <h1 style="margin:0;">New Battle</h1>
+            <a href="#/battles" class="btn btn-ghost" style="font-size:0.85rem;">← Cancel</a>
+          </div>
+
+          <form @submit.prevent="submit()" style="max-width:560px;display:flex;flex-direction:column;gap:1.25rem;">
+
+            <div>
+              <label class="field-label" for="bf-name">Battle Name <span style="color:var(--red);">*</span></label>
+              <input id="bf-name" type="text" x-model="name" required placeholder="e.g. Summarisation quality test" class="input">
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+              <div>
+                <label class="field-label" for="bf-provider">Judge Provider</label>
+                <select id="bf-provider" x-model="judge_provider" @change="onProviderChange()" class="select">
+                  <template x-if="providers.length === 0">
+                    <option value="">Loading…</option>
+                  </template>
+                  <template x-for="p in providers" :key="p">
+                    <option :value="p" x-text="p"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="field-label" for="bf-model">Judge Model</label>
+                <input id="bf-model" type="text" x-model="judge_model"
+                  :placeholder="modelPlaceholder()"
+                  :list="'bf-model-suggestions-' + judge_provider"
+                  class="input">
+                <datalist id="bf-model-suggestions-openai">
+                  <option value="gpt-4o"></option><option value="gpt-4o-mini"></option><option value="gpt-4-turbo"></option><option value="o1-mini"></option>
+                </datalist>
+                <datalist id="bf-model-suggestions-anthropic">
+                  <option value="claude-opus-4-5"></option><option value="claude-sonnet-4-5"></option><option value="claude-haiku-3-5"></option>
+                </datalist>
+                <datalist id="bf-model-suggestions-google">
+                  <option value="gemini-2.0-flash"></option><option value="gemini-1.5-pro"></option><option value="gemini-1.5-flash"></option>
+                </datalist>
+                <datalist id="bf-model-suggestions-groq">
+                  <option value="llama-3.3-70b-versatile"></option><option value="mixtral-8x7b-32768"></option>
+                </datalist>
+                <datalist id="bf-model-suggestions-openrouter">
+                  <option value="openai/gpt-4o"></option><option value="anthropic/claude-opus-4-5"></option>
+                </datalist>
+                <datalist id="bf-model-suggestions-ollama">
+                  <option value="llama3.2"></option><option value="mistral"></option><option value="phi4"></option>
+                </datalist>
+              </div>
+            </div>
+
+            <div>
+              <label class="field-label" for="bf-rubric">
+                Judge Rubric
+                <span style="color:var(--mid);font-weight:400;">(optional — edit or replace the default)</span>
+              </label>
+              <textarea id="bf-rubric" x-ref="rubricTextarea" style="display:none;" x-model="judge_rubric"></textarea>
+            </div>
+
+            <template x-if="error">
+              <p class="error-box" x-text="error"></p>
+            </template>
+
+            <div style="display:flex;align-items:center;gap:1rem;">
+              <button type="submit" class="btn btn-gold" :disabled="loading">
+                <span x-text="loading ? 'Creating...' : 'Create Battle'"></span>
+              </button>
+              <a href="#/battles" class="btn btn-ghost">Cancel</a>
+            </div>
+
+          </form>
+        </section>
+
+        <!-- View: battle detail with tabs -->
+        <section x-show="route === 'battles/detail'"
+                 x-data="battleDetail()"
+                 x-init="$watch('$root.params.id', id => { if (id) load(id); }); if ($root.params.id) load($root.params.id);">
+
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
+            <h1 style="margin:0;" x-text="battleName || 'Battle'"></h1>
+            <span class="badge" x-text="params.id ? params.id.slice(0,8) + '…' : ''"></span>
+          </div>
+
+          <!-- Tabs: Input / Definition / Result -->
+          <div class="tabs">
+            <button class="tab-btn" :class="{ active: battleTab === 'input' }" @click="battleTab = 'input'">Input</button>
+            <button class="tab-btn" :class="{ active: battleTab === 'definition' }" @click="battleTab = 'definition'">Definition</button>
+            <button class="tab-btn" :class="{ active: battleTab === 'result' }" @click="battleTab = 'result'">Result</button>
+          </div>
+
+          <!-- Tab: Input (Sources) -->
+          <div x-show="battleTab === 'input'">
+            <div class="card">
+              <h2 style="margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;">
+                Sources <span class="badge" x-text="sources.length"></span>
+              </h2>
+
+              <div style="margin-bottom:1.25rem;">
+                <label class="field-label">Upload files</label>
+                <p style="font-size:0.82rem;color:var(--mid);margin:0 0 8px;">
+                  Accepts <code>.txt</code>, <code>.md</code> (one source per file) and <code>.csv</code> (one source per row). Multiple files supported.
+                </p>
+                <input type="file" accept=".txt,.md,.csv" multiple :disabled="uploading" @change="upload($event, $root.params.id)"
+                  style="display:block;font-size:0.88rem;color:var(--mid);">
+                <template x-if="uploading">
+                  <p style="color:var(--gold);font-size:0.88rem;margin:6px 0 0;">Uploading…</p>
                 </template>
               </div>
-            </template>
-          </div>
-        </template>
 
-        <template x-if="fightersError">
-          <p style="color:#c0392b;font-size:0.9rem;" x-text="fightersError"></p>
-        </template>
-      </div>
+              <template x-if="error">
+                <p class="error-box" x-text="error"></p>
+              </template>
 
-      <!-- Run Battle button -->
-      <div style="margin-top:1.5rem;display:flex;align-items:center;gap:1rem;"
-           @fighters-updated.window="fighterCount = $event.detail.count">
-        <button @click="runBattle()"
-          :disabled="running || sources.length === 0 || fighterCount === 0"
-          style="background:#7c6af7;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;"
-          :style="(running || sources.length === 0 || fighterCount === 0) ? 'opacity:0.5;cursor:not-allowed;' : ''">
-          <span x-text="running ? 'Starting...' : 'Run Battle'"></span>
-        </button>
-        <template x-if="sources.length === 0 || fighterCount === 0">
-          <span style="font-size:0.85rem;color:#888;"
-            x-text="sources.length === 0 && fighterCount === 0 ? 'Add at least 1 source and 1 fighter to run.' : sources.length === 0 ? 'Add at least 1 source to run.' : 'Add at least 1 fighter to run.'">
-          </span>
-        </template>
-        <template x-if="runError">
-          <p style="color:#c0392b;margin:0;font-size:0.9rem;" x-text="runError"></p>
-        </template>
-      </div>
-    </section>
+              <template x-if="sources.length === 0">
+                <p style="color:var(--mid);font-size:0.9rem;margin:0;">No sources yet. Upload files above to add source items.</p>
+              </template>
 
-    <!-- View: live run -->
-    <section x-show="route === 'runs/detail'" x-data="runView()" x-init="$watch('$root.params.id', id => { if (id && $root.route === 'runs/detail') init(id); }); if ($root.params.id && $root.route === 'runs/detail') init($root.params.id);">
-      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
-        <h1 style="margin:0;">Live Run</h1>
-        <template x-if="run">
-          <span class="badge" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
-        </template>
-      </div>
-
-      <template x-if="error">
-        <p style="color:#c0392b;" x-text="error"></p>
-      </template>
-
-      <template x-if="!run && !error">
-        <p style="color:#888;">Loading run status...</p>
-      </template>
-
-      <template x-if="run">
-        <div>
-          <!-- Status bar -->
-          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-            <span style="font-size:0.9rem;color:#555;">Status:</span>
-            <span x-text="run.status"
-              :style="run.status === 'complete' ? 'color:#27ae60;font-weight:600;' : run.status === 'error' ? 'color:#c0392b;font-weight:600;' : 'color:#7c6af7;font-weight:600;'"></span>
-            <template x-if="run.status === 'complete'">
-              <a :href="'#/results/' + runId" style="background:#27ae60;color:#fff;padding:6px 14px;border-radius:6px;font-size:0.85rem;font-weight:600;text-decoration:none;">View Results →</a>
-            </template>
+              <template x-if="sources.length > 0">
+                <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.4rem;">
+                  <template x-for="s in sources" :key="s.id">
+                    <li style="display:flex;align-items:center;justify-content:space-between;background:var(--ink);border:1px solid var(--border);border-radius:6px;padding:7px 12px;">
+                      <span style="font-size:0.88rem;color:var(--high);" x-text="s.label"></span>
+                      <button @click="remove($root.params.id, s.id)" class="btn btn-danger" style="padding:3px 10px;font-size:0.78rem;">Delete</button>
+                    </li>
+                  </template>
+                </ul>
+              </template>
+            </div>
           </div>
 
-          <!-- Progress grid -->
-          <template x-if="sources().length > 0 && fighters().length > 0">
-            <div style="overflow-x:auto;">
-              <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
-                <thead>
-                  <tr style="background:#f5f5f5;">
-                    <th style="padding:10px 14px;text-align:left;font-size:0.85rem;color:#555;border-bottom:1px solid #e0e0e0;min-width:140px;">Source</th>
-                    <template x-for="fighter in fighters()" :key="fighter.fighter_id">
-                      <th style="padding:10px 14px;text-align:left;font-size:0.85rem;color:#555;border-bottom:1px solid #e0e0e0;min-width:180px;" x-text="fighter.fighter_name"></th>
-                    </template>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="source in sources()" :key="source.source_id">
-                    <tr style="border-bottom:1px solid #f0f0f0;">
-                      <td style="padding:10px 14px;font-size:0.85rem;color:#555;vertical-align:top;max-width:160px;word-break:break-word;" x-text="source.source_label"></td>
-                      <template x-for="fighter in fighters()" :key="fighter.fighter_id">
-                        <td style="padding:10px 14px;vertical-align:top;">
-                          <template x-if="getCellResult(fighter.fighter_id, source.source_id)">
-                            <div x-data="{ cell: getCellResult(fighter.fighter_id, source.source_id), submitContent: '', submitting: false, submitError: null }">
-                              <!-- Step chips -->
-                              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-                                <template x-for="(step, idx) in (cell.steps || [])" :key="idx">
-                                  <span
-                                    :title="step.status === 'error' ? (step.error || 'Error') : ''"
-                                    :style="step.status === 'complete'
-                                      ? 'background:#d4edda;color:#155724;border:1px solid #c3e6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
-                                      : step.status === 'error'
-                                        ? 'background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;cursor:help;'
-                                        : 'background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;border-radius:4px;padding:2px 7px;font-size:0.75rem;'">
-                                    <span x-text="step.status === 'complete' ? '✓ ' + (step.label || ('step ' + (idx+1))) : step.status === 'error' ? '✗ ' + (step.label || ('step ' + (idx+1))) : (step.label || ('step ' + (idx+1)))"></span>
-                                  </span>
-                                </template>
-                                <!-- Overall cell status chip when no steps yet -->
-                                <template x-if="!cell.steps || cell.steps.length === 0">
-                                  <span :style="cell.status === 'complete'
-                                    ? 'background:#d4edda;color:#155724;border:1px solid #c3e6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
-                                    : cell.status === 'error'
-                                      ? 'background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
-                                      : cell.status === 'running'
-                                        ? 'background:#cce5ff;color:#004085;border:1px solid #b8daff;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
-                                        : cell.status === 'awaiting_input'
-                                          ? 'background:#fff3cd;color:#856404;border:1px solid #ffeeba;border-radius:4px;padding:2px 7px;font-size:0.75rem;'
-                                          : 'background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;border-radius:4px;padding:2px 7px;font-size:0.75rem;'">
-                                    <span x-text="cell.status === 'complete' ? '✓ done' : cell.status === 'error' ? '✗ error' : cell.status === 'running' ? '⟳ running' : cell.status === 'awaiting_input' ? '⌛ awaiting input' : '· pending'"></span>
-                                  </span>
-                                </template>
-                              </div>
-                              <!-- Manual input area for awaiting_input -->
-                              <template x-if="cell.status === 'awaiting_input'">
-                                <div style="margin-top:6px;">
-                                  <textarea x-model="submitContent" rows="3"
-                                    placeholder="Enter result..."
-                                    style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:0.85rem;font-family:inherit;resize:vertical;"></textarea>
-                                  <template x-if="submitError">
-                                    <p style="color:#c0392b;font-size:0.8rem;margin:2px 0;" x-text="submitError"></p>
-                                  </template>
-                                  <button @click="async () => {
-                                      submitting = true; submitError = null;
-                                      try {
-                                        const r = await fetch('/runs/' + runId + '/steps/' + cell.fighter_result_id + '/submit', {
-                                          method: 'POST',
-                                          headers: {'Content-Type': 'application/json'},
-                                          body: JSON.stringify({ content: submitContent })
-                                        });
-                                        if (!r.ok) throw new Error(await r.text());
-                                      } catch(e) { submitError = e.message; }
-                                      finally { submitting = false; }
-                                    }"
-                                    :disabled="submitting || !submitContent.trim()"
-                                    style="margin-top:4px;background:#7c6af7;color:#fff;border:none;padding:5px 14px;border-radius:4px;font-size:0.85rem;cursor:pointer;"
-                                    :style="(submitting || !submitContent.trim()) ? 'opacity:0.6;cursor:not-allowed;' : ''">
-                                    <span x-text="submitting ? 'Submitting...' : 'Submit'"></span>
-                                  </button>
-                                </div>
-                              </template>
+          <!-- Tab: Definition (Fighters + Run) -->
+          <div x-show="battleTab === 'definition'" x-data="fighterList()" x-init="load($root.params.id)">
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <h2 style="margin:0;">Fighters</h2>
+                <button @click="showAddFighter = !showAddFighter" class="btn btn-gold">+ Add Fighter</button>
+              </div>
+
+              <template x-if="showAddFighter">
+                <form @submit.prevent="addFighter($root.params.id)"
+                  style="background:var(--ink);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
+                  <h3 style="margin:0;font-size:0.95rem;">New Fighter</h3>
+                  <div style="display:flex;gap:1rem;align-items:flex-end;">
+                    <div style="flex:1;">
+                      <label class="field-label">Fighter Name <span style="color:var(--red);">*</span></label>
+                      <input type="text" x-model="newFighter.name" required placeholder="e.g. GPT-4o pipeline" class="input">
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;padding-bottom:2px;">
+                      <input type="checkbox" id="f-manual" x-model="newFighter.is_manual" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold);">
+                      <label for="f-manual" style="font-size:0.9rem;cursor:pointer;color:var(--mid);">Manual</label>
+                    </div>
+                  </div>
+                  <template x-if="addFighterError">
+                    <p class="error-box" x-text="addFighterError"></p>
+                  </template>
+                  <div style="display:flex;gap:0.75rem;">
+                    <button type="submit" class="btn btn-gold" :disabled="addingFighter">
+                      <span x-text="addingFighter ? 'Adding...' : 'Add Fighter'"></span>
+                    </button>
+                    <button type="button" @click="showAddFighter = false" class="btn btn-ghost">Cancel</button>
+                  </div>
+                </form>
+              </template>
+
+              <template x-if="loadingFighters">
+                <p style="color:var(--mid);font-size:0.9rem;">Loading fighters...</p>
+              </template>
+
+              <template x-if="!loadingFighters && fighters.length === 0">
+                <div class="placeholder">No fighters yet. Add your first fighter above.</div>
+              </template>
+
+              <template x-if="!loadingFighters && fighters.length > 0">
+                <div style="display:flex;flex-direction:column;gap:1rem;">
+                  <template x-for="fighter in fighters" :key="fighter.id">
+                    <div style="background:var(--ink);border:1px solid var(--border);border-radius:8px;padding:1rem 1.25rem;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                          <span style="font-weight:600;font-size:0.95rem;color:var(--high);" x-text="fighter.name"></span>
+                          <span x-show="fighter.is_manual" class="badge badge-muted">manual</span>
+                        </div>
+                        <button x-show="!fighter.is_manual"
+                          @click="toggleAddStep(fighter.id)"
+                          class="btn btn-ghost" style="font-size:0.82rem;padding:4px 10px;">
+                          + Add Step
+                        </button>
+                      </div>
+
+                      <template x-if="fighter.steps && fighter.steps.length > 0">
+                        <ul style="list-style:none;padding:0;margin:0 0 0.75rem;display:flex;flex-direction:column;gap:4px;">
+                          <template x-for="(step, idx) in fighter.steps" :key="step.id">
+                            <li style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.85rem;display:flex;gap:0.75rem;align-items:center;">
+                              <span style="color:var(--mid);font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
+                              <span style="color:var(--mid);" x-text="step.provider"></span>
+                              <span style="color:var(--high);font-weight:500;" x-text="step.model_id"></span>
+                              <span x-show="step.system_prompt" style="color:var(--mid);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" x-text="step.system_prompt"></span>
+                            </li>
+                          </template>
+                        </ul>
+                      </template>
+
+                      <template x-if="!fighter.steps || fighter.steps.length === 0">
+                        <p x-show="!fighter.is_manual" style="font-size:0.85rem;color:var(--low);margin:0 0 0.5rem;">No steps yet.</p>
+                      </template>
+
+                      <template x-if="activeStepFighterId === fighter.id">
+                        <form @submit.prevent="addStep($root.params.id, fighter.id)"
+                          style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:0.75rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.65rem;">
+                          <h4 style="margin:0;font-size:0.9rem;color:var(--high);">New Step</h4>
+
+                          <template x-if="stepProviderType() === 'llm'">
+                            <div>
+                              <label class="field-label">System Prompt <span style="font-weight:400;color:var(--low);">(optional)</span></label>
+                              <textarea x-model="newStep.system_prompt" rows="3"
+                                placeholder="You are a helpful assistant..."
+                                class="textarea" style="resize:vertical;"></textarea>
                             </div>
                           </template>
-                          <template x-if="!getCellResult(fighter.fighter_id, source.source_id)">
-                            <span style="background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;border-radius:4px;padding:2px 7px;font-size:0.75rem;">· pending</span>
+
+                          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                            <div>
+                              <label class="field-label">Provider <span style="color:var(--red);">*</span></label>
+                              <select x-model="newStep.provider" @change="onStepProviderChange()" required class="select">
+                                <template x-if="providerInfoList.filter(p => p.provider_type === 'llm').length > 0">
+                                  <optgroup label="LLM Providers">
+                                    <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm')" :key="p.name">
+                                      <option :value="p.name" x-text="p.display_name"></option>
+                                    </template>
+                                  </optgroup>
+                                </template>
+                                <template x-if="providerInfoList.filter(p => p.provider_type === 'tool').length > 0">
+                                  <optgroup label="Tool Providers">
+                                    <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool')" :key="p.name">
+                                      <option :value="p.name" x-text="p.display_name"></option>
+                                    </template>
+                                  </optgroup>
+                                </template>
+                                <template x-if="providerInfoList.length === 0">
+                                  <template x-for="p in providers" :key="p">
+                                    <option :value="p" x-text="p"></option>
+                                  </template>
+                                </template>
+                              </select>
+                            </div>
+
+                            <template x-if="stepProviderType() === 'llm'">
+                              <div>
+                                <label class="field-label">Model <span style="color:var(--red);">*</span></label>
+                                <select x-model="newStep.model_id" required class="select">
+                                  <template x-for="m in stepProviderModels()" :key="m.id">
+                                    <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                  </template>
+                                  <option value="">Custom…</option>
+                                </select>
+                                <template x-if="newStep.model_id === ''">
+                                  <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID"
+                                    class="input" style="margin-top:4px;">
+                                </template>
+                              </div>
+                            </template>
+
+                            <template x-if="stepProviderType() === 'tool'">
+                              <div>
+                                <label class="field-label">Function <span style="color:var(--red);">*</span></label>
+                                <select x-model="newStep.model_id" required class="select">
+                                  <template x-for="m in stepProviderModels()" :key="m.id">
+                                    <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                  </template>
+                                </select>
+                              </div>
+                            </template>
+
+                            <template x-if="stepProviderType() === null">
+                              <div>
+                                <label class="field-label">Model <span style="color:var(--red);">*</span></label>
+                                <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o" class="input">
+                              </div>
+                            </template>
+                          </div>
+
+                          <template x-if="stepPricingHint()">
+                            <p style="margin:0;font-size:0.78rem;color:var(--gold);background:rgba(240,185,11,0.08);border:1px solid rgba(240,185,11,0.2);border-radius:4px;padding:4px 8px;" x-text="stepPricingHint()"></p>
                           </template>
-                        </td>
+
+                          <template x-if="stepNativeTools().length > 0">
+                            <div>
+                              <label class="field-label">Tools <span style="font-weight:400;color:var(--low);">(optional)</span></label>
+                              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                <template x-for="tool in stepNativeTools()" :key="tool">
+                                  <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;color:var(--mid);">
+                                    <input type="checkbox" :value="tool" x-model="newStep.selected_tools" style="accent-color:var(--gold);">
+                                    <span x-text="tool"></span>
+                                  </label>
+                                </template>
+                              </div>
+                            </div>
+                          </template>
+
+                          <div>
+                            <label class="field-label">Provider Config <span style="font-weight:400;color:var(--low);">(JSON, optional)</span></label>
+                            <textarea x-model="newStep.provider_config" rows="2" placeholder="{}"
+                              class="textarea" style="resize:vertical;font-family:monospace;"></textarea>
+                          </div>
+
+                          <template x-if="addStepError">
+                            <p class="error-box" x-text="addStepError"></p>
+                          </template>
+
+                          <div style="display:flex;gap:0.75rem;">
+                            <button type="submit" class="btn btn-gold" :disabled="addingStep">
+                              <span x-text="addingStep ? 'Adding...' : 'Add Step'"></span>
+                            </button>
+                            <button type="button" @click="activeStepFighterId = null" class="btn btn-ghost">Cancel</button>
+                          </div>
+                        </form>
                       </template>
-                    </tr>
+                    </div>
                   </template>
-                </tbody>
-              </table>
+                </div>
+              </template>
+
+              <template x-if="fightersError">
+                <p class="error-box" x-text="fightersError"></p>
+              </template>
             </div>
-          </template>
-        </div>
-      </template>
-    </section>
 
-    <!-- View: results -->
-    <section x-show="route === 'results/detail'" x-data="resultsView()" x-init="$watch('$root.route', r => { if (r === 'results/detail' && $root.params.id) load($root.params.id); }); if (route === 'results/detail' && params.id) load(params.id);">
-
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-        <div style="display:flex;align-items:center;gap:1rem;">
-          <h1 style="margin:0;">Results</h1>
-          <span class="badge" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
-        </div>
-        <div style="display:flex;gap:0.75rem;">
-          <button @click="downloadMarkdown()"
-            x-show="results"
-            style="background:#fff;color:#7c6af7;border:1px solid #7c6af7;padding:8px 16px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">
-            Download as Markdown
-          </button>
-          <a href="#/battles" style="color:#888;font-size:0.9rem;text-decoration:none;padding:8px 0;">← Back</a>
-        </div>
-      </div>
-
-      <template x-if="loading">
-        <p style="color:#888;">Loading results...</p>
-      </template>
-
-      <template x-if="error">
-        <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;margin:0;font-size:0.9rem;" x-text="error"></p>
-      </template>
-
-      <template x-if="results">
-        <div>
-
-          <!-- Summary Table -->
-          <h2>Fighter Summary</h2>
-          <div style="overflow-x:auto;margin-bottom:2rem;">
-            <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
-              <thead>
-                <tr style="background:#f0f0f8;font-size:0.85rem;text-align:left;">
-                  <th style="padding:10px 14px;font-weight:600;">Fighter</th>
-                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Avg Score</th>
-                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Total Cost USD</th>
-                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Token Cost</th>
-                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Credit Cost</th>
-                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Steps</th>
-                  <th style="padding:10px 14px;font-weight:600;text-align:right;">Items</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
-                  <tr :style="idx % 2 === 0 ? 'background:#fff;' : 'background:#fafafa;'">
-                    <td style="padding:10px 14px;font-weight:600;" x-text="f.fighter_name"></td>
-                    <td style="padding:10px 14px;text-align:right;">
-                      <span :style="scoreColor(f.avg_score)" x-text="f.avg_score.toFixed(2)"></span>
-                    </td>
-                    <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;" x-text="'$' + f.total_cost.toFixed(4)"></td>
-                    <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;color:#555;" x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
-                    <td style="padding:10px 14px;text-align:right;font-family:monospace;font-size:0.85rem;color:#7c6af7;" x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
-                    <td style="padding:10px 14px;text-align:right;" x-text="f.total_steps"></td>
-                    <td style="padding:10px 14px;text-align:right;" x-text="f.item_count"></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
+            <!-- Run button -->
+            <div style="display:flex;align-items:center;gap:1rem;"
+                 @fighters-updated.window="fighterCount = $event.detail.count">
+              <button @click="runBattle()"
+                :disabled="running || sources.length === 0 || fighterCount === 0"
+                class="btn btn-gold" style="font-size:0.95rem;padding:10px 22px;">
+                <span x-text="running ? 'Starting...' : 'Run Battle'"></span>
+              </button>
+              <template x-if="sources.length === 0 || fighterCount === 0">
+                <span style="font-size:0.85rem;color:var(--mid);"
+                  x-text="sources.length === 0 && fighterCount === 0 ? 'Add at least 1 source and 1 fighter to run.' : sources.length === 0 ? 'Add at least 1 source to run.' : 'Add at least 1 fighter to run.'">
+                </span>
+              </template>
+              <template x-if="runError">
+                <p class="error-box" x-text="runError"></p>
+              </template>
+            </div>
           </div>
 
-          <!-- Per-Source Breakdown -->
-          <h2>Per-Source Breakdown</h2>
-          <template x-for="source in sourceGroups()" :key="source.label">
-            <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:1.25rem;overflow:hidden;">
-              <div style="background:#f0f0f8;padding:10px 14px;font-weight:600;font-size:0.9rem;border-bottom:1px solid #e0e0e0;">
-                <span x-text="source.label"></span>
-              </div>
-              <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
-                <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
-                  <div :style="fi > 0 ? 'border-left:1px solid #e0e0e0;' : ''">
-                    <!-- Fighter header in source -->
-                    <div style="padding:8px 14px;border-bottom:1px solid #e8e8f0;display:flex;align-items:center;justify-content:space-between;">
-                      <span style="font-weight:600;font-size:0.85rem;" x-text="fighter.fighter_name"></span>
-                      <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)" x-text="fighter.score !== null ? fighter.score.toFixed(1) : 'N/A'"></span>
-                    </div>
-                    <!-- Output preview + expand -->
-                    <div style="padding:10px 14px;">
-                      <div
-                        @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
-                        style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:#7c6af7;margin-bottom:6px;user-select:none;">
-                        <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
-                      </div>
-                      <template x-if="expanded[source.label + '::' + fighter.fighter_name]">
-                        <pre style="background:#f8f8fc;border:1px solid #e0e0e0;border-radius:4px;padding:10px;font-size:0.8rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:320px;overflow-y:auto;" x-text="fighter.final_output || '(no output)'"></pre>
-                      </template>
-                      <div style="font-size:0.78rem;color:#888;margin-top:6px;">
-                        <span x-text="fighter.step_count + ' step(s)'"></span>
-                        &nbsp;·&nbsp;
-                        <span style="font-family:monospace;" x-text="'$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
-                        <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
-                          <span>
-                            &nbsp;·&nbsp;
-                            <span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span>
-                          </span>
-                        </template>
-                        <!-- Credit cost indicator for tool steps (no tokens) -->
-                        <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
-                          <span>&nbsp;·&nbsp;<span style="color:#7c6af7;">credit-based</span></span>
-                        </template>
-                      </div>
-                    </div>
-                  </div>
+          <!-- Tab: Result (placeholder — navigates to run/results) -->
+          <div x-show="battleTab === 'result'">
+            <div class="card" style="text-align:center;padding:2.5rem;">
+              <p style="color:var(--mid);margin:0;">Run a battle to see results here.</p>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- View: live run -->
+        <section x-show="route === 'runs/detail'" x-data="runView()" x-init="$watch('$root.params.id', id => { if (id && $root.route === 'runs/detail') init(id); }); if ($root.params.id && $root.route === 'runs/detail') init($root.params.id);">
+
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;">
+            <h1 style="margin:0;">Live Run</h1>
+            <template x-if="run">
+              <span class="badge" x-text="runId ? runId.slice(0,8) + '…' : ''"></span>
+            </template>
+          </div>
+
+          <template x-if="error">
+            <p class="error-box" x-text="error"></p>
+          </template>
+
+          <template x-if="!run && !error">
+            <p style="color:var(--mid);">Loading run status...</p>
+          </template>
+
+          <template x-if="run">
+            <div>
+              <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;" class="card">
+                <span style="font-size:0.9rem;color:var(--mid);">Status:</span>
+                <span x-text="run.status"
+                  :style="run.status === 'complete' ? 'color:var(--green);font-weight:600;' : run.status === 'error' ? 'color:var(--red);font-weight:600;' : 'color:var(--gold);font-weight:600;'"></span>
+                <template x-if="run.status === 'complete'">
+                  <a :href="'#/results/' + runId" class="btn btn-gold" style="font-size:0.85rem;">View Results →</a>
                 </template>
               </div>
+
+              <template x-if="sources().length > 0 && fighters().length > 0">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Source</th>
+                        <template x-for="fighter in fighters()" :key="fighter.fighter_id">
+                          <th x-text="fighter.fighter_name"></th>
+                        </template>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="source in sources()" :key="source.source_id">
+                        <tr>
+                          <td style="color:var(--mid);vertical-align:top;max-width:140px;word-break:break-word;" x-text="source.source_label"></td>
+                          <template x-for="fighter in fighters()" :key="fighter.fighter_id">
+                            <td style="vertical-align:top;">
+                              <template x-if="getCellResult(fighter.fighter_id, source.source_id)">
+                                <div x-data="{ cell: getCellResult(fighter.fighter_id, source.source_id), submitContent: '', submitting: false, submitError: null }">
+                                  <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                                    <template x-for="(step, idx) in (cell.steps || [])" :key="idx">
+                                      <span :class="step.status === 'complete' ? 'chip chip-ok' : step.status === 'error' ? 'chip chip-err' : 'chip chip-pend'"
+                                        :title="step.status === 'error' ? (step.error || 'Error') : ''">
+                                        <span x-text="step.status === 'complete' ? '✓ ' + (step.label || ('step ' + (idx+1))) : step.status === 'error' ? '✗ ' + (step.label || ('step ' + (idx+1))) : (step.label || ('step ' + (idx+1)))"></span>
+                                      </span>
+                                    </template>
+                                    <template x-if="!cell.steps || cell.steps.length === 0">
+                                      <span :class="cell.status === 'complete' ? 'chip chip-ok' : cell.status === 'error' ? 'chip chip-err' : cell.status === 'running' ? 'chip chip-run' : cell.status === 'awaiting_input' ? 'chip chip-wait' : 'chip chip-pend'">
+                                        <span x-text="cell.status === 'complete' ? '✓ done' : cell.status === 'error' ? '✗ error' : cell.status === 'running' ? '⟳ running' : cell.status === 'awaiting_input' ? '⌛ awaiting input' : '· pending'"></span>
+                                      </span>
+                                    </template>
+                                  </div>
+                                  <template x-if="cell.status === 'awaiting_input'">
+                                    <div style="margin-top:6px;">
+                                      <textarea x-model="submitContent" rows="3" placeholder="Enter result..."
+                                        class="textarea" style="font-size:0.85rem;resize:vertical;"></textarea>
+                                      <template x-if="submitError">
+                                        <p class="error-box" style="font-size:0.8rem;padding:4px 8px;margin:2px 0;" x-text="submitError"></p>
+                                      </template>
+                                      <button @click="async () => {
+                                          submitting = true; submitError = null;
+                                          try {
+                                            const r = await fetch('/runs/' + runId + '/steps/' + cell.fighter_result_id + '/submit', {
+                                              method: 'POST',
+                                              headers: {'Content-Type': 'application/json'},
+                                              body: JSON.stringify({ content: submitContent })
+                                            });
+                                            if (!r.ok) throw new Error(await r.text());
+                                          } catch(e) { submitError = e.message; }
+                                          finally { submitting = false; }
+                                        }"
+                                        :disabled="submitting || !submitContent.trim()"
+                                        class="btn btn-gold" style="margin-top:4px;font-size:0.82rem;padding:5px 12px;">
+                                        <span x-text="submitting ? 'Submitting...' : 'Submit'"></span>
+                                      </button>
+                                    </div>
+                                  </template>
+                                </div>
+                              </template>
+                              <template x-if="!getCellResult(fighter.fighter_id, source.source_id)">
+                                <span class="chip chip-pend">· pending</span>
+                              </template>
+                            </td>
+                          </template>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
             </div>
           </template>
+        </section>
 
-          <!-- Judge Report -->
-          <template x-if="results.report_markdown">
+        <!-- View: results -->
+        <section x-show="route === 'results/detail'" x-data="resultsView()" x-init="$watch('$root.route', r => { if (r === 'results/detail' && $root.params.id) load($root.params.id); }); if (route === 'results/detail' && params.id) load(params.id);">
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <div style="display:flex;align-items:center;gap:1rem;">
+              <h1 style="margin:0;">Results</h1>
+              <span class="badge" x-text="runId ? runId.slice(0,8) + '…' : ''"></span>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center;">
+              <button @click="downloadMarkdown()" x-show="results" class="btn btn-ghost" style="font-size:0.85rem;">Download Markdown</button>
+              <a href="#/battles" class="btn btn-ghost" style="font-size:0.85rem;">← Back</a>
+            </div>
+          </div>
+
+          <template x-if="loading">
+            <p style="color:var(--mid);">Loading results...</p>
+          </template>
+
+          <template x-if="error">
+            <p class="error-box" x-text="error"></p>
+          </template>
+
+          <template x-if="results">
             <div>
-              <h2>Judge Report</h2>
-              <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1.25rem 1.5rem;margin-bottom:2rem;line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
-            </div>
-          </template>
-
-        </div>
-      </template>
-
-    </section>
-
-    <!-- View: API key management -->
-    <section x-show="route === 'keys'" x-data="keysList()" x-init="load()">
-      <h1>API Keys</h1>
-      <p style="color:#555;font-size:0.9rem;margin-top:-0.5rem;margin-bottom:1.5rem;">
-        Keys stored in the database are used when no environment variable is set.
-        Environment variables always take precedence.
-      </p>
-
-      <template x-if="loading">
-        <p style="color:#888;">Loading...</p>
-      </template>
-
-      <template x-if="error && !loading">
-        <p style="color:#c0392b;background:#fdf0f0;border:1px solid #f5c6c6;border-radius:6px;padding:10px 14px;font-size:0.9rem;" x-text="error"></p>
-      </template>
-
-      <template x-if="!loading">
-        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.75rem;">
-          <template x-for="k in keys" :key="k.provider">
-            <li style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1rem 1.25rem;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-                <div style="display:flex;align-items:center;gap:0.5rem;">
-                  <span style="font-weight:600;font-size:1rem;text-transform:capitalize;" x-text="k.provider"></span>
-                  <template x-if="k.source === 'env'">
-                    <span style="display:inline-block;background:#27ae60;color:#fff;border-radius:4px;padding:2px 8px;font-size:0.75rem;">env var set</span>
-                  </template>
-                  <template x-if="k.source === 'db'">
-                    <span style="display:inline-block;background:#7c6af7;color:#fff;border-radius:4px;padding:2px 8px;font-size:0.75rem;">saved in DB</span>
-                  </template>
-                </div>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
-                  <template x-if="k.source === 'db'">
-                    <span style="font-size:0.85rem;color:#888;font-family:monospace;" x-text="k.masked_key"></span>
-                  </template>
-                  <template x-if="k.source === 'db'">
-                    <button
-                      @click="remove(k.provider)"
-                      style="background:#fdf0f0;color:#c0392b;border:1px solid #f5c6c6;padding:4px 12px;border-radius:5px;font-size:0.8rem;cursor:pointer;">
-                      Remove
-                    </button>
-                  </template>
-                </div>
+              <h2>Fighter Summary</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fighter</th>
+                      <th style="text-align:right;">Avg Score</th>
+                      <th style="text-align:right;">Total Cost USD</th>
+                      <th style="text-align:right;">Token Cost</th>
+                      <th style="text-align:right;">Credit Cost</th>
+                      <th style="text-align:right;">Steps</th>
+                      <th style="text-align:right;">Items</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="f in fighterSummary()" :key="f.fighter_name">
+                      <tr>
+                        <td style="font-weight:600;" x-text="f.fighter_name"></td>
+                        <td style="text-align:right;">
+                          <span :style="scoreColor(f.avg_score)" x-text="f.avg_score.toFixed(2)"></span>
+                        </td>
+                        <td style="text-align:right;font-family:monospace;font-size:0.82rem;" x-text="'$' + f.total_cost.toFixed(4)"></td>
+                        <td style="text-align:right;font-family:monospace;font-size:0.82rem;color:var(--mid);" x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
+                        <td style="text-align:right;font-family:monospace;font-size:0.82rem;color:var(--gold);" x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
+                        <td style="text-align:right;" x-text="f.total_steps"></td>
+                        <td style="text-align:right;" x-text="f.item_count"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
               </div>
 
-              <template x-if="saved[k.provider]">
-                <p style="color:#27ae60;font-size:0.85rem;margin:0 0 0.5rem;">Key saved successfully.</p>
-              </template>
-              <template x-if="saveErrors[k.provider]">
-                <p style="color:#c0392b;font-size:0.85rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
-              </template>
-
-              <template x-if="k.source !== 'env'">
-                <div style="display:flex;gap:0.5rem;align-items:center;">
-                  <input
-                    type="password"
-                    :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'"
-                    x-model="inputs[k.provider]"
-                    style="flex:1;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;font-family:monospace;">
-                  <button
-                    @click="save(k.provider)"
-                    style="background:#7c6af7;color:#fff;border:none;padding:7px 16px;border-radius:6px;font-size:0.9rem;font-weight:600;cursor:pointer;">
-                    Save
-                  </button>
+              <h2>Per-Source Breakdown</h2>
+              <template x-for="source in sourceGroups()" :key="source.label">
+                <div class="card" style="padding:0;overflow:hidden;margin-bottom:1.25rem;">
+                  <div style="background:rgba(255,255,255,0.03);padding:10px 14px;font-weight:600;font-size:0.9rem;border-bottom:1px solid var(--border);">
+                    <span x-text="source.label"></span>
+                  </div>
+                  <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
+                    <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
+                      <div :style="fi > 0 ? 'border-left:1px solid var(--border);' : ''">
+                        <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                          <span style="font-weight:600;font-size:0.85rem;" x-text="fighter.fighter_name"></span>
+                          <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)" x-text="fighter.score !== null ? fighter.score.toFixed(1) : 'N/A'"></span>
+                        </div>
+                        <div style="padding:10px 14px;">
+                          <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
+                            style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--gold);margin-bottom:6px;user-select:none;">
+                            <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
+                          </div>
+                          <template x-if="expanded[source.label + '::' + fighter.fighter_name]">
+                            <pre style="background:var(--ink);border:1px solid var(--border);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;color:var(--high);" x-text="fighter.final_output || '(no output)'"></pre>
+                          </template>
+                          <div style="font-size:0.77rem;color:var(--mid);margin-top:6px;">
+                            <span x-text="fighter.step_count + ' step(s)'"></span> ·
+                            <span style="font-family:monospace;" x-text="'$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
+                            <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
+                              <span> · <span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
+                            </template>
+                            <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
+                              <span> · <span style="color:var(--gold);">credit-based</span></span>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
                 </div>
               </template>
-            </li>
+
+              <template x-if="results.report_markdown">
+                <div>
+                  <h2>Judge Report</h2>
+                  <div class="card" style="line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
+                </div>
+              </template>
+            </div>
           </template>
-        </ul>
-      </template>
-    </section>
+        </section>
 
-    <!-- View: 404 fallback -->
-    <section x-show="route === 'not-found'">
-      <h1>Page not found</h1>
-      <p>No route matches <code x-text="window.location.hash"></code>. <a href="#/battles">Go home</a>.</p>
-    </section>
+        <!-- View: 404 -->
+        <section x-show="route === 'not-found'">
+          <h1>Page not found</h1>
+          <p style="color:var(--mid);">No route matches <code x-text="window.location.hash"></code>. <a href="#/battles" style="color:var(--gold);">Go home</a>.</p>
+        </section>
 
-  </main>
+        <!-- View: empty (no battle selected) -->
+        <section x-show="route === 'battles'">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
+            <div style="font-size:2.5rem;margin-bottom:1rem;">⚔️</div>
+            <h1 style="color:var(--gold);margin:0 0 0.5rem;">T01 LLM Battle</h1>
+            <p style="color:var(--mid);margin:0 0 1.5rem;">Select a battle from the sidebar or create a new one.</p>
+            <a href="#/battles/new" class="btn btn-gold">+ New Battle</a>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
 
   <script src="/vendor/alpine.min.js" defer></script>
   <script src="/vendor/marked.min.js"></script>
   <script src="/vendor/easymde.min.js"></script>
   <script>
-    function battlesList() {
+
+    // Sidebar data: battles list + provider management
+    function sidebarData() {
       return {
         battles: [],
-        loading: false,
-        error: null,
-        async load() {
-          this.loading = true;
-          this.error = null;
+        battlesLoading: false,
+        providers: [],
+        providersLoading: false,
+        editProvider: null,
+        editApiKey: '',
+        editServerUrl: '',
+        editKeyMsg: '',
+        editUrlMsg: '',
+
+        async loadBattles() {
+          this.battlesLoading = true;
           try {
-            const resp = await fetch('/battles');
-            if (!resp.ok) throw new Error(await resp.text());
-            const data = await resp.json();
-            this.battles = (Array.isArray(data) ? data : []).filter(b => b && b.id);
-          } catch(e) {
-            this.error = e.message;
-          } finally {
-            this.loading = false;
-          }
-        }
+            const r = await fetch('/battles');
+            if (r.ok) {
+              const data = await r.json();
+              this.battles = (Array.isArray(data) ? data : []).filter(b => b && b.id)
+                .sort((a, b) => b.created_at > a.created_at ? 1 : -1);
+            }
+          } catch(_) {}
+          this.battlesLoading = false;
+        },
+
+        async loadProviders() {
+          this.providersLoading = true;
+          try {
+            const r = await fetch('/providers');
+            if (r.ok) {
+              const list = await r.json();
+              const _SYSTEM = new Set(['openai','anthropic','google','groq','openrouter','ollama','serper','tavily','firecrawl']);
+              const _SERVER_URL = new Set(['ollama']);
+              this.providers = list.map(p => ({
+                ...p,
+                is_system: _SYSTEM.has(p.name),
+                supports_server_url: _SERVER_URL.has(p.name),
+                enabled: p.enabled !== false,
+              }));
+            }
+          } catch(_) {}
+          this.providersLoading = false;
+        },
+
+        newBattle() {
+          window.location.hash = '/battles/new';
+        },
+
+        selectBattle(id) {
+          window.location.hash = '/battles/' + id;
+        },
+
+        async deleteBattle(id) {
+          if (!confirm('Delete this battle?')) return;
+          try {
+            const r = await fetch('/battles/' + id, { method: 'DELETE' });
+            if (r.ok || r.status === 204) {
+              this.battles = this.battles.filter(b => b.id !== id);
+              if (this.$root.params.id === id) window.location.hash = '/battles';
+            }
+          } catch(_) {}
+        },
+
+        async toggleProvider(name, enabled) {
+          try {
+            await fetch('/providers/' + name, {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ enabled })
+            });
+            const p = this.providers.find(x => x.name === name);
+            if (p) p.enabled = enabled;
+          } catch(_) {}
+        },
+
+        openProviderEdit(p) {
+          this.editProvider = p;
+          this.editApiKey = '';
+          this.editServerUrl = p.server_url || '';
+          this.editKeyMsg = '';
+          this.editUrlMsg = '';
+        },
+
+        async saveApiKey(name) {
+          const val = this.editApiKey.trim();
+          if (!val) return;
+          try {
+            const r = await fetch('/keys/' + name, {
+              method: 'PUT',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ key: val })
+            });
+            if (r.ok) {
+              this.editKeyMsg = 'Key saved.';
+              this.editApiKey = '';
+              setTimeout(() => { this.editKeyMsg = ''; }, 3000);
+            }
+          } catch(_) {}
+        },
+
+        async saveServerUrl(name) {
+          try {
+            const r = await fetch('/providers/' + name + '/config', {
+              method: 'PUT',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ server_url: this.editServerUrl })
+            });
+            if (r.ok) {
+              this.editUrlMsg = 'URL saved.';
+              setTimeout(() => { this.editUrlMsg = ''; }, 3000);
+              const p = this.providers.find(x => x.name === name);
+              if (p) p.server_url = this.editServerUrl;
+            }
+          } catch(_) {}
+        },
+
+        async uninstallProvider(name) {
+          if (!confirm('Uninstall provider ' + name + '?')) return;
+          try {
+            await fetch('/providers/' + name, { method: 'DELETE' });
+            this.providers = this.providers.filter(p => p.name !== name);
+            this.editProvider = null;
+          } catch(_) {}
+        },
       };
     }
 
@@ -915,7 +1278,6 @@ Do not wrap the JSON in markdown fences.`;
         _mde: null,
 
         async init() {
-          // Load available providers from GET /keys
           try {
             const resp = await fetch('/keys');
             if (resp.ok) {
@@ -927,12 +1289,10 @@ Do not wrap the JSON in markdown fences.`;
               }
             }
           } catch(_) {}
-          // Fallback to default providers list if keys endpoint unavailable
           if (this.providers.length === 0) {
             this.providers = ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'];
           }
 
-          // Mount EasyMDE on the rubric textarea
           await this.$nextTick();
           const ta = this.$refs.rubricTextarea;
           if (ta && typeof EasyMDE !== 'undefined') {
@@ -962,7 +1322,6 @@ Do not wrap the JSON in markdown fences.`;
         },
 
         async submit() {
-          // Sync EasyMDE value before submitting
           if (this._mde) this.judge_rubric = this._mde.value();
           if (!this.name.trim()) {
             this.error = 'Battle name is required.';
@@ -983,76 +1342,12 @@ Do not wrap the JSON in markdown fences.`;
             });
             if (!resp.ok) throw new Error(await resp.text());
             const data = await resp.json();
-            // Destroy EasyMDE before navigating away to avoid ghost instances
             if (this._mde) { try { this._mde.toTextArea(); } catch(_) {} this._mde = null; }
             window.location.hash = '/battles/' + data.id;
           } catch(e) {
             this.error = e.message;
           } finally {
             this.loading = false;
-          }
-        }
-      };
-    }
-
-    function keysList() {
-      return {
-        keys: [],
-        loading: false,
-        error: null,
-        inputs: {},
-        saved: {},
-        saveErrors: {},
-
-        async load() {
-          this.loading = true;
-          this.error = null;
-          try {
-            const resp = await fetch('/keys');
-            if (!resp.ok) throw new Error(await resp.text());
-            this.keys = await resp.json();
-            this.keys.forEach(k => {
-              if (this.inputs[k.provider] === undefined) this.inputs[k.provider] = '';
-            });
-          } catch(e) {
-            this.error = e.message;
-          } finally {
-            this.loading = false;
-          }
-        },
-
-        async save(provider) {
-          const val = (this.inputs[provider] || '').trim();
-          if (!val) {
-            this.saveErrors[provider] = 'Please enter a key before saving.';
-            return;
-          }
-          delete this.saveErrors[provider];
-          try {
-            const resp = await fetch('/keys/' + provider, {
-              method: 'PUT',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ key: val })
-            });
-            if (!resp.ok) throw new Error(await resp.text());
-            this.inputs[provider] = '';
-            this.saved[provider] = true;
-            setTimeout(() => { delete this.saved[provider]; }, 3000);
-            await this.load();
-          } catch(e) {
-            this.saveErrors[provider] = e.message;
-          }
-        },
-
-        async remove(provider) {
-          delete this.saved[provider];
-          delete this.saveErrors[provider];
-          try {
-            const resp = await fetch('/keys/' + provider, { method: 'DELETE' });
-            if (!resp.ok) throw new Error(await resp.text());
-            await this.load();
-          } catch(e) {
-            this.saveErrors[provider] = e.message;
           }
         }
       };
@@ -1067,16 +1362,26 @@ Do not wrap the JSON in markdown fences.`;
         fighterCount: 0,
         runError: null,
         currentBattleId: null,
+        battleName: null,
+        battleTab: 'input',
 
         async load(battleId) {
           if (!battleId) return;
           this.currentBattleId = battleId;
           this.error = null;
+          this.battleTab = 'input';
           try {
-            const resp = await fetch(`/battles/${battleId}/sources`);
-            if (!resp.ok) throw new Error(await resp.text());
-            const data = await resp.json();
+            const [srcResp, bResp] = await Promise.all([
+              fetch(`/battles/${battleId}/sources`),
+              fetch(`/battles/${battleId}`),
+            ]);
+            if (!srcResp.ok) throw new Error(await srcResp.text());
+            const data = await srcResp.json();
             this.sources = data.sources || [];
+            if (bResp.ok) {
+              const b = await bResp.json();
+              this.battleName = b.name || null;
+            }
           } catch(e) {
             this.error = e.message;
           }
@@ -1105,10 +1410,8 @@ Do not wrap the JSON in markdown fences.`;
           if (!battleId) return;
           const files = Array.from(event.target.files || []);
           if (!files.length) return;
-
           this.uploading = true;
           this.error = null;
-
           for (const file of files) {
             try {
               const formData = new FormData();
@@ -1117,20 +1420,14 @@ Do not wrap the JSON in markdown fences.`;
                 method: 'POST',
                 body: formData,
               });
-              if (!resp.ok) {
-                const msg = await resp.text();
-                throw new Error(`${file.name}: ${msg}`);
-              }
+              if (!resp.ok) throw new Error(`${file.name}: ${await resp.text()}`);
               const data = await resp.json();
-              // server may return single or multiple sources (CSV)
               const newItems = data.sources || (data.id ? [data] : []);
               this.sources.push(...newItems);
             } catch(e) {
               this.error = e.message;
             }
           }
-
-          // reset file input
           event.target.value = '';
           this.uploading = false;
         },
@@ -1138,9 +1435,7 @@ Do not wrap the JSON in markdown fences.`;
         async remove(battleId, sourceId) {
           this.error = null;
           try {
-            const resp = await fetch(`/battles/${battleId}/sources/${sourceId}`, {
-              method: 'DELETE',
-            });
+            const resp = await fetch(`/battles/${battleId}/sources/${sourceId}`, { method: 'DELETE' });
             if (!resp.ok) throw new Error(await resp.text());
             this.sources = this.sources.filter(s => s.id !== sourceId);
           } catch(e) {
@@ -1185,10 +1480,7 @@ Do not wrap the JSON in markdown fences.`;
         },
 
         stopPolling() {
-          if (this.polling) {
-            clearInterval(this.polling);
-            this.polling = null;
-          }
+          if (this.polling) { clearInterval(this.polling); this.polling = null; }
         },
 
         sources() {
@@ -1223,16 +1515,6 @@ Do not wrap the JSON in markdown fences.`;
             fr => fr.fighter_id === fighter_id && fr.source_id === source_id
           ) || null;
         },
-
-        async submit(stepResultId, content) {
-          const resp = await fetch('/runs/' + this.runId + '/steps/' + stepResultId + '/submit', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ content })
-          });
-          if (!resp.ok) throw new Error(await resp.text());
-          return resp.json();
-        }
       };
     }
 
@@ -1275,11 +1557,9 @@ Do not wrap the JSON in markdown fences.`;
             }
             if (item.score !== null && item.score !== undefined) map[name].scores.push(item.score);
             map[name].total_cost += item.total_cost_usd || 0;
-            // Token cost: steps that consumed tokens
             if (item.total_input_tokens || item.total_output_tokens) {
               map[name].token_cost += item.total_cost_usd || 0;
             } else if (item.total_cost_usd) {
-              // No tokens → credit-based cost
               map[name].credit_cost += item.total_cost_usd || 0;
             }
             map[name].total_steps += item.step_count || 0;
@@ -1297,20 +1577,17 @@ Do not wrap the JSON in markdown fences.`;
           const map = {};
           for (const item of this.results.summary) {
             const label = item.source_label || item.source_id || 'Unknown';
-            if (!map[label]) {
-              map[label] = { label, fighters: [] };
-              order.push(label);
-            }
+            if (!map[label]) { map[label] = { label, fighters: [] }; order.push(label); }
             map[label].fighters.push(item);
           }
           return order.map(l => map[l]);
         },
 
         scoreColor(score) {
-          if (score === null || score === undefined) return 'color:#888;';
-          if (score >= 8) return 'color:#27ae60;';
-          if (score >= 5) return 'color:#e67e22;';
-          return 'color:#c0392b;';
+          if (score === null || score === undefined) return 'color:var(--mid);';
+          if (score >= 8) return 'color:var(--green);';
+          if (score >= 5) return 'color:var(--amber);';
+          return 'color:var(--red);';
         },
 
         renderMarkdown(text) {
@@ -1338,24 +1615,23 @@ Do not wrap the JSON in markdown fences.`;
           }
           lines.push('');
           lines.push('## Per-Source Breakdown');
-          lines.push('');
           for (const source of this.sourceGroups()) {
-            lines.push('### ' + source.label);
             lines.push('');
+            lines.push('### ' + source.label);
             for (const fighter of source.fighters) {
+              lines.push('');
               lines.push('**' + fighter.fighter_name + '** — Score: ' + (fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'));
               lines.push('');
               lines.push('```');
               lines.push(fighter.final_output || '(no output)');
               lines.push('```');
-              lines.push('');
             }
           }
           if (this.results.report_markdown) {
+            lines.push('');
             lines.push('## Judge Report');
             lines.push('');
             lines.push(this.results.report_markdown);
-            lines.push('');
           }
           const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
           const url = URL.createObjectURL(blob);
@@ -1385,25 +1661,22 @@ Do not wrap the JSON in markdown fences.`;
         addStepError: null,
 
         providers: ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'],
-        providerInfoList: [],  // [{name, display_name, provider_type, models:[{id,pricing_label}], native_tools:[]}]
+        providerInfoList: [],
 
         _dispatchCount() {
           window.dispatchEvent(new CustomEvent('fighters-updated', { detail: { count: this.fighters.length } }));
         },
 
-        // Return provider_type ('llm'|'tool'|null) for currently selected provider
         stepProviderType() {
           const info = this.providerInfoList.find(p => p.name === this.newStep.provider);
           return info ? info.provider_type : null;
         },
 
-        // Return model/function list for selected provider
         stepProviderModels() {
           const info = this.providerInfoList.find(p => p.name === this.newStep.provider);
           return info ? info.models : [];
         },
 
-        // Return pricing hint for selected model/function
         stepPricingHint() {
           const models = this.stepProviderModels();
           const mid = this.newStep.model_id;
@@ -1412,13 +1685,11 @@ Do not wrap the JSON in markdown fences.`;
           return m ? m.pricing_label : null;
         },
 
-        // Return native tools for selected LLM provider
         stepNativeTools() {
           const info = this.providerInfoList.find(p => p.name === this.newStep.provider);
           return (info && info.native_tools) ? info.native_tools : [];
         },
 
-        // When provider changes, reset model selection and auto-select first model
         onStepProviderChange() {
           const models = this.stepProviderModels();
           this.newStep.model_id = models.length ? models[0].id : '';
@@ -1429,7 +1700,6 @@ Do not wrap the JSON in markdown fences.`;
         async load(battleId) {
           this.loadingFighters = true;
           this.fightersError = null;
-          // Load provider info in parallel
           try {
             const [fightersResp, provResp] = await Promise.all([
               fetch('/battles/' + battleId + '/fighters'),
@@ -1441,14 +1711,12 @@ Do not wrap the JSON in markdown fences.`;
               this.providerInfoList = await provResp.json();
               this.providers = this.providerInfoList.map(p => p.name);
             }
-            // Default provider = first LLM provider available
             const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
             if (firstLlm) {
               this.newStep.provider = firstLlm.name;
               const models = firstLlm.models;
               this.newStep.model_id = models.length ? models[0].id : '';
             }
-            // Load steps for each fighter
             const withSteps = await Promise.all(fighters.map(async f => {
               try {
                 const r = await fetch('/battles/' + battleId + '/fighters/' + f.id);
@@ -1492,7 +1760,6 @@ Do not wrap the JSON in markdown fences.`;
             this.activeStepFighterId = null;
           } else {
             this.activeStepFighterId = fighterId;
-            // Default to first LLM provider
             const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
             const defaultProvider = firstLlm ? firstLlm.name : 'openai';
             const defaultModels = firstLlm ? firstLlm.models : [];
@@ -1514,9 +1781,7 @@ Do not wrap the JSON in markdown fences.`;
           try {
             const fighter = this.fighters.find(f => f.id === fighterId);
             const position = fighter ? (fighter.steps ? fighter.steps.length : 0) : 0;
-            // Resolve final model_id (may be 'Custom...' sentinel → use model_id_custom)
             const finalModelId = this.newStep.model_id === '' ? this.newStep.model_id_custom : this.newStep.model_id;
-            // Merge selected_tools into provider_config if any are selected
             let configObj = {};
             try { configObj = JSON.parse(this.newStep.provider_config || '{}'); } catch(_) {}
             if (this.newStep.selected_tools && this.newStep.selected_tools.length > 0) {
@@ -1564,19 +1829,22 @@ Do not wrap the JSON in markdown fences.`;
       return {
         route: 'battles',
         params: {},
+        sidebarCollapsed: false,
 
         async init() {
           this.parseRoute();
           window.addEventListener('hashchange', () => this.parseRoute());
-          // Smart landing: if no specific route is requested, go to most recent battle or new battle form
           if (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#/battles') {
-            const resp = await fetch('/battles');
-            const battles = await resp.json();
-            if (battles && battles.length > 0) {
-              // Sort by created_at desc to get most recent, navigate to it
-              const sorted = battles.sort((a, b) => b.created_at > a.created_at ? 1 : -1);
-              window.location.hash = '/battles/' + sorted[0].id;
-            } else {
+            try {
+              const resp = await fetch('/battles');
+              const battles = await resp.json();
+              if (battles && battles.length > 0) {
+                const sorted = battles.sort((a, b) => b.created_at > a.created_at ? 1 : -1);
+                window.location.hash = '/battles/' + sorted[0].id;
+              } else {
+                window.location.hash = '/battles/new';
+              }
+            } catch(_) {
               window.location.hash = '/battles/new';
             }
           }
@@ -1587,45 +1855,26 @@ Do not wrap the JSON in markdown fences.`;
           const hash = raw || 'battles';
           const parts = hash.split('/');
 
-          // #/ or #/battles
           if (hash === 'battles' || hash === '') {
             this.route = 'battles';
             this.params = {};
-
-          // #/battles/new
           } else if (parts[0] === 'battles' && parts[1] === 'new') {
             this.route = 'battles/new';
             this.params = {};
-
-          // #/battles/:id
           } else if (parts[0] === 'battles' && parts[1]) {
             this.route = 'battles/detail';
             this.params = { id: parts[1] };
-
-          // #/runs/:id
           } else if (parts[0] === 'runs' && parts[1]) {
             this.route = 'runs/detail';
             this.params = { id: parts[1] };
-
-          // #/results/:id
           } else if (parts[0] === 'results' && parts[1]) {
             this.route = 'results/detail';
             this.params = { id: parts[1] };
-
-          // #/keys
-          } else if (parts[0] === 'keys') {
-            this.route = 'keys';
-            this.params = {};
-
           } else {
             this.route = 'not-found';
             this.params = {};
           }
         },
-
-        navigate(hash) {
-          window.location.hash = hash;
-        }
       };
     }
   </script>
