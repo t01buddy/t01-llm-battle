@@ -151,6 +151,8 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                     config = json.loads(step["provider_config"]) if step["provider_config"] else {}
                     temperature = config.pop("temperature", 0.7)
                     max_tokens = config.pop("max_tokens", 2048)
+                    # All remaining keys are passed through to the provider via extra
+                    extra = config
 
                     request = ProviderRequest(
                         model=step["model_id"],
@@ -158,6 +160,7 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
                         user_prompt=step_input,
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        extra=extra,
                     )
 
                     await rate_limiter.acquire(step["provider"])
