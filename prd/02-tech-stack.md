@@ -25,7 +25,7 @@ No HTML generation. After a run completes, the judge model is prompted to produc
 See `01-prd.md` → Architecture Principles for the full list. Key constraints:
 
 - **One process**: FastAPI + asyncio + SQLite in one Python process. No Celery, Redis, or worker pool.
-- **Keys in browser → provider direct**: No server-side proxy of API calls (exception: Ollama requires CORS bypass via backend).
+- **Keys in browser → provider direct**: No server-side proxy of API calls (exception: Ollama and LLM Studio require CORS bypass via backend).
 - **No streaming in v0.1**: Full responses only for fair latency/token comparison.
 - **Pydantic AI for LLM providers**: `pydantic-ai` is the unified abstraction layer for all LLM providers — tool-calling, structured output, and model switching without SDK churn. Tool providers (Serper, Tavily, Firecrawl) use plain `httpx` — no SDK needed.
 
@@ -92,7 +92,7 @@ t01-llm-battle/
 │   ├── routers/
 │   │   ├── battles.py
 │   │   ├── runs.py
-│   │   └── keys.py
+│   │   └── providers.py
 │   └── static/
 │       ├── index.html              # Alpine.js SPA shell
 │       ├── alpine.min.js           # 15 KB — no CDN dependency
