@@ -13,6 +13,7 @@ _BUILTIN_MODULES = [
     "t01_llm_battle.providers.groq",
     "t01_llm_battle.providers.openrouter",
     "t01_llm_battle.providers.ollama",
+    "t01_llm_battle.providers.lmstudio",
     "t01_llm_battle.providers.serper",
     "t01_llm_battle.providers.tavily",
     "t01_llm_battle.providers.firecrawl",
