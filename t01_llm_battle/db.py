@@ -96,12 +96,18 @@ CREATE TABLE IF NOT EXISTS api_key (
 );
 
 CREATE TABLE IF NOT EXISTS provider_config (
-    provider    TEXT PRIMARY KEY,
-    enabled     INTEGER NOT NULL DEFAULT 1,
-    server_url  TEXT,
-    updated_at  TEXT NOT NULL
+    provider     TEXT PRIMARY KEY,
+    enabled      INTEGER NOT NULL DEFAULT 1,
+    server_url   TEXT,
+    display_name TEXT,
+    updated_at   TEXT NOT NULL
 );
 """
+
+# Migrations for existing DBs
+_MIGRATIONS_SQL = [
+    "ALTER TABLE provider_config ADD COLUMN display_name TEXT",
+]
 
 
 async def init_db(db_path: str | Path = DB_PATH) -> None:
@@ -113,6 +119,12 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
     async with aiosqlite.connect(path) as db:
         await db.executescript(_SCHEMA_SQL)
         await db.commit()
+        for sql in _MIGRATIONS_SQL:
+            try:
+                await db.execute(sql)
+                await db.commit()
+            except Exception:
+                pass  # column already exists
 
     await _migrate_plaintext_keys(db_path)
 
@@ -181,4 +193,16 @@ async def resolve_api_key(provider: str, db_path: str | Path = DB_PATH) -> str |
             raw = row["key_value"]
             return decrypt_key(raw) if is_encrypted(raw) else raw
 
+    return None
+
+
+async def resolve_base_url(provider: str, db_path: str | Path = DB_PATH) -> str | None:
+    """Return the configured base URL for a provider from provider_config, or None."""
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT server_url FROM provider_config WHERE provider = ?", (provider,)
+        )
+        row = await cursor.fetchone()
+        if row and row["server_url"]:
+            return row["server_url"]
     return None
