@@ -487,16 +487,48 @@
             Sources <span class="badge" x-text="sources.length"></span>
           </h2>
 
-          <div style="margin-bottom:1rem;">
-            <label>Upload files</label>
-            <p class="text-muted" style="margin:0 0 6px;font-size:0.8rem;">
-              Accepts <code>.txt</code>, <code>.md</code> (one source per file) and <code>.csv</code> (one source per row).
-            </p>
-            <input type="file" accept=".txt,.md,.csv" multiple
-                   :disabled="uploading"
-                   @change="upload($event, $root.params.id)">
-            <template x-if="uploading">
-              <p class="text-gold" style="font-size:0.86rem;margin:4px 0 0;">Uploading...</p>
+          <div style="margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
+            <div>
+              <label>Upload files</label>
+              <p class="text-muted" style="margin:0 0 6px;font-size:0.8rem;">
+                Accepts <code>.txt</code>, <code>.md</code> (one source per file) and <code>.csv</code> (one source per row).
+              </p>
+              <input type="file" accept=".txt,.md,.csv" multiple
+                     :disabled="uploading"
+                     @change="upload($event, $root.params.id)">
+              <template x-if="uploading">
+                <p class="text-gold" style="font-size:0.86rem;margin:4px 0 0;">Uploading...</p>
+              </template>
+            </div>
+
+            <div>
+              <button @click="showTextForm = !showTextForm" class="btn-primary"
+                style="padding:5px 14px;font-size:0.83rem;">+ Add Text</button>
+            </div>
+
+            <template x-if="showTextForm">
+              <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;">
+                <h3 style="margin:0 0 0.5rem;">Add Text Sources</h3>
+                <template x-for="(item, idx) in textItems" :key="idx">
+                  <div style="display:flex;flex-direction:column;gap:0.4rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border);">
+                    <textarea x-model="item.content" rows="3" :placeholder="'Source text #' + (idx+1)"
+                      style="resize:vertical;font-size:0.88rem;"></textarea>
+                    <input type="text" x-model="item.label" :placeholder="'Label (default: Text ' + (sources.length + idx + 1) + ')'"
+                      style="font-size:0.84rem;">
+                  </div>
+                </template>
+                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                  <button @click="textItems.push({ content: '', label: '' })"
+                    style="background:none;border:1px solid var(--border);color:var(--mid);cursor:pointer;border-radius:6px;padding:4px 12px;font-size:0.83rem;">+ Add Another</button>
+                  <button @click="addTextSources($root.params.id)" class="btn-primary"
+                    :disabled="addingText || !textItems.some(i => i.content.trim())"
+                    style="padding:5px 14px;font-size:0.83rem;">
+                    <span x-text="addingText ? 'Saving...' : 'Save'"></span>
+                  </button>
+                  <button @click="showTextForm = false; textItems = [{content:'',label:''}]"
+                    style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.83rem;">Cancel</button>
+                </div>
+              </div>
             </template>
           </div>
 
@@ -1163,6 +1195,7 @@ Do not wrap the JSON in markdown fences.`;
         sources: [], uploading: false, error: null,
         running: false, fighterCount: 0, runError: null, currentBattleId: null,
         battleName: '', editingName: false, nameInput: '', nameSaving: false,
+        showTextForm: false, textItems: [{ content: '', label: '' }], addingText: false,
 
         async load(battleId) {
           if (!battleId) return;
@@ -1240,6 +1273,28 @@ Do not wrap the JSON in markdown fences.`;
           }
           event.target.value = '';
           this.uploading = false;
+        },
+
+        async addTextSources(battleId) {
+          if (!battleId) return;
+          this.addingText = true; this.error = null;
+          const items = this.textItems.filter(i => i.content.trim());
+          for (let idx = 0; idx < items.length; idx++) {
+            try {
+              const formData = new FormData();
+              formData.append('text', items[idx].content.trim());
+              const lbl = items[idx].label.trim() || ('Text ' + (this.sources.length + idx + 1));
+              formData.append('label', lbl);
+              const resp = await fetch(`/battles/${battleId}/sources`, { method: 'POST', body: formData });
+              if (!resp.ok) throw new Error(await resp.text());
+              const data = await resp.json();
+              const newItems = data.sources || (data.id ? [data] : []);
+              this.sources.push(...newItems);
+            } catch(e) { this.error = e.message; }
+          }
+          this.textItems = [{ content: '', label: '' }];
+          this.showTextForm = false;
+          this.addingText = false;
         },
 
         async remove(battleId, sourceId) {
