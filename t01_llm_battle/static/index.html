@@ -1187,6 +1187,9 @@ Do not wrap the JSON in markdown fences.`;
           await this.$nextTick();
           const ta = this.$refs.rubricTextarea;
           if (ta && typeof EasyMDE !== 'undefined') {
+            // Remove any orphaned EasyMDE containers from a previous init cycle
+            const prev = ta.parentElement && ta.parentElement.querySelector('.EasyMDEContainer');
+            if (prev) prev.remove();
             this._mde = new EasyMDE({
               element: ta, initialValue: this.judge_rubric, spellChecker: false,
               autosave: { enabled: false },
