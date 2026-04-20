@@ -47,20 +47,22 @@
 
 ---
 
-## Brand Theme (Gold-on-Ink)
+## Brand Theme (Paper Light)
 
-Applies to FR-20 sidebar layout and all UI components:
+Applies to FR-20 sidebar layout and all UI components. Paper-like aesthetic: warm off-white backgrounds, clean white cards, dark readable text.
 
 | Token | Value |
 |-------|-------|
-| `bg.ink` | `#0d0f13` |
-| `bg.card` | `#14181f` |
-| Gold accent | `#F0B90B` |
-| `text.high` | `#E7ECF3` |
-| `text.mid` | `#8A93A3` |
+| `bg.paper` | `#FAF9F6` (warm off-white / parchment) |
+| `bg.card` | `#FFFFFF` (white with subtle shadow/border) |
+| Primary accent | `#F0B90B` (gold — kept for contrast on light bg) |
+| `text.high` | `#1a1a2e` (dark primary text) |
+| `text.mid` | `#6b7280` (muted secondary text) |
+| Borders | `#e5e5e5` (light gray) |
 | Typography | system-ui stack, weight 600, `letter-spacing: -0.01em` |
+| Sidebar bg | slightly tinted off-white or very light gray |
 
-Replaces previous purple (`#7c6af7`) on light background (`#f5f5f5`) theme.
+Replaces previous Gold-on-Ink dark theme (`#0d0f13` background, `#14181f` cards, `#E7ECF3` text).
 
 ---
 
