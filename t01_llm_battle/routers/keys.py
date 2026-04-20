@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..crypto import decrypt_key, encrypt_key, is_encrypted
 from ..db import get_db
 
 router = APIRouter(prefix="/keys", tags=["keys"])
@@ -41,10 +42,10 @@ class KeyUpdate(BaseModel):
 
 
 def _mask_key(key: str) -> str:
-    """Return masked version: first 4 chars + '****' for keys longer than 8 chars."""
-    if len(key) > 8:
-        return key[:4] + "****"
-    return "****"
+    """Return masked version: first 3 + '…' + last 3 for keys ≥ 8 chars, else '***'."""
+    if len(key) >= 8:
+        return key[:3] + "…" + key[-3:]
+    return "***"
 
 
 async def _resolve_key(provider: str) -> tuple[bool, str, str | None]:
@@ -67,7 +68,9 @@ async def _resolve_key(provider: str) -> tuple[bool, str, str | None]:
         )
         result = await row.fetchone()
         if result and result["key_value"]:
-            return True, "db", result["key_value"]
+            raw = result["key_value"]
+            plaintext = decrypt_key(raw) if is_encrypted(raw) else raw
+            return True, "db", plaintext
 
     return False, "none", None
 
@@ -114,6 +117,7 @@ async def set_key(provider: str, body: KeyUpdate):
         raise HTTPException(status_code=422, detail="Key must not be empty")
 
     now = datetime.now(timezone.utc).isoformat()
+    encrypted = encrypt_key(body.key.strip())
     async with get_db() as db:
         await db.execute(
             """
@@ -121,7 +125,7 @@ async def set_key(provider: str, body: KeyUpdate):
             VALUES (?, ?, ?)
             ON CONFLICT(provider) DO UPDATE SET key_value = excluded.key_value, updated_at = excluded.updated_at
             """,
-            (provider, body.key.strip(), now),
+            (provider, encrypted, now),
         )
         await db.commit()
 

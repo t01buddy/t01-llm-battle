@@ -114,6 +114,25 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
         await db.executescript(_SCHEMA_SQL)
         await db.commit()
 
+    await _migrate_plaintext_keys(db_path)
+
+
+async def _migrate_plaintext_keys(db_path: str | Path = DB_PATH) -> None:
+    """Encrypt any plaintext API keys still in the DB (one-time migration)."""
+    from .crypto import encrypt_key, is_encrypted
+
+    async with get_db(db_path) as db:
+        cursor = await db.execute("SELECT provider, key_value FROM api_key")
+        rows = await cursor.fetchall()
+        for row in rows:
+            if row["key_value"] and not is_encrypted(row["key_value"]):
+                encrypted = encrypt_key(row["key_value"])
+                await db.execute(
+                    "UPDATE api_key SET key_value = ? WHERE provider = ?",
+                    (encrypted, row["provider"]),
+                )
+        await db.commit()
+
 
 @asynccontextmanager
 async def get_db(
@@ -151,12 +170,15 @@ async def resolve_api_key(provider: str, db_path: str | Path = DB_PATH) -> str |
         if env_val:
             return env_val
 
+    from .crypto import decrypt_key, is_encrypted
+
     async with get_db(db_path) as db:
         cursor = await db.execute(
             "SELECT key_value FROM api_key WHERE provider = ?", (provider,)
         )
         row = await cursor.fetchone()
         if row and row["key_value"]:
-            return row["key_value"]
+            raw = row["key_value"]
+            return decrypt_key(raw) if is_encrypted(raw) else raw
 
     return None
