@@ -1044,10 +1044,11 @@
         async deleteBattle(id, root) {
           if (!confirm('Delete this battle?')) return;
           try {
-            await fetch('/battles/' + id, { method: 'DELETE' });
+            const resp = await fetch('/battles/' + id, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(await resp.text());
             if (root.params.id === id) root.navigate('/battles');
             window.dispatchEvent(new CustomEvent('battle-deleted'));
-          } catch(_) {}
+          } catch(e) { alert('Delete failed: ' + e.message); }
         }
       };
     }
