@@ -150,6 +150,33 @@
     .sidebar-footer a:hover { background: var(--border); color: var(--high); }
     .sidebar-footer a.active { color: var(--gold); }
 
+    /* ── Warning banner ──────────────────────────── */
+    .banner-warning {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: #fffbeb;
+      border: 1px solid #f59e0b;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      color: #92400e;
+    }
+    .banner-warning span { flex: 1; }
+    .banner-warning .btn-warning {
+      background: #f59e0b;
+      color: #ffffff;
+      border: none;
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .banner-warning .btn-warning:hover { background: #d97706; }
+
     /* ── Main content ─────────────────────────────── */
     .main-content {
       flex: 1;
@@ -377,6 +404,12 @@
 
     <!-- ── Main content ────────────────────────────── -->
     <main class="main-content">
+
+      <!-- No API keys warning -->
+      <div class="banner-warning" x-show="!hasActiveProvider">
+        <span>⚠ No API keys configured. Battles require at least one active provider.</span>
+        <button class="btn-warning" @click="navigate('/keys')">Configure API Keys →</button>
+      </div>
 
       <!-- Empty state when no battle selected -->
       <section x-show="route === 'battles'" style="height:70%;display:flex;align-items:center;justify-content:center;">
@@ -1721,10 +1754,24 @@ Do not wrap the JSON in markdown fences.`;
       return {
         route: 'battles',
         params: {},
+        hasActiveProvider: true,
+
+        async checkKeys() {
+          try {
+            const resp = await fetch('/keys');
+            const keys = await resp.json();
+            this.hasActiveProvider = keys.some(k => k.source === 'env' || k.source === 'db');
+          } catch(_) { this.hasActiveProvider = true; }
+        },
 
         async init() {
           this.parseRoute();
-          window.addEventListener('hashchange', () => this.parseRoute());
+          await this.checkKeys();
+          window.addEventListener('hashchange', () => {
+            const wasKeys = this.route === 'keys';
+            this.parseRoute();
+            if (wasKeys) this.checkKeys();
+          });
           if (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#/battles') {
             try {
               const resp = await fetch('/battles');
