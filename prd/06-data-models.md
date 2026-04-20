@@ -126,10 +126,12 @@ One row per (run × fighter × source item). Aggregates step results and stores 
 | Column | Type | Notes |
 |--------|------|-------|
 | provider | TEXT PK | Provider slug |
-| key_value | TEXT | Stored in plaintext (local machine only). Used by both LLM and tool providers (Serper, Tavily, Firecrawl). |
+| display_name | TEXT | Optional human-readable label; defaults to provider slug if NULL |
+| key_value | TEXT | Encrypted at rest (local machine only). Used by both LLM and tool providers (Serper, Tavily, Firecrawl). |
+| server_url | TEXT | Optional base URL for self-hosted providers (Ollama, LLM Studio, OpenAI-compatible). NULL for cloud providers. |
 | updated_at | TEXT | ISO-8601 |
 
-> Env vars always override `api_key` table values at runtime.
+> Env vars (e.g. `OPENAI_API_KEY`) always override `key_value` at runtime. `server_url` is used when the provider requires a custom endpoint (Ollama default: `http://localhost:11434`).
 
 ---
 
