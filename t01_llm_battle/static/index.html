@@ -446,9 +446,12 @@
             <div class="error-box" x-text="error"></div>
           </template>
 
-          <div style="display:flex;align-items:center;gap:1rem;">
-            <button type="submit" class="btn-primary" :disabled="loading">
-              <span x-text="loading ? 'Creating...' : 'Create Battle'"></span>
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <button type="button" class="btn-primary" :disabled="loading" @click="submit(false)">
+              <span x-text="loading ? 'Saving...' : 'Save'"></span>
+            </button>
+            <button type="button" class="btn-primary" :disabled="loading" @click="submit(true)">
+              <span x-text="loading ? 'Saving...' : 'Save & Run'"></span>
             </button>
             <a href="#/battles" class="text-muted" style="text-decoration:none;font-size:0.88rem;">Cancel</a>
           </div>
@@ -1134,15 +1137,26 @@ Do not wrap the JSON in markdown fences.`;
       return {
         name: '', judge_provider: 'openai', judge_model: 'gpt-4o',
         judge_rubric: DEFAULT_RUBRIC, loading: false, error: null,
-        providers: [], _mde: null,
+        providers: [], _activeProvider: null, _mde: null,
 
         async init() {
+          // Default name: "Battle YYYY-MM-DD HH:mm"
+          const now = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          this.name = `Battle ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
           try {
             const resp = await fetch('/keys');
             if (resp.ok) {
               const keys = await resp.json();
               this.providers = keys.map(k => k.provider);
-              if (this.providers.length > 0 && !this.providers.includes(this.judge_provider)) {
+              // Default judge to first provider with an active key
+              const active = keys.find(k => k.source === 'env' || k.source === 'db');
+              if (active) {
+                this._activeProvider = active.provider;
+                this.judge_provider = active.provider;
+                this.judge_model = DEFAULT_MODELS[active.provider] || '';
+              } else if (this.providers.length > 0) {
                 this.judge_provider = this.providers[0];
                 this.judge_model = DEFAULT_MODELS[this.judge_provider] || '';
               }
@@ -1167,21 +1181,57 @@ Do not wrap the JSON in markdown fences.`;
         onProviderChange() { this.judge_model = DEFAULT_MODELS[this.judge_provider] || ''; },
         modelPlaceholder() { return DEFAULT_MODELS[this.judge_provider] ? `e.g. ${DEFAULT_MODELS[this.judge_provider]}` : 'e.g. my-custom-model'; },
 
-        async submit() {
+        async submit(andRun) {
           if (this._mde) this.judge_rubric = this._mde.value();
           if (!this.name.trim()) { this.error = 'Battle name is required.'; return; }
           this.loading = true; this.error = null;
           try {
+            // 1. Create battle
             const resp = await fetch('/battles', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ name: this.name, judge_provider: this.judge_provider, judge_model: this.judge_model, judge_rubric: this.judge_rubric })
             });
             if (!resp.ok) throw new Error(await resp.text());
-            const data = await resp.json();
+            const battle = await resp.json();
+
+            // 2. Create 2 default fighters
+            const firstProvider = this._activeProvider || this.judge_provider || 'openai';
+            const firstModel = DEFAULT_MODELS[firstProvider] || '';
+
+            const f1Resp = await fetch(`/battles/${battle.id}/fighters`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Fighter 1', is_manual: false, position: 0 })
+            });
+            if (f1Resp.ok) {
+              const f1 = await f1Resp.json();
+              await fetch(`/battles/${battle.id}/fighters/${f1.id}/steps`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ position: 1, provider: firstProvider, model_id: firstModel, provider_config: '{}' })
+              });
+            }
+
+            await fetch(`/battles/${battle.id}/fighters`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Fighter 2', is_manual: true, position: 1 })
+            });
+
             if (this._mde) { try { this._mde.toTextArea(); } catch(_) {} this._mde = null; }
             window.dispatchEvent(new CustomEvent('battle-created'));
-            window.location.hash = '/battles/' + data.id;
+
+            // 3. Optionally start a run
+            if (andRun) {
+              const runResp = await fetch('/runs', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ battle_id: battle.id })
+              });
+              if (runResp.ok) {
+                const run = await runResp.json();
+                window.location.hash = '/runs/' + run.run_id;
+                return;
+              }
+            }
+            window.location.hash = '/battles/' + battle.id;
           } catch(e) {
             this.error = e.message;
           } finally {
