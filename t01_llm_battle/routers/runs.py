@@ -8,8 +8,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ..db import get_db
+from ..db import DB_PATH, get_db, resolve_api_key, _PROVIDER_ENV_VARS
 from ..engine import start_run_background
+from ..judge import score_response, generate_report
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -236,7 +237,46 @@ async def submit_manual_step(
         )
         all_results = await cursor.fetchall()
 
-    # 6. If all fighter_results are done, mark run as complete
+    # 6. Score the just-submitted manual result
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT r.battle_id, b.judge_provider, b.judge_model, b.judge_rubric, "
+            "bs.content AS source_content "
+            "FROM fighter_result fr "
+            "JOIN run r ON r.id = fr.run_id "
+            "JOIN battle b ON b.id = r.battle_id "
+            "JOIN battle_source bs ON bs.id = fr.source_id "
+            "WHERE fr.id = ?",
+            (step_result_id,),
+        )
+        ctx = await cursor.fetchone()
+
+    if ctx and ctx["judge_provider"] and ctx["judge_model"] and body.content:
+        import os
+        env_var = _PROVIDER_ENV_VARS.get(ctx["judge_provider"])
+        injected = False
+        if env_var and not os.environ.get(env_var):
+            key = await resolve_api_key(ctx["judge_provider"])
+            if key:
+                os.environ[env_var] = key
+                injected = True
+        judge_score, judge_reasoning = await score_response(
+            judge_provider=ctx["judge_provider"],
+            judge_model=ctx["judge_model"],
+            judge_rubric=ctx["judge_rubric"] or "",
+            source_content=ctx["source_content"],
+            response_content=body.content,
+        )
+        if injected:
+            os.environ.pop(env_var, None)
+        async with get_db() as db:
+            await db.execute(
+                "UPDATE fighter_result SET judge_score = ?, judge_reasoning = ? WHERE id = ?",
+                (judge_score, judge_reasoning, step_result_id),
+            )
+            await db.commit()
+
+    # 7. If all fighter_results are done, mark run as complete and generate report
     all_done = all(r["status"] in ("complete", "error") for r in all_results)
 
     if all_done:
@@ -247,6 +287,18 @@ async def submit_manual_step(
                 (finished_at, run_id),
             )
             await db.commit()
+        if ctx and ctx["judge_provider"] and ctx["judge_model"]:
+            import os
+            env_var = _PROVIDER_ENV_VARS.get(ctx["judge_provider"])
+            injected = False
+            if env_var and not os.environ.get(env_var):
+                key = await resolve_api_key(ctx["judge_provider"])
+                if key:
+                    os.environ[env_var] = key
+                    injected = True
+            await generate_report(run_id, ctx["judge_provider"], ctx["judge_model"])
+            if injected:
+                os.environ.pop(env_var, None)
 
     return ManualSubmitResponse(step_result_id=step_result_id, status="complete")
 
