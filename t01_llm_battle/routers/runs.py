@@ -276,6 +276,7 @@ async def get_run_results(run_id: str):
                 fr.source_id,
                 fr.final_output,
                 fr.total_cost_usd,
+                fr.total_latency_ms,
                 fr.total_input_tokens,
                 fr.total_output_tokens,
                 fr.judge_score,
@@ -301,7 +302,8 @@ async def get_run_results(run_id: str):
                 COUNT(*)                               AS step_count,
                 SUM(COALESCE(sr.input_tokens, 0))      AS agg_input_tokens,
                 SUM(COALESCE(sr.output_tokens, 0))     AS agg_output_tokens,
-                SUM(COALESCE(sr.cost_usd, 0))          AS agg_cost_usd
+                SUM(COALESCE(sr.cost_usd, 0))          AS agg_cost_usd,
+                SUM(COALESCE(sr.latency_ms, 0))        AS agg_latency_ms
             FROM step_result sr
             WHERE sr.run_id = ?
             GROUP BY sr.fighter_id, sr.source_id
@@ -351,6 +353,7 @@ async def get_run_results(run_id: str):
                 "source_label": fr["source_label"],
                 "score": fr["judge_score"],
                 "total_cost_usd": agg["agg_cost_usd"] if agg else fr["total_cost_usd"],
+                "total_latency_ms": agg["agg_latency_ms"] if agg else fr["total_latency_ms"],
                 "total_input_tokens": agg["agg_input_tokens"] if agg else fr["total_input_tokens"],
                 "total_output_tokens": agg["agg_output_tokens"] if agg else fr["total_output_tokens"],
                 "final_output": final_output,
