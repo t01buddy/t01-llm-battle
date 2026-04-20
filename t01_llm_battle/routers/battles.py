@@ -160,6 +160,39 @@ async def update_battle(battle_id: str, body: BattleUpdate) -> BattleDetail:
     )
 
 
+class RunSummary(BaseModel):
+    id: str
+    status: str
+    started_at: str
+    finished_at: str | None
+
+
+@router.get("/{battle_id}/runs", response_model=list[RunSummary])
+async def list_battle_runs(battle_id: str) -> list[RunSummary]:
+    """Return all runs for a battle ordered by started_at descending."""
+    async with get_db() as db:
+        cursor = await db.execute("SELECT id FROM battle WHERE id = ?", (battle_id,))
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Battle not found")
+
+        cursor = await db.execute(
+            "SELECT id, status, started_at, finished_at FROM run "
+            "WHERE battle_id = ? ORDER BY started_at DESC",
+            (battle_id,),
+        )
+        rows = await cursor.fetchall()
+
+    return [
+        RunSummary(
+            id=row["id"],
+            status=row["status"],
+            started_at=row["started_at"],
+            finished_at=row["finished_at"],
+        )
+        for row in rows
+    ]
+
+
 @router.delete("/{battle_id}", status_code=204, response_model=None)
 async def delete_battle(battle_id: str) -> None:
     """Delete a battle and all related data via cascade."""
