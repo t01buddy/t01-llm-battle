@@ -19,11 +19,27 @@ router = APIRouter(prefix="/battles", tags=["battles"])
 # ---------------------------------------------------------------------------
 
 
+class StepBatch(BaseModel):
+    position: int = 0
+    system_prompt: str | None = None
+    provider: str
+    model_id: str
+    provider_config: str = "{}"
+
+
+class FighterBatch(BaseModel):
+    name: str
+    is_manual: bool = False
+    position: int = 0
+    steps: list[StepBatch] = []
+
+
 class BattleCreate(BaseModel):
     name: str = Field(min_length=1)
     judge_provider: str
     judge_model: str
     judge_rubric: str
+    fighters: list[FighterBatch] = []
 
     @field_validator("name")
     @classmethod
@@ -73,7 +89,7 @@ class BattleCreated(BaseModel):
 
 @router.post("", response_model=BattleCreated, status_code=201)
 async def create_battle(body: BattleCreate) -> BattleCreated:
-    """Create a new battle and return its id."""
+    """Create a new battle (with optional nested fighters/steps) and return its id."""
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="Battle name must not be empty or whitespace.")
     battle_id = str(uuid.uuid4())
@@ -87,6 +103,21 @@ async def create_battle(body: BattleCreate) -> BattleCreated:
             """,
             (battle_id, body.name, body.judge_provider, body.judge_model, body.judge_rubric, created_at),
         )
+        for fighter in body.fighters:
+            fighter_id = str(uuid.uuid4())
+            await db.execute(
+                "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (fighter_id, battle_id, fighter.name, int(fighter.is_manual), fighter.position, created_at),
+            )
+            for step in fighter.steps:
+                step_id = str(uuid.uuid4())
+                await db.execute(
+                    """INSERT INTO fighter_step
+                       (id, fighter_id, position, system_prompt, provider, model_id, provider_config, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (step_id, fighter_id, step.position, step.system_prompt,
+                     step.provider, step.model_id, step.provider_config, created_at),
+                )
         await db.commit()
 
     return BattleCreated(id=battle_id)

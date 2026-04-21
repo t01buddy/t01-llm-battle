@@ -495,6 +495,33 @@
             <textarea id="bf-rubric" x-ref="rubricTextarea" style="display:none;" x-model="judge_rubric"></textarea>
           </div>
 
+          <!-- Fighters (local state, saved atomically) -->
+          <div>
+            <label>Fighters <span class="text-muted" style="font-weight:400;font-size:0.85rem;">(added to battle on Save)</span></label>
+            <template x-for="(fighter, fi) in localFighters" :key="fi">
+              <div style="border:1px solid var(--border);border-radius:6px;padding:0.75rem;margin-bottom:0.5rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                  <input type="text" x-model="fighter.name" style="flex:1;font-size:0.9rem;padding:3px 8px;" placeholder="Fighter name">
+                  <label style="font-size:0.82rem;display:flex;align-items:center;gap:4px;white-space:nowrap;">
+                    <input type="checkbox" x-model="fighter.is_manual"> Manual
+                  </label>
+                  <button type="button" @click="removeFighter(fi)" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:0.85rem;">✕</button>
+                </div>
+                <div style="margin-left:0.5rem;">
+                  <template x-for="(step, si) in fighter.steps" :key="si">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.82rem;">
+                      <span class="badge-muted" x-text="'Step ' + (si+1)"></span>
+                      <span x-text="step.provider + ' / ' + step.model_id" style="color:var(--mid);"></span>
+                      <button type="button" @click="removeStep(fi, si)" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:0.78rem;">✕</button>
+                    </div>
+                  </template>
+                  <button type="button" @click="addLocalStep(fi)" style="font-size:0.8rem;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--mid);">+ Step</button>
+                </div>
+              </div>
+            </template>
+            <button type="button" @click="addLocalFighter()" style="font-size:0.85rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 14px;cursor:pointer;color:var(--mid);width:100%;">+ Add Fighter</button>
+          </div>
+
           <template x-if="error">
             <div class="error-box" x-text="error"></div>
           </template>
@@ -1218,6 +1245,7 @@ Do not wrap the JSON in markdown fences.`;
         name: '', judge_provider: 'openai', judge_model: 'gpt-4o',
         judge_rubric: DEFAULT_RUBRIC, loading: false, error: null,
         providers: [], _activeProvider: null, _mde: null,
+        localFighters: [],
 
         async init() {
           // Default name: "Battle YYYY-MM-DD HH:mm"
@@ -1245,6 +1273,15 @@ Do not wrap the JSON in markdown fences.`;
           if (this.providers.length === 0) {
             this.providers = ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'];
           }
+
+          // Pre-populate 2 default fighters
+          const firstProvider = this._activeProvider || this.judge_provider || 'openai';
+          const firstModel = DEFAULT_MODELS[firstProvider] || '';
+          this.localFighters = [
+            { name: 'Fighter 1', is_manual: false, position: 0, steps: [{ provider: firstProvider, model_id: firstModel, position: 0, system_prompt: null, provider_config: '{}' }] },
+            { name: 'Fighter 2', is_manual: true,  position: 1, steps: [] },
+          ];
+
           await this.$nextTick();
           const ta = this.$refs.rubricTextarea;
           if (ta && typeof EasyMDE !== 'undefined') {
@@ -1264,45 +1301,41 @@ Do not wrap the JSON in markdown fences.`;
         onProviderChange() { this.judge_model = DEFAULT_MODELS[this.judge_provider] || ''; },
         modelPlaceholder() { return DEFAULT_MODELS[this.judge_provider] ? `e.g. ${DEFAULT_MODELS[this.judge_provider]}` : 'e.g. my-custom-model'; },
 
+        addLocalFighter() {
+          this.localFighters.push({ name: `Fighter ${this.localFighters.length + 1}`, is_manual: false, position: this.localFighters.length, steps: [] });
+        },
+        removeFighter(fi) { this.localFighters.splice(fi, 1); },
+        addLocalStep(fi) {
+          const firstProvider = this._activeProvider || this.judge_provider || 'openai';
+          const firstModel = DEFAULT_MODELS[firstProvider] || '';
+          this.localFighters[fi].steps.push({ provider: firstProvider, model_id: firstModel, position: this.localFighters[fi].steps.length, system_prompt: null, provider_config: '{}' });
+        },
+        removeStep(fi, si) { this.localFighters[fi].steps.splice(si, 1); },
+
         async submit(andRun) {
           if (this._mde) this.judge_rubric = this._mde.value();
           if (!this.name.trim()) { this.error = 'Battle name is required.'; return; }
           this.loading = true; this.error = null;
           try {
-            // 1. Create battle
+            // Create battle with all fighters/steps atomically
+            const fighters = this.localFighters.map((f, fi) => ({
+              name: f.name || `Fighter ${fi + 1}`,
+              is_manual: f.is_manual,
+              position: fi,
+              steps: f.steps.map((s, si) => ({ ...s, position: si })),
+            }));
             const resp = await fetch('/battles', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: this.name, judge_provider: this.judge_provider, judge_model: this.judge_model, judge_rubric: this.judge_rubric })
+              body: JSON.stringify({ name: this.name, judge_provider: this.judge_provider, judge_model: this.judge_model, judge_rubric: this.judge_rubric, fighters })
             });
             if (!resp.ok) throw new Error(await resp.text());
             const battle = await resp.json();
 
-            // 2. Create 2 default fighters
-            const firstProvider = this._activeProvider || this.judge_provider || 'openai';
-            const firstModel = DEFAULT_MODELS[firstProvider] || '';
-
-            const f1Resp = await fetch(`/battles/${battle.id}/fighters`, {
-              method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: 'Fighter 1', is_manual: false, position: 0 })
-            });
-            if (f1Resp.ok) {
-              const f1 = await f1Resp.json();
-              await fetch(`/battles/${battle.id}/fighters/${f1.id}/steps`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ position: 1, provider: firstProvider, model_id: firstModel, provider_config: '{}' })
-              });
-            }
-
-            await fetch(`/battles/${battle.id}/fighters`, {
-              method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: 'Fighter 2', is_manual: true, position: 1 })
-            });
-
             if (this._mde) { try { this._mde.toTextArea(); } catch(_) {} this._mde = null; }
             window.dispatchEvent(new CustomEvent('battle-created'));
 
-            // 3. Optionally start a run
+            // Optionally start a run
             if (andRun) {
               const runResp = await fetch('/runs', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
