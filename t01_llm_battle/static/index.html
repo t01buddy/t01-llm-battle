@@ -150,6 +150,20 @@
     .sidebar-footer a:hover { background: var(--border); color: var(--high); }
     .sidebar-footer a.active { color: var(--gold); }
 
+    .sidebar-provider-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: var(--mid);
+      text-decoration: none;
+      font-size: 0.86rem;
+      transition: background 0.1s, color 0.1s;
+    }
+    .sidebar-provider-link:hover { background: var(--border); color: var(--high); }
+    .sidebar-provider-link.active { color: var(--gold); }
+
     /* ── Warning banner ──────────────────────────── */
     .banner-warning {
       display: flex;
@@ -366,9 +380,20 @@
            x-data="sidebarData()"
            x-init="load()"
            @battle-created.window="load()"
-           @battle-deleted.window="load()">
+           @battle-deleted.window="load()"
+           @provider-updated.window="load()">
 
       <a href="#/battles" class="sidebar-brand" style="text-decoration:none;color:inherit;cursor:pointer;">T01 LLM Battle</a>
+
+      <div style="padding:0.5rem 0.5rem 0;">
+        <div class="sidebar-section-header" style="margin-bottom:0;">
+          <span class="sidebar-section-title">Providers</span>
+          <span class="badge-muted" x-text="providerCount" style="min-width:1.4rem;text-align:center;"></span>
+        </div>
+        <a href="#/keys" :class="{ active: $root.route === 'keys' }" class="sidebar-provider-link">
+          ◈ Providers
+        </a>
+      </div>
 
       <div class="sidebar-battles">
         <div class="sidebar-section-header">
@@ -395,11 +420,6 @@
         </template>
       </div>
 
-      <div class="sidebar-footer">
-        <a href="#/keys" :class="{ active: $root.route === 'keys' }">
-          <span>⚙️</span> Providers
-        </a>
-      </div>
     </aside>
 
     <!-- ── Main content ────────────────────────────── -->
@@ -1133,16 +1153,24 @@
       return {
         battles: [],
         loading: false,
+        providerCount: 0,
 
         async load() {
           this.loading = true;
           try {
-            const resp = await fetch('/battles');
-            if (!resp.ok) throw new Error(await resp.text());
-            const data = await resp.json();
+            const [battlesResp, keysResp] = await Promise.all([
+              fetch('/battles'),
+              fetch('/keys'),
+            ]);
+            if (!battlesResp.ok) throw new Error(await battlesResp.text());
+            const data = await battlesResp.json();
             this.battles = (Array.isArray(data) ? data : [])
               .filter(b => b && b.id)
               .sort((a, b) => (b.created_at > a.created_at ? 1 : -1));
+            if (keysResp.ok) {
+              const keys = await keysResp.json();
+              this.providerCount = keys.filter(k => k.source === 'env' || k.source === 'db').length;
+            }
           } catch(_) {}
           finally { this.loading = false; }
         },
@@ -1608,6 +1636,7 @@ Do not wrap the JSON in markdown fences.`;
             this.saved[provider] = true;
             setTimeout(() => { delete this.saved[provider]; }, 3000);
             await this.load();
+            window.dispatchEvent(new CustomEvent('provider-updated'));
           } catch(e) { this.saveErrors[provider] = e.message; }
         },
 
@@ -1617,6 +1646,7 @@ Do not wrap the JSON in markdown fences.`;
             const resp = await fetch('/keys/' + provider, { method: 'DELETE' });
             if (!resp.ok) throw new Error(await resp.text());
             await this.load();
+            window.dispatchEvent(new CustomEvent('provider-updated'));
           } catch(e) { this.saveErrors[provider] = e.message; }
         }
       };
