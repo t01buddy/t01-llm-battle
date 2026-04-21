@@ -533,7 +533,7 @@
               </p>
               <input type="file" accept=".txt,.md,.csv" multiple
                      :disabled="uploading"
-                     @change="upload($event, $root.params.id)">
+                     @change="upload($event, currentBattleId)">
               <template x-if="uploading">
                 <p class="text-gold" style="font-size:0.86rem;margin:4px 0 0;">Uploading...</p>
               </template>
@@ -558,7 +558,7 @@
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
                   <button @click="textItems.push({ content: '', label: '' })"
                     style="background:none;border:1px solid var(--border);color:var(--mid);cursor:pointer;border-radius:6px;padding:4px 12px;font-size:0.83rem;">+ Add Another</button>
-                  <button @click="addTextSources($root.params.id)" class="btn-primary"
+                  <button @click="addTextSources(currentBattleId)" class="btn-primary"
                     :disabled="addingText || !textItems.some(i => i.content.trim())"
                     style="padding:5px 14px;font-size:0.83rem;">
                     <span x-text="addingText ? 'Saving...' : 'Save'"></span>
@@ -583,7 +583,7 @@
               <template x-for="s in sources" :key="s.id">
                 <div class="source-item">
                   <span x-text="s.label"></span>
-                  <button class="btn-danger-sm" @click="remove($root.params.id, s.id)">Delete</button>
+                  <button class="btn-danger-sm" @click="remove(currentBattleId, s.id)">Delete</button>
                 </div>
               </template>
             </div>
@@ -601,7 +601,7 @@
 
           <!-- Add fighter form -->
           <template x-if="showAddFighter">
-            <form @submit.prevent="addFighter($root.params.id)"
+            <form @submit.prevent="addFighter(battleId)"
               style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
               <h3>New Fighter</h3>
               <div style="display:flex;gap:1rem;align-items:flex-end;">
@@ -669,7 +669,7 @@
 
                   <!-- Add step inline form -->
                   <template x-if="activeStepFighterId === fighter.id">
-                    <form @submit.prevent="addStep($root.params.id, fighter.id)"
+                    <form @submit.prevent="addStep(battleId, fighter.id)"
                       style="background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:0.75rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.6rem;">
                       <h4 style="margin:0;font-size:0.88rem;">New Step</h4>
 
@@ -1418,7 +1418,7 @@ Do not wrap the JSON in markdown fences.`;
     // ── Fighter list ─────────────────────────────────────────
     function fighterList() {
       return {
-        fighters: [], loadingFighters: false, fightersError: null,
+        battleId: null, fighters: [], loadingFighters: false, fightersError: null,
         showAddFighter: false, newFighter: { name: '', is_manual: false },
         addingFighter: false, addFighterError: null,
         activeStepFighterId: null,
@@ -1457,6 +1457,7 @@ Do not wrap the JSON in markdown fences.`;
         },
 
         async load(battleId) {
+          this.battleId = battleId;
           this.loadingFighters = true; this.fightersError = null;
           try {
             const [fightersResp, provResp] = await Promise.all([
