@@ -411,7 +411,7 @@
 
         <template x-for="b in battles" :key="b.id">
           <div class="battle-item"
-               :class="{ active: $root.params.id === b.id }"
+               :class="{ active: params.id === b.id }"
                @click="$root.navigate('/battles/' + b.id)">
             <span class="battle-item-name" x-text="b.name"></span>
             <button class="btn-delete-battle" title="Delete"
@@ -542,7 +542,7 @@
       <!-- ── Battle detail ───────────────────────── -->
       <section x-show="route === 'battles/detail'"
                x-data="battleDetail()"
-               x-init="$watch('$root.params.id', id => { if (id) load(id); }); if ($root.params.id) load($root.params.id);">
+               x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
 
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
           <h1 style="margin:0;">Battle Detail</h1>
@@ -638,7 +638,7 @@
         </div>
 
         <!-- Fighters card -->
-        <div class="card" x-data="fighterList()" x-init="load($root.params.id)">
+        <div class="card" x-data="fighterList()" x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
             <h2 style="margin:0;">Fighters</h2>
             <button class="btn-primary" @click="showAddFighter = !showAddFighter" style="padding:6px 14px;font-size:0.83rem;">
@@ -852,7 +852,7 @@
 
       <!-- ── Live run view ───────────────────────── -->
       <section x-show="route === 'runs/detail'" x-data="runView()"
-               x-init="$watch('$root.params.id', id => { if (id && $root.route === 'runs/detail') init(id); }); if ($root.params.id && $root.route === 'runs/detail') init($root.params.id);">
+               x-init="$watch('params.id', id => { if (id && route === 'runs/detail') init(id); }); if (params.id && route === 'runs/detail') init(params.id);">
 
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
           <h1 style="margin:0;">Live Run</h1>
@@ -973,7 +973,7 @@
 
       <!-- ── Results view ────────────────────────── -->
       <section x-show="route === 'results/detail'" x-data="resultsView()"
-               x-init="$watch('$root.route', r => { if (r === 'results/detail' && $root.params.id) load($root.params.id); }); if (route === 'results/detail' && params.id) load(params.id);">
+               x-init="$watch('route', r => { if (r === 'results/detail' && params.id) load(params.id); }); if (route === 'results/detail' && params.id) load(params.id);">
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
           <div style="display:flex;align-items:center;gap:0.75rem;">
