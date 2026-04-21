@@ -381,9 +381,10 @@
            x-init="load()"
            @battle-created.window="load()"
            @battle-deleted.window="load()"
-           @provider-updated.window="load()">
+           @provider-updated.window="load()"
+           @create-battle.window="newBattle()">
 
-      <a href="#/battles" class="sidebar-brand" style="text-decoration:none;color:inherit;cursor:pointer;">T01 LLM Battle</a>
+      <span class="sidebar-brand" style="cursor:pointer;" @click="(function(){ const m = window.location.hash.match(/^#\/battles\/([^\/]+)$/); if(m) navigate('/battles/'+m[1]); else newBattle(); })()">T01 LLM Battle</span>
 
       <div style="padding:0.5rem 0.5rem 0;">
         <div class="sidebar-section-header" style="margin-bottom:0;">
@@ -412,10 +413,10 @@
         <template x-for="b in battles" :key="b.id">
           <div class="battle-item"
                :class="{ active: params.id === b.id }"
-               @click="$root.navigate('/battles/' + b.id)">
+               @click="window.location.hash = '#/battles/' + b.id">
             <span class="battle-item-name" x-text="b.name"></span>
             <button class="btn-delete-battle" title="Delete"
-                    @click.stop="deleteBattle(b.id, $root)">×</button>
+                    @click.stop="deleteBattle(b.id)">×</button>
           </div>
         </template>
       </div>
@@ -435,108 +436,8 @@
       <section x-show="route === 'battles'" style="height:70%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;">
           <p class="text-muted" style="font-size:1rem;margin-bottom:1rem;">Select a battle from the sidebar or create a new one.</p>
-          <button class="btn-primary" @click="navigate('/battles/new')">+ New Battle</button>
+          <button class="btn-primary" @click="$dispatch('create-battle')">+ New Battle</button>
         </div>
-      </section>
-
-      <!-- ── New battle form ─────────────────────── -->
-      <section x-show="route === 'battles/new'" x-data="battleForm()" x-init="init()">
-        <h1>New Battle</h1>
-
-        <form @submit.prevent="submit()" style="max-width:560px;display:flex;flex-direction:column;gap:1.1rem;">
-
-          <div>
-            <label for="bf-name">Battle Name <span class="text-danger">*</span></label>
-            <input id="bf-name" type="text" x-model="name" required placeholder="e.g. Summarisation quality test">
-          </div>
-
-          <div class="form-grid-2">
-            <div>
-              <label for="bf-provider">Judge Provider</label>
-              <select id="bf-provider" x-model="judge_provider" @change="onProviderChange()">
-                <template x-if="providers.length === 0">
-                  <option value="">Loading…</option>
-                </template>
-                <template x-for="p in providers" :key="p">
-                  <option :value="p" x-text="p"></option>
-                </template>
-              </select>
-            </div>
-            <div>
-              <label for="bf-model">Judge Model</label>
-              <input id="bf-model" type="text" x-model="judge_model"
-                :placeholder="modelPlaceholder()"
-                :list="'bf-model-suggestions-' + judge_provider">
-              <datalist id="bf-model-suggestions-openai">
-                <option value="gpt-4o"></option><option value="gpt-4o-mini"></option><option value="gpt-4-turbo"></option>
-              </datalist>
-              <datalist id="bf-model-suggestions-anthropic">
-                <option value="claude-opus-4-5"></option><option value="claude-sonnet-4-5"></option><option value="claude-haiku-3-5"></option>
-              </datalist>
-              <datalist id="bf-model-suggestions-google">
-                <option value="gemini-2.0-flash"></option><option value="gemini-1.5-pro"></option>
-              </datalist>
-              <datalist id="bf-model-suggestions-groq">
-                <option value="llama-3.3-70b-versatile"></option>
-              </datalist>
-              <datalist id="bf-model-suggestions-openrouter">
-                <option value="openai/gpt-4o"></option><option value="anthropic/claude-opus-4-5"></option>
-              </datalist>
-              <datalist id="bf-model-suggestions-ollama">
-                <option value="llama3.2"></option><option value="mistral"></option>
-              </datalist>
-            </div>
-          </div>
-
-          <div>
-            <label for="bf-rubric">Judge Rubric
-              <span style="font-weight:400;color:var(--low);">(optional — edit or replace the default)</span>
-            </label>
-            <textarea id="bf-rubric" x-ref="rubricTextarea" style="display:none;" x-model="judge_rubric"></textarea>
-          </div>
-
-          <!-- Fighters (local state, saved atomically) -->
-          <div>
-            <label>Fighters <span class="text-muted" style="font-weight:400;font-size:0.85rem;">(added to battle on Save)</span></label>
-            <template x-for="(fighter, fi) in localFighters" :key="fi">
-              <div style="border:1px solid var(--border);border-radius:6px;padding:0.75rem;margin-bottom:0.5rem;">
-                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-                  <input type="text" x-model="fighter.name" style="flex:1;font-size:0.9rem;padding:3px 8px;" placeholder="Fighter name">
-                  <label style="font-size:0.82rem;display:flex;align-items:center;gap:4px;white-space:nowrap;">
-                    <input type="checkbox" x-model="fighter.is_manual"> Manual
-                  </label>
-                  <button type="button" @click="removeFighter(fi)" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:0.85rem;">✕</button>
-                </div>
-                <div style="margin-left:0.5rem;">
-                  <template x-for="(step, si) in fighter.steps" :key="si">
-                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.82rem;">
-                      <span class="badge-muted" x-text="'Step ' + (si+1)"></span>
-                      <span x-text="step.provider + ' / ' + step.model_id" style="color:var(--mid);"></span>
-                      <button type="button" @click="removeStep(fi, si)" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:0.78rem;">✕</button>
-                    </div>
-                  </template>
-                  <button type="button" @click="addLocalStep(fi)" style="font-size:0.8rem;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--mid);">+ Step</button>
-                </div>
-              </div>
-            </template>
-            <button type="button" @click="addLocalFighter()" style="font-size:0.85rem;background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 14px;cursor:pointer;color:var(--mid);width:100%;">+ Add Fighter</button>
-          </div>
-
-          <template x-if="error">
-            <div class="error-box" x-text="error"></div>
-          </template>
-
-          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <button type="button" class="btn-primary" :disabled="loading" @click="submit(false)">
-              <span x-text="loading ? 'Saving...' : 'Save'"></span>
-            </button>
-            <button type="button" class="btn-primary" :disabled="loading" @click="submit(true)">
-              <span x-text="loading ? 'Saving...' : 'Save & Run'"></span>
-            </button>
-            <a href="#/battles" class="text-muted" style="text-decoration:none;font-size:0.88rem;">Cancel</a>
-          </div>
-
-        </form>
       </section>
 
       <!-- ── Battle detail ───────────────────────── -->
@@ -546,24 +447,10 @@
 
         <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
           <h1 style="margin:0;">Battle Detail</h1>
-          <template x-if="battleName && !editingName">
-            <span style="font-weight:600;color:var(--high);font-size:1.1rem;" x-text="'— ' + battleName"></span>
-          </template>
+          <input type="text" x-model="nameInput"
+            style="font-size:0.95rem;padding:4px 8px;width:240px;"
+            @keydown.enter="saveName()" placeholder="Battle name">
           <span class="badge-muted" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span>
-          <template x-if="!editingName">
-            <button @click="startEditName()" style="background:none;border:none;cursor:pointer;color:var(--gold);font-size:0.85rem;padding:2px 6px;" title="Rename battle">✏️ Edit</button>
-          </template>
-          <template x-if="editingName">
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <input x-ref="nameInput" type="text" x-model="nameInput"
-                style="font-size:0.95rem;padding:4px 8px;width:220px;"
-                @keydown.enter="saveName()" @keydown.escape="cancelEditName()">
-              <button @click="saveName()" class="btn-primary" :disabled="nameSaving" style="padding:4px 12px;font-size:0.83rem;">
-                <span x-text="nameSaving ? 'Saving...' : 'Save'"></span>
-              </button>
-              <button @click="cancelEditName()" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.83rem;">Cancel</button>
-            </div>
-          </template>
         </div>
 
         <!-- Sources card -->
@@ -700,11 +587,54 @@
                   <template x-if="fighter.steps && fighter.steps.length > 0">
                     <div style="margin-bottom:0.5rem;">
                       <template x-for="(step, idx) in fighter.steps" :key="step.id">
-                        <div class="step-row">
-                          <span style="color:var(--low);font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
-                          <span class="text-muted" x-text="step.provider"></span>
-                          <span style="color:var(--high);font-weight:500;" x-text="step.model_id"></span>
-                          <span x-show="step.system_prompt" style="color:var(--low);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" x-text="step.system_prompt"></span>
+                        <div>
+                          <!-- Step summary row -->
+                          <template x-if="activeEditStepId !== step.id">
+                            <div class="step-row" style="cursor:pointer;" @click="startEditStep(step)" title="Click to edit">
+                              <span style="color:var(--low);font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
+                              <span class="text-muted" x-text="step.provider"></span>
+                              <span style="color:var(--high);font-weight:500;" x-text="step.model_id"></span>
+                              <span x-show="step.system_prompt" style="color:var(--low);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;" x-text="step.system_prompt"></span>
+                              <button @click.stop="deleteStep(fighter.id, step.id)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.9rem;padding:0 2px;" title="Delete step">×</button>
+                            </div>
+                          </template>
+                          <!-- Inline edit form -->
+                          <template x-if="activeEditStepId === step.id">
+                            <div style="background:#fff;border:1px solid var(--gold);border-radius:6px;padding:0.75rem;margin-bottom:0.4rem;display:flex;flex-direction:column;gap:0.5rem;">
+                              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                <div style="flex:0 0 auto;">
+                                  <label style="font-size:0.78rem;">Provider</label>
+                                  <select x-model="editStep.provider" style="font-size:0.83rem;padding:3px 6px;">
+                                    <template x-for="p in providerInfoList.length ? providerInfoList.map(p=>p.name) : providers" :key="p">
+                                      <option :value="p" x-text="p"></option>
+                                    </template>
+                                  </select>
+                                </div>
+                                <div style="flex:1;min-width:120px;">
+                                  <label style="font-size:0.78rem;">Model</label>
+                                  <input type="text" x-model="editStep.model_id" style="font-size:0.83rem;padding:3px 6px;width:100%;" placeholder="e.g. gpt-4o">
+                                </div>
+                              </div>
+                              <div>
+                                <label style="font-size:0.78rem;">System Prompt <span style="font-weight:400;color:var(--low);">(optional)</span></label>
+                                <textarea x-model="editStep.system_prompt" rows="2" style="font-size:0.83rem;resize:vertical;font-family:inherit;" placeholder="You are a helpful assistant..."></textarea>
+                              </div>
+                              <div>
+                                <label style="font-size:0.78rem;">Provider Config <span style="font-weight:400;color:var(--low);">(JSON)</span></label>
+                                <input type="text" x-model="editStep.provider_config" style="font-size:0.82rem;font-family:monospace;padding:3px 6px;" placeholder="{}">
+                              </div>
+                              <template x-if="editStepError">
+                                <p class="text-danger" style="margin:0;font-size:0.8rem;" x-text="editStepError"></p>
+                              </template>
+                              <div style="display:flex;gap:0.5rem;">
+                                <button @click="saveEditStep(fighter.id, step)" class="btn-primary" :disabled="savingStep" style="padding:4px 12px;font-size:0.82rem;">
+                                  <span x-text="savingStep ? 'Saving...' : 'Save'"></span>
+                                </button>
+                                <button @click="cancelEditStep()" class="btn-secondary" style="padding:4px 10px;font-size:0.82rem;">Cancel</button>
+                                <button @click="deleteStep(fighter.id, step.id)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.82rem;padding:0 4px;">Delete step</button>
+                              </div>
+                            </div>
+                          </template>
                         </div>
                       </template>
                     </div>
@@ -834,6 +764,11 @@
         <!-- Run Battle -->
         <div style="display:flex;align-items:center;gap:1rem;"
              @fighters-updated.window="fighterCount = $event.detail.count">
+          <button @click="saveName()" class="btn-secondary"
+            :disabled="nameSaving"
+            style="padding:10px 24px;font-size:0.92rem;">
+            <span x-text="nameSaving ? 'Saving...' : 'Save'"></span>
+          </button>
           <button @click="runBattle()" class="btn-primary"
             :disabled="running || sources.length === 0 || fighterCount === 0"
             style="padding:10px 24px;font-size:0.92rem;">
@@ -1202,12 +1137,41 @@
           finally { this.loading = false; }
         },
 
-        async deleteBattle(id, root) {
+        async newBattle() {
+          const now = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          const name = `Battle ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+          try {
+            const resp = await fetch('/battles', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name, judge_provider: 'openai', judge_model: 'gpt-4o', judge_rubric: DEFAULT_RUBRIC })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const battle = await resp.json();
+            const f1 = await (await fetch(`/battles/${battle.id}/fighters`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Fighter 1', is_manual: false, position: 0 })
+            })).json();
+            await fetch(`/battles/${battle.id}/fighters/${f1.id}/steps`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ position: 1, provider: 'openai', model_id: 'gpt-4o', provider_config: '{}' })
+            });
+            await fetch(`/battles/${battle.id}/fighters`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Fighter 2', is_manual: true, position: 1 })
+            });
+            window.dispatchEvent(new CustomEvent('battle-created'));
+            window.location.hash = '/battles/' + battle.id;
+          } catch(e) { alert('Could not create battle: ' + e.message); }
+        },
+
+        async deleteBattle(id) {
           if (!confirm('Delete this battle?')) return;
           try {
             const resp = await fetch('/battles/' + id, { method: 'DELETE' });
             if (!resp.ok) throw new Error(await resp.text());
-            if (root.params.id === id) root.navigate('/battles');
+            const m = window.location.hash.match(/^#\/battles\/([^\/]+)$/);
+            if (m && m[1] === id) window.location.hash = '#/battles';
             window.dispatchEvent(new CustomEvent('battle-deleted'));
           } catch(e) { alert('Delete failed: ' + e.message); }
         }
@@ -1239,135 +1203,17 @@ Do not wrap the JSON in markdown fences.`;
       ollama: 'llama3.2',
     };
 
-    // ── Battle form ──────────────────────────────────────────
-    function battleForm() {
-      return {
-        name: '', judge_provider: 'openai', judge_model: 'gpt-4o',
-        judge_rubric: DEFAULT_RUBRIC, loading: false, error: null,
-        providers: [], _activeProvider: null, _mde: null,
-        localFighters: [],
-
-        async init() {
-          // Default name: "Battle YYYY-MM-DD HH:mm"
-          const now = new Date();
-          const pad = n => String(n).padStart(2, '0');
-          this.name = `Battle ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-          try {
-            const resp = await fetch('/keys');
-            if (resp.ok) {
-              const keys = await resp.json();
-              this.providers = keys.map(k => k.provider);
-              // Default judge to first provider with an active key
-              const active = keys.find(k => k.source === 'env' || k.source === 'db');
-              if (active) {
-                this._activeProvider = active.provider;
-                this.judge_provider = active.provider;
-                this.judge_model = DEFAULT_MODELS[active.provider] || '';
-              } else if (this.providers.length > 0) {
-                this.judge_provider = this.providers[0];
-                this.judge_model = DEFAULT_MODELS[this.judge_provider] || '';
-              }
-            }
-          } catch(_) {}
-          if (this.providers.length === 0) {
-            this.providers = ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'];
-          }
-
-          // Pre-populate 2 default fighters
-          const firstProvider = this._activeProvider || this.judge_provider || 'openai';
-          const firstModel = DEFAULT_MODELS[firstProvider] || '';
-          this.localFighters = [
-            { name: 'Fighter 1', is_manual: false, position: 0, steps: [{ provider: firstProvider, model_id: firstModel, position: 0, system_prompt: null, provider_config: '{}' }] },
-            { name: 'Fighter 2', is_manual: true,  position: 1, steps: [] },
-          ];
-
-          await this.$nextTick();
-          const ta = this.$refs.rubricTextarea;
-          if (ta && typeof EasyMDE !== 'undefined') {
-            // Remove any orphaned EasyMDE containers from a previous init cycle
-            const prev = ta.parentElement && ta.parentElement.querySelector('.EasyMDEContainer');
-            if (prev) prev.remove();
-            this._mde = new EasyMDE({
-              element: ta, initialValue: this.judge_rubric, spellChecker: false,
-              autosave: { enabled: false },
-              toolbar: ['bold', 'italic', '|', 'unordered-list', 'ordered-list', '|', 'preview'],
-              minHeight: '180px', placeholder: 'Describe how the judge should score outputs (0-10)…',
-            });
-            this._mde.codemirror.on('change', () => { this.judge_rubric = this._mde.value(); });
-          }
-        },
-
-        onProviderChange() { this.judge_model = DEFAULT_MODELS[this.judge_provider] || ''; },
-        modelPlaceholder() { return DEFAULT_MODELS[this.judge_provider] ? `e.g. ${DEFAULT_MODELS[this.judge_provider]}` : 'e.g. my-custom-model'; },
-
-        addLocalFighter() {
-          this.localFighters.push({ name: `Fighter ${this.localFighters.length + 1}`, is_manual: false, position: this.localFighters.length, steps: [] });
-        },
-        removeFighter(fi) { this.localFighters.splice(fi, 1); },
-        addLocalStep(fi) {
-          const firstProvider = this._activeProvider || this.judge_provider || 'openai';
-          const firstModel = DEFAULT_MODELS[firstProvider] || '';
-          this.localFighters[fi].steps.push({ provider: firstProvider, model_id: firstModel, position: this.localFighters[fi].steps.length, system_prompt: null, provider_config: '{}' });
-        },
-        removeStep(fi, si) { this.localFighters[fi].steps.splice(si, 1); },
-
-        async submit(andRun) {
-          if (this._mde) this.judge_rubric = this._mde.value();
-          if (!this.name.trim()) { this.error = 'Battle name is required.'; return; }
-          this.loading = true; this.error = null;
-          try {
-            // Create battle with all fighters/steps atomically
-            const fighters = this.localFighters.map((f, fi) => ({
-              name: f.name || `Fighter ${fi + 1}`,
-              is_manual: f.is_manual,
-              position: fi,
-              steps: f.steps.map((s, si) => ({ ...s, position: si })),
-            }));
-            const resp = await fetch('/battles', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: this.name, judge_provider: this.judge_provider, judge_model: this.judge_model, judge_rubric: this.judge_rubric, fighters })
-            });
-            if (!resp.ok) throw new Error(await resp.text());
-            const battle = await resp.json();
-
-            if (this._mde) { try { this._mde.toTextArea(); } catch(_) {} this._mde = null; }
-            window.dispatchEvent(new CustomEvent('battle-created'));
-
-            // Optionally start a run
-            if (andRun) {
-              const runResp = await fetch('/runs', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ battle_id: battle.id })
-              });
-              if (runResp.ok) {
-                const run = await runResp.json();
-                window.location.hash = '/runs/' + run.run_id;
-                return;
-              }
-            }
-            window.location.hash = '/battles/' + battle.id;
-          } catch(e) {
-            this.error = e.message;
-          } finally {
-            this.loading = false;
-          }
-        }
-      };
-    }
-
     // ── Battle detail (sources) ──────────────────────────────
     function battleDetail() {
       return {
         sources: [], uploading: false, error: null,
         running: false, fighterCount: 0, runError: null, currentBattleId: null,
-        battleName: '', editingName: false, nameInput: '', nameSaving: false,
+        battleName: '', nameInput: '', nameSaving: false,
         showTextForm: false, textItems: [{ content: '', label: '' }], addingText: false,
 
         async load(battleId) {
           if (!battleId) return;
-          this.currentBattleId = battleId; this.error = null; this.editingName = false;
+          this.currentBattleId = battleId; this.error = null;
           try {
             const [srcResp, bResp] = await Promise.all([
               fetch(`/battles/${battleId}/sources`),
@@ -1379,17 +1225,10 @@ Do not wrap the JSON in markdown fences.`;
             if (bResp.ok) {
               const b = await bResp.json();
               this.battleName = b.name || '';
+              this.nameInput = this.battleName;
             }
           } catch(e) { this.error = e.message; }
         },
-
-        startEditName() {
-          this.nameInput = this.battleName;
-          this.editingName = true;
-          this.$nextTick(() => this.$refs.nameInput && this.$refs.nameInput.focus());
-        },
-
-        cancelEditName() { this.editingName = false; },
 
         async saveName() {
           if (!this.currentBattleId || !this.nameInput.trim()) return;
@@ -1402,7 +1241,6 @@ Do not wrap the JSON in markdown fences.`;
             });
             if (!resp.ok) throw new Error(await resp.text());
             this.battleName = this.nameInput.trim();
-            this.editingName = false;
             window.dispatchEvent(new CustomEvent('battle-created'));
           } catch(e) { this.error = e.message; }
           finally { this.nameSaving = false; }
@@ -1485,6 +1323,9 @@ Do not wrap the JSON in markdown fences.`;
         activeStepFighterId: null,
         newStep: { system_prompt: '', provider: 'openai', model_id: '', model_id_custom: '', provider_config: '{}', selected_tools: [] },
         addingStep: false, addStepError: null,
+        activeEditStepId: null,
+        editStep: { system_prompt: '', provider: 'openai', model_id: '', provider_config: '{}' },
+        savingStep: false, editStepError: null,
         providers: ['openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'],
         providerInfoList: [],
 
@@ -1515,6 +1356,45 @@ Do not wrap the JSON in markdown fences.`;
           this.newStep.model_id = models.length ? models[0].id : '';
           this.newStep.model_id_custom = '';
           this.newStep.selected_tools = [];
+        },
+
+        startEditStep(step) {
+          this.activeEditStepId = step.id;
+          this.editStep = { system_prompt: step.system_prompt || '', provider: step.provider, model_id: step.model_id, provider_config: step.provider_config || '{}' };
+          this.editStepError = null;
+        },
+
+        cancelEditStep() { this.activeEditStepId = null; this.editStepError = null; },
+
+        async saveEditStep(fighterId, step) {
+          if (!this.battleId || !fighterId || !step.id) return;
+          this.savingStep = true; this.editStepError = null;
+          try {
+            const resp = await fetch(`/battles/${this.battleId}/fighters/${fighterId}/steps/${step.id}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ position: step.position, system_prompt: this.editStep.system_prompt || null, provider: this.editStep.provider, model_id: this.editStep.model_id, provider_config: this.editStep.provider_config || '{}' })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const updated = await resp.json();
+            const fighter = this.fighters.find(f => f.id === fighterId);
+            if (fighter) {
+              const idx = fighter.steps.findIndex(s => s.id === step.id);
+              if (idx !== -1) fighter.steps[idx] = updated;
+            }
+            this.activeEditStepId = null;
+          } catch(e) { this.editStepError = e.message; }
+          finally { this.savingStep = false; }
+        },
+
+        async deleteStep(fighterId, stepId) {
+          if (!this.battleId) return;
+          try {
+            const resp = await fetch(`/battles/${this.battleId}/fighters/${fighterId}/steps/${stepId}`, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(await resp.text());
+            const fighter = this.fighters.find(f => f.id === fighterId);
+            if (fighter) fighter.steps = fighter.steps.filter(s => s.id !== stepId);
+            if (this.activeEditStepId === stepId) this.activeEditStepId = null;
+          } catch(e) { alert('Delete failed: ' + e.message); }
         },
 
         async load(battleId) {
@@ -1836,7 +1716,8 @@ Do not wrap the JSON in markdown fences.`;
             this.parseRoute();
             if (wasKeys) this.checkKeys();
           });
-          if (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#/battles') {
+          const h = window.location.hash;
+          if (!h || h === '#/' || h === '#/battles' || h === '#/battles/new') {
             try {
               const resp = await fetch('/battles');
               const battles = (await resp.json()).filter(b => b && b.id);
@@ -1844,9 +1725,9 @@ Do not wrap the JSON in markdown fences.`;
                 const sorted = battles.sort((a, b) => b.created_at > a.created_at ? 1 : -1);
                 window.location.hash = '/battles/' + sorted[0].id;
               } else {
-                window.location.hash = '/battles/new';
+                window.location.hash = '/battles';
               }
-            } catch(_) { window.location.hash = '/battles/new'; }
+            } catch(_) { window.location.hash = '/battles'; }
           }
         },
 
@@ -1855,10 +1736,8 @@ Do not wrap the JSON in markdown fences.`;
           const hash = raw || 'battles';
           const parts = hash.split('/');
 
-          if (hash === 'battles' || hash === '') {
+          if (hash === 'battles' || hash === '' || (parts[0] === 'battles' && parts[1] === 'new')) {
             this.route = 'battles'; this.params = {};
-          } else if (parts[0] === 'battles' && parts[1] === 'new') {
-            this.route = 'battles/new'; this.params = {};
           } else if (parts[0] === 'battles' && parts[1]) {
             this.route = 'battles/detail'; this.params = { id: parts[1] };
           } else if (parts[0] === 'runs' && parts[1]) {
