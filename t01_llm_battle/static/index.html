@@ -373,7 +373,7 @@
       <div class="sidebar-battles">
         <div class="sidebar-section-header">
           <span class="sidebar-section-title">Battles</span>
-          <button class="btn-sidebar-new" @click="$root.navigate('/battles/new')">+ New</button>
+          <button class="btn-sidebar-new" @click="newBattle()">+ New</button>
         </div>
 
         <template x-if="loading">
@@ -1182,6 +1182,36 @@
               .sort((a, b) => (b.created_at > a.created_at ? 1 : -1));
           } catch(_) {}
           finally { this.loading = false; }
+        },
+
+        async newBattle() {
+          const now = new Date();
+          const pad = n => String(n).padStart(2, '0');
+          const name = `Battle ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+          try {
+            // 1. Create battle
+            const resp = await fetch('/battles', {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name, judge_provider: 'openai', judge_model: 'gpt-4o', judge_rubric: DEFAULT_RUBRIC })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const battle = await resp.json();
+            // 2. Default fighters
+            const f1 = await (await fetch(`/battles/${battle.id}/fighters`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Fighter 1', is_manual: false, position: 0 })
+            })).json();
+            await fetch(`/battles/${battle.id}/fighters/${f1.id}/steps`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ position: 1, provider: 'openai', model_id: 'gpt-4o', provider_config: '{}' })
+            });
+            await fetch(`/battles/${battle.id}/fighters`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ name: 'Fighter 2', is_manual: true, position: 1 })
+            });
+            window.dispatchEvent(new CustomEvent('battle-created'));
+            window.location.hash = '/battles/' + battle.id;
+          } catch(e) { alert('Could not create battle: ' + e.message); }
         },
 
         async deleteBattle(id, root) {
