@@ -22,7 +22,7 @@ _SYSTEM_PROVIDERS = {
 }
 
 # Providers that support a configurable server_url
-_SERVER_URL_PROVIDERS = {"ollama"}
+_SERVER_URL_PROVIDERS = {"ollama", "llm-studio"}
 
 
 class ProviderPatch(BaseModel):
