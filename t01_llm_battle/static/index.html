@@ -595,7 +595,11 @@
                               <span class="text-muted" x-text="step.provider"></span>
                               <span style="color:var(--high);font-weight:500;" x-text="step.model_id"></span>
                               <span x-show="step.system_prompt" style="color:var(--low);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;" x-text="step.system_prompt"></span>
-                              <button @click.stop="deleteStep(fighter.id, step.id)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.9rem;padding:0 2px;" title="Delete step">×</button>
+                              <span style="margin-left:auto;display:flex;gap:2px;">
+                                <button @click.stop="moveStep(fighter.id, step.id, 'up')" :disabled="idx === 0" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.8rem;padding:0 3px;line-height:1;" title="Move up">▲</button>
+                                <button @click.stop="moveStep(fighter.id, step.id, 'down')" :disabled="idx === fighter.steps.length - 1" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.8rem;padding:0 3px;line-height:1;" title="Move down">▼</button>
+                                <button @click.stop="deleteStep(fighter.id, step.id)" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.9rem;padding:0 2px;" title="Delete step">×</button>
+                              </span>
                             </div>
                           </template>
                           <!-- Inline edit form -->
@@ -1384,6 +1388,17 @@ Do not wrap the JSON in markdown fences.`;
             this.activeEditStepId = null;
           } catch(e) { this.editStepError = e.message; }
           finally { this.savingStep = false; }
+        },
+
+        async moveStep(fighterId, stepId, direction) {
+          if (!this.battleId) return;
+          try {
+            const resp = await fetch(`/battles/${this.battleId}/fighters/${fighterId}/steps/${stepId}/move?direction=${direction}`, { method: 'PATCH' });
+            if (!resp.ok) throw new Error(await resp.text());
+            const steps = await resp.json();
+            const fighter = this.fighters.find(f => f.id === fighterId);
+            if (fighter) fighter.steps = steps;
+          } catch(e) { alert('Move failed: ' + e.message); }
         },
 
         async deleteStep(fighterId, stepId) {

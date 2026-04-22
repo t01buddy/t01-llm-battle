@@ -6,6 +6,7 @@ GET    /battles/{battle_id}/fighters                         — list fighters f
 GET    /battles/{battle_id}/fighters/{fighter_id}            — get fighter with steps
 DELETE /battles/{battle_id}/fighters/{fighter_id}            — delete fighter + steps
 POST   /battles/{battle_id}/fighters/{fighter_id}/steps      — add a step to a fighter
+PATCH  /battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}/move  — move step up or down
 DELETE /battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}  — delete step
 
 GET    /providers                                             — list all providers with type, models/functions, pricing
@@ -237,6 +238,37 @@ async def update_step(battle_id: str, fighter_id: str, step_id: str, body: StepC
         cur = await db.execute("SELECT * FROM fighter_step WHERE id = ?", (step_id,))
         row = await cur.fetchone()
     return _row_to_step_out(row)
+
+
+@router.patch("/{fighter_id}/steps/{step_id}/move", response_model=list[StepOut])
+async def move_step(battle_id: str, fighter_id: str, step_id: str, direction: str):
+    """Move a step up or down within its fighter. direction must be 'up' or 'down'."""
+    if direction not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="direction must be 'up' or 'down'")
+    async with get_db() as db:
+        await _get_fighter_or_404(db, battle_id, fighter_id)
+        cur = await db.execute(
+            "SELECT * FROM fighter_step WHERE fighter_id = ? ORDER BY position ASC",
+            (fighter_id,),
+        )
+        rows = await cur.fetchall()
+        ids = [r["id"] for r in rows]
+        if step_id not in ids:
+            raise HTTPException(status_code=404, detail="Step not found")
+        idx = ids.index(step_id)
+        swap_idx = idx - 1 if direction == "up" else idx + 1
+        if swap_idx < 0 or swap_idx >= len(ids):
+            return [_row_to_step_out(r) for r in rows]
+        pos_a, pos_b = rows[idx]["position"], rows[swap_idx]["position"]
+        await db.execute("UPDATE fighter_step SET position=? WHERE id=?", (pos_b, ids[idx]))
+        await db.execute("UPDATE fighter_step SET position=? WHERE id=?", (pos_a, ids[swap_idx]))
+        await db.commit()
+        cur = await db.execute(
+            "SELECT * FROM fighter_step WHERE fighter_id = ? ORDER BY position ASC",
+            (fighter_id,),
+        )
+        updated = await cur.fetchall()
+    return [_row_to_step_out(r) for r in updated]
 
 
 @router.delete("/{fighter_id}/steps/{step_id}", status_code=204, response_model=None)
