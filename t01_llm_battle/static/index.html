@@ -164,6 +164,50 @@
     .sidebar-provider-link:hover { background: var(--border); color: var(--high); }
     .sidebar-provider-link.active { color: var(--gold); }
 
+    /* ── Hamburger toggle (mobile only) ──────────── */
+    .btn-hamburger {
+      display: none;
+      position: fixed;
+      top: 0.75rem;
+      left: 0.75rem;
+      z-index: 200;
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--high);
+    }
+
+    /* ── Sidebar overlay (mobile) ────────────────── */
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 100;
+    }
+
+    @media (max-width: 767px) {
+      .btn-hamburger { display: block; }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        z-index: 150;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        width: 260px;
+        min-width: 260px;
+      }
+      .sidebar.open { transform: translateX(0); }
+
+      .main-content { padding-top: 3.5rem; }
+    }
+
     /* ── Warning banner ──────────────────────────── */
     .banner-warning {
       display: flex;
@@ -373,10 +417,17 @@
 </head>
 <body x-data="app()" x-init="init()">
 
+  <!-- Hamburger button (mobile only) -->
+  <button class="btn-hamburger" @click="sidebarOpen = true" aria-label="Open menu">☰</button>
+
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" x-show="sidebarOpen" @click="sidebarOpen = false" style="display:none;"></div>
+
   <div class="app-shell">
 
     <!-- ── Sidebar ─────────────────────────────────── -->
     <aside class="sidebar"
+           :class="{ open: sidebarOpen }"
            x-data="sidebarData()"
            x-init="load()"
            @battle-created.window="load()"
@@ -391,7 +442,7 @@
           <span class="sidebar-section-title">Providers</span>
           <span class="badge-muted" x-text="providerCount" style="min-width:1.4rem;text-align:center;"></span>
         </div>
-        <a href="#/keys" :class="{ active: $root.route === 'keys' }" class="sidebar-provider-link">
+        <a href="#/keys" :class="{ active: $root.route === 'keys' }" class="sidebar-provider-link" @click="$root.sidebarOpen = false">
           ◈ Providers
         </a>
       </div>
@@ -413,7 +464,7 @@
         <template x-for="b in battles" :key="b.id">
           <div class="battle-item"
                :class="{ active: params.id === b.id }"
-               @click="window.location.hash = '#/battles/' + b.id">
+               @click="window.location.hash = '#/battles/' + b.id; $root.sidebarOpen = false">
             <span class="battle-item-name" x-text="b.name"></span>
             <button class="btn-delete-battle" title="Delete"
                     @click.stop="deleteBattle(b.id)">×</button>
@@ -1699,6 +1750,7 @@ Do not wrap the JSON in markdown fences.`;
         route: 'battles',
         params: {},
         hasActiveProvider: true,
+        sidebarOpen: false,
 
         async checkKeys() {
           try {
