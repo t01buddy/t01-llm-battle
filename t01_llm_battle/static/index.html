@@ -1445,7 +1445,7 @@ Do not wrap the JSON in markdown fences.`;
             const fighter = this.fighters.find(f => f.id === fighterId);
             if (fighter) {
               const idx = fighter.steps.findIndex(s => s.id === step.id);
-              if (idx !== -1) fighter.steps[idx] = updated;
+              if (idx !== -1) fighter.steps.splice(idx, 1, updated);
             }
             this.activeEditStepId = null;
           } catch(e) { this.editStepError = e.message; }
