@@ -1211,9 +1211,13 @@
               method: 'POST', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ position: 1, provider: 'openai', model_id: 'gpt-4o', provider_config: '{}' })
             });
-            await fetch(`/battles/${battle.id}/fighters`, {
+            const f2 = await (await fetch(`/battles/${battle.id}/fighters`, {
               method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: 'Fighter 2', is_manual: true, position: 1 })
+              body: JSON.stringify({ name: 'Fighter 2', is_manual: false, position: 1 })
+            })).json();
+            await fetch(`/battles/${battle.id}/fighters/${f2.id}/steps`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ position: 1, provider: 'anthropic', model_id: 'claude-sonnet-4-5', provider_config: '{}' })
             });
             window.dispatchEvent(new CustomEvent('battle-created'));
             window.location.hash = '/battles/' + battle.id;
