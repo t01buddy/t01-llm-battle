@@ -221,6 +221,24 @@ async def add_step(battle_id: str, fighter_id: str, body: StepCreate):
     return _row_to_step_out(row)
 
 
+@router.put("/{fighter_id}/steps/{step_id}", response_model=StepOut)
+async def update_step(battle_id: str, fighter_id: str, step_id: str, body: StepCreate):
+    """Update a step."""
+    async with get_db() as db:
+        await _get_fighter_or_404(db, battle_id, fighter_id)
+        cur = await db.execute(
+            """UPDATE fighter_step SET position=?, system_prompt=?, provider=?, model_id=?, provider_config=?
+               WHERE id=? AND fighter_id=?""",
+            (body.position, body.system_prompt, body.provider, body.model_id, body.provider_config, step_id, fighter_id),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Step not found")
+        cur = await db.execute("SELECT * FROM fighter_step WHERE id = ?", (step_id,))
+        row = await cur.fetchone()
+    return _row_to_step_out(row)
+
+
 @router.delete("/{fighter_id}/steps/{step_id}", status_code=204, response_model=None)
 async def delete_step(battle_id: str, fighter_id: str, step_id: str):
     """Delete a step from a fighter."""
