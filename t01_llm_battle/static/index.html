@@ -663,16 +663,16 @@
                         <div>
                           <label>Provider <span class="text-danger">*</span></label>
                           <select x-model="newStep.provider" @change="onStepProviderChange()" required>
-                            <template x-if="providerInfoList.filter(p => p.provider_type === 'llm').length > 0">
+                            <template x-if="providerInfoList.filter(p => p.provider_type === 'llm' && p.enabled).length > 0">
                               <optgroup label="LLM Providers">
-                                <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm')" :key="p.name">
+                                <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm' && pi.enabled)" :key="p.name">
                                   <option :value="p.name" x-text="p.display_name"></option>
                                 </template>
                               </optgroup>
                             </template>
-                            <template x-if="providerInfoList.filter(p => p.provider_type === 'tool').length > 0">
+                            <template x-if="providerInfoList.filter(p => p.provider_type === 'tool' && p.enabled).length > 0">
                               <optgroup label="Tool Providers">
-                                <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool')" :key="p.name">
+                                <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool' && pi.enabled)" :key="p.name">
                                   <option :value="p.name" x-text="p.display_name"></option>
                                 </template>
                               </optgroup>
@@ -1409,9 +1409,9 @@ Do not wrap the JSON in markdown fences.`;
             const fighters = await fightersResp.json();
             if (provResp.ok) {
               this.providerInfoList = await provResp.json();
-              this.providers = this.providerInfoList.map(p => p.name);
+              this.providers = this.providerInfoList.filter(p => p.enabled).map(p => p.name);
             }
-            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
+            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm' && p.enabled);
             if (firstLlm) {
               this.newStep.provider = firstLlm.name;
               this.newStep.model_id = firstLlm.models.length ? firstLlm.models[0].id : '';
@@ -1452,7 +1452,7 @@ Do not wrap the JSON in markdown fences.`;
             this.activeStepFighterId = null;
           } else {
             this.activeStepFighterId = fighterId;
-            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
+            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm' && p.enabled);
             const defaultProvider = firstLlm ? firstLlm.name : 'openai';
             const defaultModels = firstLlm ? firstLlm.models : [];
             this.newStep = {
@@ -1488,7 +1488,7 @@ Do not wrap the JSON in markdown fences.`;
             const step = await resp.json();
             if (fighter) { if (!fighter.steps) fighter.steps = []; fighter.steps.push(step); }
             this.activeStepFighterId = null;
-            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm');
+            const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm' && p.enabled);
             this.newStep = {
               system_prompt: '',
               provider: firstLlm ? firstLlm.name : 'openai',
