@@ -18,7 +18,7 @@ router = APIRouter(prefix="/providers", tags=["providers"])
 # Built-in (system) providers — cannot be uninstalled
 _SYSTEM_PROVIDERS = {
     "openai", "anthropic", "google", "groq",
-    "openrouter", "ollama", "serper", "tavily", "firecrawl",
+    "openrouter", "ollama", "llm-studio", "serper", "tavily", "firecrawl",
 }
 
 # Providers that support a configurable server_url
