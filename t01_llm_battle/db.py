@@ -14,9 +14,9 @@ _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS battle (
     id            TEXT PRIMARY KEY,
     name          TEXT NOT NULL,
-    judge_provider TEXT NOT NULL,
-    judge_model   TEXT NOT NULL,
-    judge_rubric  TEXT NOT NULL,
+    judge_provider TEXT,
+    judge_model   TEXT,
+    judge_rubric  TEXT,
     created_at    TEXT NOT NULL
 );
 
@@ -107,6 +107,18 @@ CREATE TABLE IF NOT EXISTS provider_config (
 # Migrations for existing DBs
 _MIGRATIONS_SQL = [
     "ALTER TABLE provider_config ADD COLUMN display_name TEXT",
+    # SQLite cannot drop NOT NULL via ALTER TABLE; recreate battle table without NOT NULL on judge fields.
+    "ALTER TABLE battle RENAME TO battle_old",
+    """CREATE TABLE IF NOT EXISTS battle (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    judge_provider TEXT,
+    judge_model   TEXT,
+    judge_rubric  TEXT,
+    created_at    TEXT NOT NULL
+)""",
+    "INSERT INTO battle SELECT id, name, judge_provider, judge_model, judge_rubric, created_at FROM battle_old",
+    "DROP TABLE battle_old",
 ]
 
 
