@@ -117,6 +117,7 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
 
     async with aiosqlite.connect(path) as db:
+        await db.execute("PRAGMA journal_mode=WAL")
         await db.executescript(_SCHEMA_SQL)
         await db.commit()
         for sql in _MIGRATIONS_SQL:
@@ -152,6 +153,7 @@ async def get_db(
 ) -> AsyncGenerator[aiosqlite.Connection, None]:
     """Async context manager that yields an aiosqlite.Connection with row_factory set."""
     async with aiosqlite.connect(db_path) as db:
+        await db.execute("PRAGMA journal_mode=WAL")
         db.row_factory = aiosqlite.Row
         yield db
 
