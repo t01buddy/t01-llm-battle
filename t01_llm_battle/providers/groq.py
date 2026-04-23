@@ -37,7 +37,7 @@ class GroqProvider(BaseProvider):
         api_key = os.environ.get("GROQ_API_KEY", "")
         provider = PAIGroqProvider(api_key=api_key)
         model = GroqModel(request.model, provider=provider)
-        agent = Agent(model)
+        agent = Agent(model, system_prompt=request.system_prompt or "")
 
         model_settings: dict = {
             "temperature": request.temperature,
@@ -48,7 +48,6 @@ class GroqProvider(BaseProvider):
 
         result = await agent.run(
             request.user_prompt,
-            system_prompt=request.system_prompt or "",
             model_settings=model_settings,
         )
 

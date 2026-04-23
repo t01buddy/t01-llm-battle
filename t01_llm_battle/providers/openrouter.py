@@ -30,7 +30,7 @@ class OpenRouterProvider(BaseProvider):
             base_url="https://openrouter.ai/api/v1",
         )
         model = OpenAIChatModel(request.model, provider=provider)
-        agent = Agent(model)
+        agent = Agent(model, system_prompt=request.system_prompt or "")
 
         model_settings: dict = {
             "temperature": request.temperature,
@@ -41,7 +41,6 @@ class OpenRouterProvider(BaseProvider):
 
         result = await agent.run(
             request.user_prompt,
-            system_prompt=request.system_prompt or "",
             model_settings=model_settings,
         )
 

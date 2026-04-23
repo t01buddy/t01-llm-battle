@@ -34,7 +34,7 @@ class AnthropicProvider(BaseProvider):
 
         provider = PAIAnthropicProvider(api_key=api_key)
         model = AnthropicModel(request.model, provider=provider)
-        agent = Agent(model)
+        agent = Agent(model, system_prompt=request.system_prompt or "")
 
         model_settings: dict = {
             "temperature": request.temperature,
@@ -45,7 +45,6 @@ class AnthropicProvider(BaseProvider):
 
         result = await agent.run(
             request.user_prompt,
-            system_prompt=request.system_prompt or "",
             model_settings=model_settings,
         )
 

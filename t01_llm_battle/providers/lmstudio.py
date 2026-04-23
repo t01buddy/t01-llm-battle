@@ -33,7 +33,7 @@ class LMStudioProvider(BaseProvider):
             api_key="lm-studio",  # LM Studio doesn't need a real key
         )
         model = OpenAIChatModel(request.model, provider=provider)
-        agent = Agent(model)
+        agent = Agent(model, system_prompt=request.system_prompt or "")
 
         model_settings: dict = {
             "temperature": request.temperature,
@@ -44,7 +44,6 @@ class LMStudioProvider(BaseProvider):
 
         result = await agent.run(
             request.user_prompt,
-            system_prompt=request.system_prompt or "",
             model_settings=model_settings,
         )
 
