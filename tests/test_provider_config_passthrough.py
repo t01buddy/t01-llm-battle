@@ -15,7 +15,7 @@ def _mock_agent_run(content="response"):
     mock_usage.response_tokens = 5
 
     mock_result = MagicMock()
-    mock_result.data = content
+    mock_result.output = content
     mock_result.usage.return_value = mock_usage
     return mock_result
 

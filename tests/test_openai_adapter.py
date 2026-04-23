@@ -15,7 +15,7 @@ async def test_run_returns_result():
     mock_usage.response_tokens = 5
 
     mock_result = MagicMock()
-    mock_result.data = "Hello!"
+    mock_result.output = "Hello!"
     mock_result.usage.return_value = mock_usage
 
     with patch("t01_llm_battle.providers.openai.Agent") as MockAgent:
