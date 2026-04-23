@@ -433,6 +433,7 @@
            @battle-created.window="load()"
            @battle-deleted.window="load()"
            @provider-updated.window="load()"
+           @source-updated.window="load()"
            @create-battle.window="newBattle()">
 
       <span class="sidebar-brand" style="cursor:pointer;" @click="(function(){ const m = window.location.hash.match(/^#\/battles\/([^\/]+)$/); if(m) navigate('/battles/'+m[1]); else newBattle(); })()">T01 LLM Battle</span>
@@ -466,6 +467,7 @@
                :class="{ active: params.id === b.id }"
                @click="window.location.hash = '#/battles/' + b.id; $root.sidebarOpen = false">
             <span class="battle-item-name" x-text="b.name"></span>
+            <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
             <button class="btn-delete-battle" title="Delete"
                     @click.stop="deleteBattle(b.id)">×</button>
           </div>
@@ -1353,6 +1355,7 @@ Do not wrap the JSON in markdown fences.`;
           }
           event.target.value = '';
           this.uploading = false;
+          window.dispatchEvent(new CustomEvent('source-updated'));
         },
 
         async addTextSources(battleId) {
@@ -1375,6 +1378,7 @@ Do not wrap the JSON in markdown fences.`;
           this.textItems = [{ content: '', label: '' }];
           this.showTextForm = false;
           this.addingText = false;
+          window.dispatchEvent(new CustomEvent('source-updated'));
         },
 
         async remove(battleId, sourceId) {
@@ -1383,6 +1387,7 @@ Do not wrap the JSON in markdown fences.`;
             const resp = await fetch(`/battles/${battleId}/sources/${sourceId}`, { method: 'DELETE' });
             if (!resp.ok) throw new Error(await resp.text());
             this.sources = this.sources.filter(s => s.id !== sourceId);
+            window.dispatchEvent(new CustomEvent('source-updated'));
           } catch(e) { this.error = e.message; }
         }
       };
