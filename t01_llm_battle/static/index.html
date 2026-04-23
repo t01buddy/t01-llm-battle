@@ -659,24 +659,13 @@
                               <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
                                 <div style="flex:0 0 auto;">
                                   <label style="font-size:0.78rem;">Provider</label>
-                                  <select x-model="editStep.provider" style="font-size:0.83rem;padding:3px 6px;">
-                                    <template x-if="providerInfoList.filter(p => p.provider_type === 'llm' && p.enabled).length > 0">
-                                      <optgroup label="LLM Providers">
-                                        <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm' && pi.enabled)" :key="p.name">
-                                          <option :value="p.name" x-text="p.display_name"></option>
-                                        </template>
-                                      </optgroup>
-                                    </template>
-                                    <template x-if="providerInfoList.filter(p => p.provider_type === 'tool' && p.enabled).length > 0">
-                                      <optgroup label="Tool Providers">
-                                        <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool' && pi.enabled)" :key="p.name">
-                                          <option :value="p.name" x-text="p.display_name"></option>
-                                        </template>
-                                      </optgroup>
+                                  <select x-effect="$el.value = editStep.provider" @change="editStep.provider = $event.target.value" style="font-size:0.83rem;padding:3px 6px;">
+                                    <template x-for="p in providerInfoList.filter(pi => pi.enabled)" :key="p.name">
+                                      <option :value="p.name" x-text="p.display_name" :selected="p.name === editStep.provider"></option>
                                     </template>
                                     <template x-if="providerInfoList.length === 0">
                                       <template x-for="p in providers" :key="p">
-                                        <option :value="p" x-text="p"></option>
+                                        <option :value="p" x-text="p" :selected="p === editStep.provider"></option>
                                       </template>
                                     </template>
                                   </select>
@@ -1534,9 +1523,17 @@ Do not wrap the JSON in markdown fences.`;
         },
 
         startEditStep(step) {
-          this.editStep = { system_prompt: step.system_prompt || '', provider: step.provider, model_id: step.model_id, provider_config: step.provider_config || '{}' };
+          const provider = step.provider;
+          const model_id = step.model_id;
+          this.editStep = { system_prompt: step.system_prompt || '', provider: provider, model_id: model_id, provider_config: step.provider_config || '{}' };
           this.editStepError = null;
-          this.$nextTick(() => { this.activeEditStepId = step.id; });
+          this.$nextTick(() => {
+            this.activeEditStepId = step.id;
+            this.$nextTick(() => {
+              this.editStep.provider = provider;
+              this.editStep.model_id = model_id;
+            });
+          });
         },
 
         cancelEditStep() { this.activeEditStepId = null; this.editStepError = null; },
