@@ -1488,9 +1488,9 @@ Do not wrap the JSON in markdown fences.`;
         },
 
         startEditStep(step) {
-          this.activeEditStepId = step.id;
           this.editStep = { system_prompt: step.system_prompt || '', provider: step.provider, model_id: step.model_id, provider_config: step.provider_config || '{}' };
           this.editStepError = null;
+          this.$nextTick(() => { this.activeEditStepId = step.id; });
         },
 
         cancelEditStep() { this.activeEditStepId = null; this.editStepError = null; },
