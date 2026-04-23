@@ -3,7 +3,7 @@
 | # | Area | Summary |
 |---|------|---------|
 | FR-1 | CLI & Server | `t01-llm-battle serve` starts FastAPI on port 7878, opens browser |
-| FR-2 | Battle Creation | Name, sources, fighters (multi-step pipelines or manual), judge config |
+| FR-2 | Battle Creation | Name, sources, fighters (multi-step pipelines or manual), judge config (optional) |
 | FR-3 | Sources | Upload text/md files or a CSV; each file or CSV row = one input item |
 | FR-4 | Fighters & Steps | Named pipelines; each step has system prompt, provider, model, config |
 | FR-5 | Manual Fighter | No steps; user enters result per source item during a run |
@@ -15,9 +15,9 @@
 | FR-9 | Rate Limiting | Per-provider RPM throttling with bounded concurrency |
 | FR-10 | Run Execution | Parallel across fighters × sources; sequential within a fighter's steps |
 | FR-11 | Live Run View | Polling UI; step-level status per fighter per source item |
-| FR-12 | LLM-as-Judge | Scores final step output per fighter per source (0–10 + reasoning) |
+| FR-12 | LLM-as-Judge | Optional. When configured, scores final step output per fighter per source (0–10 + reasoning). When not configured, run completes without scoring. |
 | FR-13 | Markdown Report | Judge generates a markdown summary; rendered in browser via marked.js |
-| FR-14 | Results View | Side-by-side final scores, cost, latency; expandable step drill-down |
+| FR-14 | Results View | Side-by-side results: cost, latency, expandable step drill-down. When judge is configured, shows scores. When no judge, outputs shown side-by-side without scores. |
 | FR-15 | SQLite Persistence | All battles, sources, fighters, steps, runs, results, judgments, api_keys |
 | FR-16 | Custom Model IDs | Override catalog slugs; pricing shown as "unknown" |
 | FR-19 | Provider Management UI | Sidebar footer link labelled "Providers"; lists providers with enable/disable toggle; edit popup for display name, API key, server URL (Ollama/LLM Studio/self-hosted); uninstall non-system providers |
@@ -80,7 +80,7 @@ Replaces previous Gold-on-Ink dark theme (`#0d0f13` background, `#14181f` cards,
 - **Name**: free text
 - **Sources**: see FR-3
 - **Fighters**: add one or more; each has a name and is either a pipeline (FR-4) or manual (FR-5)
-- **Judge config**: provider + model + rubric (pre-filled default, fully editable EasyMDE)
+- **Judge config**: **optional** — provider + model + rubric (pre-filled default, fully editable EasyMDE). If omitted, results are displayed without scoring.
 
 ---
 
@@ -154,6 +154,7 @@ Unknown keys are passed through to the provider as-is — forward-compatible wit
 
 ## Detail: FR-12 LLM-as-Judge
 
+- **Optional**: if no judge is configured on the battle, the run completes without scoring
 - Judges the **final step output** of each fighter per source item
 - Default rubric covers: relevance, accuracy, conciseness, helpfulness
 - Score 0–10 with written reasoning
@@ -170,3 +171,14 @@ Unknown keys are passed through to the provider as-is — forward-compatible wit
 - Report includes: rankings, per-fighter score summary, notable observations, cost + latency comparison
 - Rendered in the browser via `marked.js`
 - User can copy raw markdown or print via browser
+- Only generated when a judge is configured; skipped otherwise
+
+---
+
+## Detail: FR-14 Results View
+
+- Side-by-side comparison of all fighters per source item
+- Always shown: final output, total cost (USD), total latency (ms), expandable step drill-down
+- **When judge is configured**: judge score (0–10) and reasoning displayed per fighter
+- **When no judge is configured**: outputs displayed side-by-side without scores; users compare quality visually
+- Judge scores column hidden when no judge is configured on the battle
