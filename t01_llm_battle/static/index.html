@@ -1644,7 +1644,7 @@ Do not wrap the JSON in markdown fences.`;
         async load() {
           this.loading = true; this.error = null;
           try {
-            const [keysResp, infoResp] = await Promise.all([fetch('/keys'), fetch('/providers/info')]);
+            const [keysResp, infoResp] = await Promise.all([fetch('/keys'), fetch('/providers')]);
             if (!keysResp.ok) throw new Error(await keysResp.text());
             this.keys = await keysResp.json();
             if (infoResp.ok) this.providerInfoList = await infoResp.json();
