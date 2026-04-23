@@ -53,6 +53,7 @@ class BattleSummary(BaseModel):
     id: str
     name: str
     created_at: str
+    has_sources: bool = False
 
 
 class BattleDetail(BaseModel):
@@ -128,11 +129,19 @@ async def list_battles() -> list[BattleSummary]:
     """Return all battles ordered by creation date descending."""
     async with get_db() as db:
         cursor = await db.execute(
-            "SELECT id, name, created_at FROM battle ORDER BY created_at DESC"
+            """SELECT b.id, b.name, b.created_at,
+                      COUNT(s.id) > 0 AS has_sources
+               FROM battle b
+               LEFT JOIN battle_source s ON s.battle_id = b.id
+               GROUP BY b.id
+               ORDER BY b.created_at DESC"""
         )
         rows = await cursor.fetchall()
 
-    return [BattleSummary(id=row["id"], name=row["name"], created_at=row["created_at"]) for row in rows if row["id"]]
+    return [
+        BattleSummary(id=row["id"], name=row["name"], created_at=row["created_at"], has_sources=bool(row["has_sources"]))
+        for row in rows if row["id"]
+    ]
 
 
 @router.get("/{battle_id}", response_model=BattleDetail)
