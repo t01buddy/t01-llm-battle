@@ -33,7 +33,7 @@ class OpenAIProvider(BaseProvider):
         api_key = os.environ.get("OPENAI_API_KEY", "")
         provider = PAIOpenAIProvider(api_key=api_key)
         model = OpenAIChatModel(request.model, provider=provider)
-        agent = Agent(model)
+        agent = Agent(model, system_prompt=request.system_prompt or "")
 
         # Build model_settings from known extra keys; unknown keys are ignored (forward-compat)
         model_settings: dict = {
@@ -45,7 +45,6 @@ class OpenAIProvider(BaseProvider):
 
         result = await agent.run(
             request.user_prompt,
-            system_prompt=request.system_prompt or "",
             model_settings=model_settings,
         )
 
