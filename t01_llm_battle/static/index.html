@@ -846,11 +846,15 @@
       <section x-show="route === 'runs/detail'" x-data="runView()"
                x-init="$watch('params.id', id => { if (id && route === 'runs/detail') init(id); }); if (params.id && route === 'runs/detail') init(params.id);">
 
-        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
-          <h1 style="margin:0;">Live Run</h1>
-          <template x-if="run">
-            <span class="badge-muted" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
-          </template>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <h1 style="margin:0;">Live Run</h1>
+            <template x-if="run">
+              <span class="badge-muted" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
+            </template>
+          </div>
+          <a :href="run && run.battle_id ? '#/battles/' + run.battle_id : '#/battles'"
+             class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
         </div>
 
         <template x-if="error">
@@ -977,7 +981,8 @@
               class="btn-secondary" style="color:var(--gold);border-color:rgba(240,185,11,0.3);">
               Download Markdown
             </button>
-            <a href="#/battles" class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back</a>
+            <a :href="results && results.battle_id ? '#/battles/' + results.battle_id : '#/battles'"
+               class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
           </div>
         </div>
 
