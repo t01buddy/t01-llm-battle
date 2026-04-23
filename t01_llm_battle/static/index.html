@@ -538,8 +538,6 @@
                   <div style="display:flex;flex-direction:column;gap:0.4rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border);">
                     <textarea x-model="item.content" rows="3" :placeholder="'Source text #' + (idx+1)"
                       style="resize:vertical;font-size:0.88rem;"></textarea>
-                    <input type="text" x-model="item.label" :placeholder="'Label (default: Text ' + (sources.length + idx + 1) + ')'"
-                      style="font-size:0.84rem;">
                   </div>
                 </template>
                 <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -1415,8 +1413,12 @@ Do not wrap the JSON in markdown fences.`;
           for (let idx = 0; idx < items.length; idx++) {
             try {
               const formData = new FormData();
-              formData.append('text', items[idx].content.trim());
-              const lbl = items[idx].label.trim() || ('Text ' + (this.sources.length + idx + 1));
+              const content = items[idx].content.trim();
+              formData.append('text', content);
+              const words = content.split(/\s+/);
+              const lbl = words.length <= 6
+                ? content
+                : words.slice(0, 3).join(' ') + ' ... ' + words.slice(-3).join(' ');
               formData.append('label', lbl);
               const resp = await fetch(`/battles/${battleId}/sources`, { method: 'POST', body: formData });
               if (!resp.ok) throw new Error(await resp.text());
