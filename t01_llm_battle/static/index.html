@@ -835,6 +835,56 @@
           </template>
         </div>
 
+        <!-- Judge card -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Judge <span class="badge-muted" style="font-size:0.72rem;font-weight:400;">optional</span></h2>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;">
+              <input type="checkbox" x-model="judgeEnabled" @change="onJudgeToggle()" style="width:16px;height:16px;cursor:pointer;">
+              <span style="font-size:0.84rem;" x-text="judgeEnabled ? 'Enabled' : 'Disabled'"></span>
+            </label>
+          </div>
+          <template x-if="!judgeEnabled">
+            <p class="text-muted" style="font-size:0.84rem;margin:0;">Judge disabled — results will show outputs side-by-side without scores.</p>
+          </template>
+          <template x-if="judgeEnabled">
+            <div style="display:flex;flex-direction:column;gap:0.75rem;">
+              <div class="form-grid-2">
+                <div>
+                  <label style="font-size:0.84rem;">Provider</label>
+                  <select x-model="judgeProvider" @change="onJudgeProviderChange()" style="font-size:0.84rem;">
+                    <template x-for="p in llmProviders()" :key="p.name">
+                      <option :value="p.name" x-text="p.display_name"></option>
+                    </template>
+                    <template x-if="llmProviders().length === 0">
+                      <option value="openai">openai</option>
+                    </template>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:0.84rem;">Model</label>
+                  <input type="text" x-model="judgeModel" style="font-size:0.84rem;" placeholder="e.g. gpt-4o">
+                </div>
+              </div>
+              <div>
+                <label style="font-size:0.84rem;">Rubric</label>
+                <textarea x-model="judgeRubric" rows="6" style="resize:vertical;font-size:0.83rem;font-family:inherit;" placeholder="Score the output on a scale of 0-10..."></textarea>
+              </div>
+              <div style="display:flex;gap:0.75rem;align-items:center;">
+                <button @click="saveJudge()" class="btn-primary" :disabled="judgeSaving" style="padding:5px 14px;font-size:0.83rem;">
+                  <span x-text="judgeSaving ? 'Saving...' : 'Save Judge'"></span>
+                </button>
+                <template x-if="judgeSaved">
+                  <span style="font-size:0.82rem;color:var(--gold);">Saved</span>
+                </template>
+                <template x-if="judgeError">
+                  <span class="text-danger" style="font-size:0.82rem;" x-text="judgeError"></span>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
         <!-- Run Battle -->
         <div style="display:flex;align-items:center;gap:1rem;"
              @fighters-updated.window="fighterCount = $event.detail.count">
@@ -1279,7 +1329,7 @@
           try {
             const resp = await fetch('/battles', {
               method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name, judge_provider: 'openai', judge_model: 'gpt-4o', judge_rubric: DEFAULT_RUBRIC })
+              body: JSON.stringify({ name, judge_provider: null, judge_model: null, judge_rubric: null })
             });
             if (!resp.ok) throw new Error(await resp.text());
             const battle = await resp.json();
@@ -1358,6 +1408,55 @@ Do not wrap the JSON in markdown fences.`;
         running: false, fighterCount: 0, runError: null, currentBattleId: null,
         battleName: '', nameInput: '', nameSaving: false,
         showTextForm: false, textItems: [{ content: '', label: '' }], addingText: false,
+        // Judge state
+        judgeEnabled: false, judgeProvider: 'openai', judgeModel: 'gpt-4o',
+        judgeRubric: DEFAULT_RUBRIC, judgeSaving: false, judgeSaved: false, judgeError: null,
+
+        llmProviders() {
+          const pi = window._providerInfoList || [];
+          return pi.filter(p => p.provider_type === 'llm' && p.enabled);
+        },
+
+        onJudgeProviderChange() {
+          const p = this.judgeProvider;
+          this.judgeModel = DEFAULT_MODELS[p] || 'gpt-4o';
+        },
+
+        onJudgeToggle() {
+          if (!this.judgeEnabled) {
+            // Disable: clear judge on server
+            this.saveJudgeDisabled();
+          }
+        },
+
+        async saveJudgeDisabled() {
+          if (!this.currentBattleId) return;
+          try {
+            await fetch(`/battles/${this.currentBattleId}`, {
+              method: 'PUT', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ judge_enabled: false })
+            });
+          } catch(_) {}
+        },
+
+        async saveJudge() {
+          if (!this.currentBattleId) return;
+          this.judgeSaving = true; this.judgeError = null; this.judgeSaved = false;
+          try {
+            const resp = await fetch(`/battles/${this.currentBattleId}`, {
+              method: 'PUT', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                judge_provider: this.judgeProvider,
+                judge_model: this.judgeModel,
+                judge_rubric: this.judgeRubric
+              })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            this.judgeSaved = true;
+            setTimeout(() => { this.judgeSaved = false; }, 2000);
+          } catch(e) { this.judgeError = e.message; }
+          finally { this.judgeSaving = false; }
+        },
 
         async load(battleId) {
           if (!battleId) return;
@@ -1374,6 +1473,13 @@ Do not wrap the JSON in markdown fences.`;
               const b = await bResp.json();
               this.battleName = b.name || '';
               this.nameInput = this.battleName;
+              // Restore judge state
+              this.judgeEnabled = !!(b.judge_provider && b.judge_model);
+              if (this.judgeEnabled) {
+                this.judgeProvider = b.judge_provider;
+                this.judgeModel = b.judge_model;
+                this.judgeRubric = b.judge_rubric || DEFAULT_RUBRIC;
+              }
             }
           } catch(e) { this.error = e.message; }
         },
@@ -1592,6 +1698,7 @@ Do not wrap the JSON in markdown fences.`;
             const fighters = await fightersResp.json();
             if (provResp.ok) {
               this.providerInfoList = await provResp.json();
+              window._providerInfoList = this.providerInfoList;
               this.providers = this.providerInfoList.filter(p => p.enabled).map(p => p.name);
             }
             const firstLlm = this.providerInfoList.find(p => p.provider_type === 'llm' && p.enabled);

@@ -36,9 +36,9 @@ class FighterBatch(BaseModel):
 
 class BattleCreate(BaseModel):
     name: str = Field(min_length=1)
-    judge_provider: str
-    judge_model: str
-    judge_rubric: str
+    judge_provider: Optional[str] = None
+    judge_model: Optional[str] = None
+    judge_rubric: Optional[str] = None
     fighters: list[FighterBatch] = []
 
     @field_validator("name")
@@ -59,17 +59,24 @@ class BattleSummary(BaseModel):
 class BattleDetail(BaseModel):
     id: str
     name: str
-    judge_provider: str
-    judge_model: str
-    judge_rubric: str
+    judge_provider: Optional[str] = None
+    judge_model: Optional[str] = None
+    judge_rubric: Optional[str] = None
     created_at: str
 
 
+_UNSET = object()
+
+
 class BattleUpdate(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+
     name: Optional[str] = None
     judge_provider: Optional[str] = None
     judge_model: Optional[str] = None
     judge_rubric: Optional[str] = None
+    # When True, clear judge fields to NULL (disable judge)
+    judge_enabled: Optional[bool] = None
 
     @field_validator("name")
     @classmethod
@@ -180,9 +187,14 @@ async def update_battle(battle_id: str, body: BattleUpdate) -> BattleDetail:
             raise HTTPException(status_code=404, detail="Battle not found")
 
         new_name = body.name if body.name is not None else row["name"]
-        new_provider = body.judge_provider if body.judge_provider is not None else row["judge_provider"]
-        new_model = body.judge_model if body.judge_model is not None else row["judge_model"]
-        new_rubric = body.judge_rubric if body.judge_rubric is not None else row["judge_rubric"]
+        if body.judge_enabled is False:
+            new_provider = None
+            new_model = None
+            new_rubric = None
+        else:
+            new_provider = body.judge_provider if body.judge_provider is not None else row["judge_provider"]
+            new_model = body.judge_model if body.judge_model is not None else row["judge_model"]
+            new_rubric = body.judge_rubric if body.judge_rubric is not None else row["judge_rubric"]
 
         await db.execute(
             "UPDATE battle SET name = ?, judge_provider = ?, judge_model = ?, judge_rubric = ? WHERE id = ?",
