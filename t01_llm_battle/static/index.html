@@ -662,20 +662,50 @@
                                 <div style="flex:0 0 auto;">
                                   <label style="font-size:0.78rem;">Provider</label>
                                   <select x-model="editStep.provider" style="font-size:0.83rem;padding:3px 6px;">
-                                    <template x-for="p in providerInfoList.length ? providerInfoList.map(p=>p.name) : providers" :key="p">
-                                      <option :value="p" x-text="p"></option>
+                                    <template x-if="providerInfoList.filter(p => p.provider_type === 'llm' && p.enabled).length > 0">
+                                      <optgroup label="LLM Providers">
+                                        <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm' && pi.enabled)" :key="p.name">
+                                          <option :value="p.name" x-text="p.display_name"></option>
+                                        </template>
+                                      </optgroup>
+                                    </template>
+                                    <template x-if="providerInfoList.filter(p => p.provider_type === 'tool' && p.enabled).length > 0">
+                                      <optgroup label="Tool Providers">
+                                        <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool' && pi.enabled)" :key="p.name">
+                                          <option :value="p.name" x-text="p.display_name"></option>
+                                        </template>
+                                      </optgroup>
+                                    </template>
+                                    <template x-if="providerInfoList.length === 0">
+                                      <template x-for="p in providers" :key="p">
+                                        <option :value="p" x-text="p"></option>
+                                      </template>
                                     </template>
                                   </select>
                                 </div>
-                                <div style="flex:1;min-width:120px;">
-                                  <label style="font-size:0.78rem;">Model</label>
-                                  <input type="text" x-model="editStep.model_id" style="font-size:0.83rem;padding:3px 6px;width:100%;" placeholder="e.g. gpt-4o">
+                                <template x-if="editStepProviderType() !== 'tool'">
+                                  <div style="flex:1;min-width:120px;">
+                                    <label style="font-size:0.78rem;">Model</label>
+                                    <input type="text" x-model="editStep.model_id" style="font-size:0.83rem;padding:3px 6px;width:100%;" placeholder="e.g. gpt-4o">
+                                  </div>
+                                </template>
+                                <template x-if="editStepProviderType() === 'tool'">
+                                  <div style="flex:1;min-width:120px;">
+                                    <label style="font-size:0.78rem;">Function <span class="text-danger">*</span></label>
+                                    <select x-model="editStep.model_id" style="font-size:0.83rem;padding:3px 6px;width:100%;">
+                                      <template x-for="m in editStepProviderModels()" :key="m.id">
+                                        <option :value="m.id" x-text="m.id"></option>
+                                      </template>
+                                    </select>
+                                  </div>
+                                </template>
+                              </div>
+                              <template x-if="editStepProviderType() !== 'tool'">
+                                <div>
+                                  <label style="font-size:0.78rem;">System Prompt <span style="font-weight:400;color:var(--low);">(optional)</span></label>
+                                  <textarea x-model="editStep.system_prompt" rows="2" style="font-size:0.83rem;resize:vertical;font-family:inherit;" placeholder="You are a helpful assistant..."></textarea>
                                 </div>
-                              </div>
-                              <div>
-                                <label style="font-size:0.78rem;">System Prompt <span style="font-weight:400;color:var(--low);">(optional)</span></label>
-                                <textarea x-model="editStep.system_prompt" rows="2" style="font-size:0.83rem;resize:vertical;font-family:inherit;" placeholder="You are a helpful assistant..."></textarea>
-                              </div>
+                              </template>
                               <div>
                                 <label style="font-size:0.78rem;">Provider Config <span style="font-weight:400;color:var(--low);">(JSON)</span></label>
                                 <input type="text" x-model="editStep.provider_config" style="font-size:0.82rem;font-family:monospace;padding:3px 6px;" placeholder="{}">
@@ -1485,6 +1515,15 @@ Do not wrap the JSON in markdown fences.`;
           this.newStep.model_id = models.length ? models[0].id : '';
           this.newStep.model_id_custom = '';
           this.newStep.selected_tools = [];
+        },
+
+        editStepProviderType() {
+          const info = this.providerInfoList.find(p => p.name === this.editStep.provider);
+          return info ? info.provider_type : null;
+        },
+        editStepProviderModels() {
+          const info = this.providerInfoList.find(p => p.name === this.editStep.provider);
+          return info ? info.models : [];
         },
 
         startEditStep(step) {
