@@ -1235,18 +1235,16 @@
           try {
             const resp = await fetch('/battles/' + id, { method: 'DELETE' });
             if (!resp.ok) throw new Error(await resp.text());
+            // Optimistically remove from sidebar immediately
+            this.battles = this.battles.filter(b => b.id !== id);
             const m = window.location.hash.match(/^#\/battles\/([^\/]+)$/);
             const wasCurrent = m && m[1] === id;
             window.dispatchEvent(new CustomEvent('battle-deleted'));
             if (wasCurrent) {
-              const remaining = await fetch('/battles').then(r => r.json()).then(data =>
-                (Array.isArray(data) ? data : []).filter(b => b && b.id && b.id !== id)
-                  .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
-              );
-              if (remaining.length > 0) {
-                window.location.hash = '/battles/' + remaining[0].id;
+              if (this.battles.length > 0) {
+                window.location.hash = '/battles/' + this.battles[0].id;
               } else {
-                await this.newBattle();
+                window.location.hash = '/battles';
               }
             }
           } catch(e) { alert('Delete failed: ' + e.message); }
