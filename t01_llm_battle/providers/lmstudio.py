@@ -52,7 +52,7 @@ class LMStudioProvider(BaseProvider):
         output_tokens = usage.response_tokens or 0
 
         return ProviderResult(
-            content=result.data,
+            content=result.output,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             credits_used=None,

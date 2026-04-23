@@ -57,7 +57,7 @@ class GroqProvider(BaseProvider):
         cost_usd = self._calc_cost(input_tokens, output_tokens, request.model)
 
         return ProviderResult(
-            content=result.data,
+            content=result.output,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             credits_used=None,
