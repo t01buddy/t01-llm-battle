@@ -1092,68 +1092,118 @@
         </template>
 
         <template x-if="!loading">
-          <div style="display:flex;flex-direction:column;gap:0.75rem;max-width:600px;">
-            <template x-for="k in keys" :key="k.provider">
-              <div class="card" style="padding:1rem 1.25rem;">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-                  <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <span style="font-weight:600;font-size:0.95rem;text-transform:capitalize;" x-text="k.provider"></span>
-                    <template x-if="k.source === 'env'">
-                      <span style="display:inline-block;background:rgba(39,174,96,0.15);color:var(--success);border:1px solid rgba(39,174,96,0.3);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">env var set</span>
-                    </template>
-                    <template x-if="k.source === 'db'">
-                      <span style="display:inline-block;background:rgba(240,185,11,0.1);color:var(--gold);border:1px solid rgba(240,185,11,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">saved in DB</span>
-                    </template>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <template x-if="k.source === 'db'">
-                      <span class="text-muted" style="font-size:0.84rem;font-family:monospace;" x-text="k.masked_key"></span>
-                    </template>
-                    <template x-if="k.source === 'db'">
-                      <button @click="remove(k.provider)" class="btn-danger-sm">Remove</button>
-                    </template>
-                  </div>
-                </div>
+          <div style="display:flex;flex-direction:column;gap:1.5rem;max-width:600px;">
 
-                <template x-if="saved[k.provider]">
-                  <p style="color:var(--success);font-size:0.84rem;margin:0 0 0.5rem;">Key saved successfully.</p>
-                </template>
-                <template x-if="saveErrors[k.provider]">
-                  <p class="text-danger" style="font-size:0.84rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
-                </template>
-
-                <template x-if="k.source !== 'env'">
-                  <div style="display:flex;flex-direction:column;gap:0.75rem;">
-                    <div>
-                      <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Display Name (optional)</label>
-                      <input type="text"
-                        placeholder="e.g. My OpenAI account"
-                        x-model="displayNames[k.provider]"
-                        style="width:100%;">
-                    </div>
-                    <div>
-                      <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">API Key</label>
-                      <input type="password"
-                        :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'"
-                        x-model="inputs[k.provider]"
-                        style="font-family:monospace;width:100%;">
-                    </div>
-                    <template x-if="showBaseUrl(k.provider)">
-                      <div>
-                        <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Server URL (optional)</label>
-                        <input type="text"
-                          :placeholder="getUrlPlaceholder(k.provider)"
-                          x-model="baseUrls[k.provider]"
-                          style="width:100%;">
+            <!-- LLM Providers -->
+            <template x-if="llmKeys().length > 0">
+              <div>
+                <h3 style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--mid);margin:0 0 0.6rem;">LLM Providers</h3>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                  <template x-for="k in llmKeys()" :key="k.provider">
+                    <div class="card" style="padding:1rem 1.25rem;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                          <span style="font-weight:600;font-size:0.95rem;text-transform:capitalize;" x-text="k.provider"></span>
+                          <span style="display:inline-block;background:rgba(99,102,241,0.1);color:#6366f1;border:1px solid rgba(99,102,241,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">LLM</span>
+                          <template x-if="k.source === 'env'">
+                            <span style="display:inline-block;background:rgba(39,174,96,0.15);color:var(--success);border:1px solid rgba(39,174,96,0.3);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">env var set</span>
+                          </template>
+                          <template x-if="k.source === 'db'">
+                            <span style="display:inline-block;background:rgba(240,185,11,0.1);color:var(--gold);border:1px solid rgba(240,185,11,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">saved in DB</span>
+                          </template>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                          <template x-if="k.source === 'db'">
+                            <span class="text-muted" style="font-size:0.84rem;font-family:monospace;" x-text="k.masked_key"></span>
+                          </template>
+                          <template x-if="k.source === 'db'">
+                            <button @click="remove(k.provider)" class="btn-danger-sm">Remove</button>
+                          </template>
+                        </div>
                       </div>
-                    </template>
-                    <button @click="save(k.provider)" class="btn-primary">
-                      Save
-                    </button>
-                  </div>
-                </template>
+                      <template x-if="saved[k.provider]">
+                        <p style="color:var(--success);font-size:0.84rem;margin:0 0 0.5rem;">Key saved successfully.</p>
+                      </template>
+                      <template x-if="saveErrors[k.provider]">
+                        <p class="text-danger" style="font-size:0.84rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
+                      </template>
+                      <template x-if="k.source !== 'env'">
+                        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                          <div>
+                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Display Name (optional)</label>
+                            <input type="text" placeholder="e.g. My OpenAI account" x-model="displayNames[k.provider]" style="width:100%;">
+                          </div>
+                          <div>
+                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);" x-text="getApiKeyLabel(k.provider)"></label>
+                            <input type="password" :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'" x-model="inputs[k.provider]" style="font-family:monospace;width:100%;">
+                          </div>
+                          <template x-if="showBaseUrl(k.provider)">
+                            <div>
+                              <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Server URL (optional)</label>
+                              <input type="text" :placeholder="getUrlPlaceholder(k.provider)" x-model="baseUrls[k.provider]" style="width:100%;">
+                            </div>
+                          </template>
+                          <button @click="save(k.provider)" class="btn-primary">Save</button>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
               </div>
             </template>
+
+            <!-- Tool Providers -->
+            <template x-if="toolKeys().length > 0">
+              <div>
+                <h3 style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--mid);margin:0 0 0.6rem;">Tool Providers</h3>
+                <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                  <template x-for="k in toolKeys()" :key="k.provider">
+                    <div class="card" style="padding:1rem 1.25rem;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                          <span style="font-weight:600;font-size:0.95rem;text-transform:capitalize;" x-text="k.provider"></span>
+                          <span style="display:inline-block;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">Tool</span>
+                          <template x-if="k.source === 'env'">
+                            <span style="display:inline-block;background:rgba(39,174,96,0.15);color:var(--success);border:1px solid rgba(39,174,96,0.3);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">env var set</span>
+                          </template>
+                          <template x-if="k.source === 'db'">
+                            <span style="display:inline-block;background:rgba(240,185,11,0.1);color:var(--gold);border:1px solid rgba(240,185,11,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">saved in DB</span>
+                          </template>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                          <template x-if="k.source === 'db'">
+                            <span class="text-muted" style="font-size:0.84rem;font-family:monospace;" x-text="k.masked_key"></span>
+                          </template>
+                          <template x-if="k.source === 'db'">
+                            <button @click="remove(k.provider)" class="btn-danger-sm">Remove</button>
+                          </template>
+                        </div>
+                      </div>
+                      <template x-if="saved[k.provider]">
+                        <p style="color:var(--success);font-size:0.84rem;margin:0 0 0.5rem;">Key saved successfully.</p>
+                      </template>
+                      <template x-if="saveErrors[k.provider]">
+                        <p class="text-danger" style="font-size:0.84rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
+                      </template>
+                      <template x-if="k.source !== 'env'">
+                        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+                          <div>
+                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Display Name (optional)</label>
+                            <input type="text" placeholder="e.g. My Serper account" x-model="displayNames[k.provider]" style="width:100%;">
+                          </div>
+                          <div>
+                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);" x-text="getApiKeyLabel(k.provider)"></label>
+                            <input type="password" :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'" x-model="inputs[k.provider]" style="font-family:monospace;width:100%;">
+                          </div>
+                          <button @click="save(k.provider)" class="btn-primary">Save</button>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
           </div>
         </template>
       </section>
@@ -1594,14 +1644,15 @@ Do not wrap the JSON in markdown fences.`;
     // ── Providers ─────────────────────────────────────────────
     function providersList() {
       return {
-        keys: [], loading: false, error: null, inputs: {}, displayNames: {}, baseUrls: {}, saved: {}, saveErrors: {},
+        keys: [], providerInfoList: [], loading: false, error: null, inputs: {}, displayNames: {}, baseUrls: {}, saved: {}, saveErrors: {},
 
         async load() {
           this.loading = true; this.error = null;
           try {
-            const resp = await fetch('/keys');
-            if (!resp.ok) throw new Error(await resp.text());
-            this.keys = await resp.json();
+            const [keysResp, infoResp] = await Promise.all([fetch('/keys'), fetch('/providers')]);
+            if (!keysResp.ok) throw new Error(await keysResp.text());
+            this.keys = await keysResp.json();
+            if (infoResp.ok) this.providerInfoList = await infoResp.json();
             this.keys.forEach(k => {
               if (this.inputs[k.provider] === undefined) this.inputs[k.provider] = '';
               if (this.displayNames[k.provider] === undefined) this.displayNames[k.provider] = '';
@@ -1609,6 +1660,19 @@ Do not wrap the JSON in markdown fences.`;
             });
           } catch(e) { this.error = e.message; }
           finally { this.loading = false; }
+        },
+
+        getProviderType(provider) {
+          const info = this.providerInfoList.find(p => p.name === provider);
+          return info ? info.provider_type : 'llm';
+        },
+
+        llmKeys() {
+          return this.keys.filter(k => this.getProviderType(k.provider) === 'llm');
+        },
+
+        toolKeys() {
+          return this.keys.filter(k => this.getProviderType(k.provider) === 'tool');
         },
 
         showBaseUrl(provider) {
@@ -1619,6 +1683,11 @@ Do not wrap the JSON in markdown fences.`;
           if (provider === 'ollama') return 'e.g. http://localhost:11434';
           if (provider === 'llm-studio') return 'e.g. http://localhost:8000';
           return 'Server URL…';
+        },
+
+        getApiKeyLabel(provider) {
+          const type = this.getProviderType(provider);
+          return type === 'tool' ? 'API Key (credits / search quota)' : 'API Key';
         },
 
         async save(provider) {
