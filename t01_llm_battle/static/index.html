@@ -972,7 +972,7 @@
                         <template x-for="fighter in fighters()" :key="fighter.fighter_id">
                           <td style="vertical-align:top;">
                             <template x-if="getCellResult(fighter.fighter_id, source.source_id)">
-                              <div x-data="{ cell: getCellResult(fighter.fighter_id, source.source_id), submitContent: '', submitting: false, submitError: null }">
+                              <div x-data="{ _fid: fighter.fighter_id, _sid: source.source_id, get cell() { return getCellResult(this._fid, this._sid); }, submitContent: '', submitting: false, submitError: null }">
                                 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
                                   <template x-for="(step, idx) in (cell.steps || [])" :key="idx">
                                     <span
