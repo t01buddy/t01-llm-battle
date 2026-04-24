@@ -5,12 +5,7 @@ from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.providers.anthropic import AnthropicProvider as PAIAnthropicProvider
 
 from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
-
-PRICING = {
-    "claude-opus-4-6": (15.00, 75.00),
-    "claude-sonnet-4-6": (3.00, 15.00),
-    "claude-haiku-4-5-20251001": (0.80, 4.00),
-}
+from ..pricing import get_llm_cost, get_llm_models
 
 
 class AnthropicProvider(BaseProvider):
@@ -19,13 +14,7 @@ class AnthropicProvider(BaseProvider):
     provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
-        return ["claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
-
-    def _calc_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
-        if model not in PRICING:
-            return 0.0
-        input_rate, output_rate = PRICING[model]
-        return (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
+        return get_llm_models(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -51,7 +40,7 @@ class AnthropicProvider(BaseProvider):
         usage = result.usage()
         input_tokens = usage.request_tokens or 0
         output_tokens = usage.response_tokens or 0
-        cost_usd = self._calc_cost(input_tokens, output_tokens, request.model)
+        cost_usd = get_llm_cost(self.name, request.model, input_tokens, output_tokens)
 
         return ProviderResult(
             content=result.output,

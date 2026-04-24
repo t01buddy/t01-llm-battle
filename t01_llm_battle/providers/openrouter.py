@@ -5,14 +5,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider as PAIOpenAIProvider
 
 from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
-
-_MODELS = [
-    "openai/gpt-4o",
-    "anthropic/claude-sonnet-4-6",
-    "google/gemini-2.0-flash",
-    "meta-llama/llama-3.3-70b-instruct",
-    "mistralai/mistral-7b-instruct",
-]
+from ..pricing import get_llm_cost, get_llm_models
 
 
 class OpenRouterProvider(BaseProvider):
@@ -21,7 +14,7 @@ class OpenRouterProvider(BaseProvider):
     provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
-        return list(_MODELS)
+        return get_llm_models(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("OPENROUTER_API_KEY", "")
@@ -48,12 +41,14 @@ class OpenRouterProvider(BaseProvider):
         input_tokens = usage.request_tokens or 0
         output_tokens = usage.response_tokens or 0
 
+        cost_usd = get_llm_cost(self.name, request.model, input_tokens, output_tokens)
+
         return ProviderResult(
             content=result.output,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             credits_used=None,
-            cost_usd=0.0,
+            cost_usd=cost_usd,
             model=request.model,
             provider="openrouter",
         )

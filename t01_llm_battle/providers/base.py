@@ -9,18 +9,6 @@ class ProviderType(Enum):
 
 
 @dataclass
-class TokenPricing:
-    input_per_million: float   # USD per 1M input tokens
-    output_per_million: float  # USD per 1M output tokens
-
-
-@dataclass
-class CreditPricing:
-    credits_per_call: float    # credits consumed per call
-    usd_per_credit: float      # USD per credit
-
-
-@dataclass
 class ProviderRequest:
     model: str                 # model slug (LLM) or function name (TOOL)
     system_prompt: str | None

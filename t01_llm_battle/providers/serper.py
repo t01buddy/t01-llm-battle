@@ -3,9 +3,8 @@ import json
 
 import httpx
 
-from .base import BaseProvider, CreditPricing, ProviderRequest, ProviderResult, ProviderType
-
-_PRICING = CreditPricing(credits_per_call=1.0, usd_per_credit=0.001)
+from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
+from ..pricing import get_tool_cost, get_tool_functions, load_tool_pricing
 
 _ENDPOINTS = {
     "search": "https://google.serper.dev/search",
@@ -19,7 +18,7 @@ class SerperProvider(BaseProvider):
     provider_type = ProviderType.TOOL
 
     def models(self) -> list[str]:
-        return ["search", "news"]
+        return get_tool_functions(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("SERPER_API_KEY", "")
@@ -37,13 +36,15 @@ class SerperProvider(BaseProvider):
             data = response.json()
 
         content = _format_serper_results(data, function)
-        cost_usd = _PRICING.credits_per_call * _PRICING.usd_per_credit
+        tool = load_tool_pricing().get(self.name, {})
+        credits_used = tool.get("credits_per_call", 1.0)
+        cost_usd = get_tool_cost(self.name)
 
         return ProviderResult(
             content=content,
             input_tokens=None,
             output_tokens=None,
-            credits_used=_PRICING.credits_per_call,
+            credits_used=credits_used,
             cost_usd=cost_usd,
             model=function,
             provider="serper",
