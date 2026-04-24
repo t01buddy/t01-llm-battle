@@ -7,13 +7,7 @@ from pydantic_ai.models.gemini import GeminiModel
 from pydantic_ai.providers.google_gla import GoogleGLAProvider
 
 from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
-
-_PRICING: dict[str, tuple[float, float]] = {
-    # (input $/1M tokens, output $/1M tokens)
-    "gemini-2.0-flash": (0.10, 0.40),
-    "gemini-1.5-pro": (1.25, 5.00),
-    "gemini-1.5-flash": (0.075, 0.30),
-}
+from ..pricing import get_llm_cost, get_llm_models
 
 
 class GoogleProvider(BaseProvider):
@@ -22,13 +16,7 @@ class GoogleProvider(BaseProvider):
     provider_type = ProviderType.LLM
 
     def models(self) -> list[str]:
-        return ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"]
-
-    def _calc_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
-        if model not in _PRICING:
-            return 0.0
-        input_price, output_price = _PRICING[model]
-        return (input_tokens * input_price + output_tokens * output_price) / 1_000_000
+        return get_llm_models(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
         api_key = os.environ.get("GOOGLE_API_KEY", "")
@@ -51,7 +39,7 @@ class GoogleProvider(BaseProvider):
         usage = result.usage()
         input_tokens = usage.request_tokens or 0
         output_tokens = usage.response_tokens or 0
-        cost_usd = self._calc_cost(input_tokens, output_tokens, request.model)
+        cost_usd = get_llm_cost(self.name, request.model, input_tokens, output_tokens)
 
         return ProviderResult(
             content=result.output,
