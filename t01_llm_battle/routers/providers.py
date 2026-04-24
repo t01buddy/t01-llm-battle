@@ -8,8 +8,7 @@ PUT    /providers/{name}/config — update server_url or other config
 DELETE /providers/{name}        — uninstall non-system provider (403 for system)
 """
 import json
-import os
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
