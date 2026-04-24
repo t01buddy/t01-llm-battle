@@ -332,6 +332,7 @@ async def get_run_results(run_id: str):
                 fr.total_input_tokens,
                 fr.total_output_tokens,
                 fr.judge_score,
+                fr.status,
                 f.name           AS fighter_name,
                 bs.label         AS source_label
             FROM fighter_result fr
@@ -410,6 +411,7 @@ async def get_run_results(run_id: str):
                 "total_output_tokens": agg["agg_output_tokens"] if agg else fr["total_output_tokens"],
                 "final_output": final_output,
                 "step_count": agg["step_count"] if agg else 0,
+                "status": fr["status"],
             }
         )
 
