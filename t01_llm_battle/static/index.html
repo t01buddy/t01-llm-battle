@@ -863,7 +863,15 @@
                 </div>
                 <div>
                   <label style="font-size:0.84rem;">Model</label>
-                  <input type="text" x-model="judgeModel" style="font-size:0.84rem;" placeholder="e.g. gpt-4o">
+                  <select x-model="judgeModel" style="font-size:0.84rem;">
+                    <template x-for="m in judgeProviderModels()" :key="m.id">
+                      <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                    </template>
+                    <option value="">Custom…</option>
+                  </select>
+                  <template x-if="judgeModel === ''">
+                    <input type="text" x-model="judgeModelCustom" placeholder="Enter custom model ID" style="margin-top:4px;font-size:0.84rem;">
+                  </template>
                 </div>
               </div>
               <div>
@@ -1409,7 +1417,7 @@ Do not wrap the JSON in markdown fences.`;
         battleName: '', nameInput: '', nameSaving: false,
         showTextForm: false, textItems: [{ content: '', label: '' }], addingText: false,
         // Judge state
-        judgeEnabled: false, judgeProvider: 'openai', judgeModel: 'gpt-4o',
+        judgeEnabled: false, judgeProvider: 'openai', judgeModel: 'gpt-4o', judgeModelCustom: '',
         judgeRubric: DEFAULT_RUBRIC, judgeSaving: false, judgeSaved: false, judgeError: null,
 
         llmProviders() {
@@ -1417,9 +1425,17 @@ Do not wrap the JSON in markdown fences.`;
           return pi.filter(p => p.provider_type === 'llm' && p.enabled);
         },
 
+        judgeProviderModels() {
+          const pi = window._providerInfoList || [];
+          const info = pi.find(p => p.name === this.judgeProvider);
+          return info ? info.models : [];
+        },
+
         onJudgeProviderChange() {
           const p = this.judgeProvider;
-          this.judgeModel = DEFAULT_MODELS[p] || 'gpt-4o';
+          const models = this.judgeProviderModels();
+          this.judgeModel = models.length ? models[0].id : (DEFAULT_MODELS[p] || 'gpt-4o');
+          this.judgeModelCustom = '';
         },
 
         onJudgeToggle() {
@@ -1447,7 +1463,7 @@ Do not wrap the JSON in markdown fences.`;
               method: 'PUT', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({
                 judge_provider: this.judgeProvider,
-                judge_model: this.judgeModel,
+                judge_model: this.judgeModel || this.judgeModelCustom,
                 judge_rubric: this.judgeRubric
               })
             });
@@ -1477,8 +1493,17 @@ Do not wrap the JSON in markdown fences.`;
               this.judgeEnabled = !!(b.judge_provider && b.judge_model);
               if (this.judgeEnabled) {
                 this.judgeProvider = b.judge_provider;
-                this.judgeModel = b.judge_model;
                 this.judgeRubric = b.judge_rubric || DEFAULT_RUBRIC;
+                // Check if saved model is in catalog; if not, treat as custom
+                const catalogModels = this.judgeProviderModels();
+                const inCatalog = catalogModels.some(m => m.id === b.judge_model);
+                if (inCatalog || catalogModels.length === 0) {
+                  this.judgeModel = b.judge_model;
+                  this.judgeModelCustom = '';
+                } else {
+                  this.judgeModel = '';
+                  this.judgeModelCustom = b.judge_model;
+                }
               }
             }
           } catch(e) { this.error = e.message; }
