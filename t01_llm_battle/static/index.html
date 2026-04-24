@@ -1890,7 +1890,12 @@ Do not wrap the JSON in markdown fences.`;
             const resp = await fetch('/runs/' + this.runId + '/status');
             if (!resp.ok) throw new Error(await resp.text());
             this.run = await resp.json();
-            if (this.run.status === 'complete' || this.run.status === 'error') this.stopPolling();
+            if (this.run.status === 'complete' || this.run.status === 'error') {
+              this.stopPolling();
+              if (this.run.status === 'complete') {
+                setTimeout(() => { location.hash = '#/results/' + this.runId; }, 500);
+              }
+            }
           } catch(e) { this.error = e.message; this.stopPolling(); }
         },
 
