@@ -1179,7 +1179,19 @@
             <!-- LLM Providers -->
             <template x-if="llmKeys().length > 0">
               <div>
-                <h3 style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--mid);margin:0 0 0.6rem;">LLM Providers</h3>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+                  <h3 style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--mid);margin:0;">LLM Providers</h3>
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span style="font-size:0.78rem;color:var(--mid);"
+                          x-text="pricingCacheLabel"></span>
+                    <button class="btn-secondary" style="padding:3px 10px;font-size:0.78rem;"
+                            :disabled="pricingRefreshing"
+                            @click="refreshPricing()">
+                      <span x-show="!pricingRefreshing">Refresh Pricing</span>
+                      <span x-show="pricingRefreshing">Refreshing…</span>
+                    </button>
+                  </div>
+                </div>
                 <div style="display:flex;flex-direction:column;gap:0.75rem;">
                   <template x-for="k in llmKeys()" :key="k.provider">
                     <div class="card" style="padding:1rem 1.25rem;">
@@ -1822,13 +1834,18 @@ Do not wrap the JSON in markdown fences.`;
     function providersList() {
       return {
         keys: [], providerInfoList: [], loading: false, error: null, inputs: {}, displayNames: {}, baseUrls: {}, saved: {}, saveErrors: {},
+        pricingRefreshing: false, pricingCacheLabel: '',
 
         async load() {
           this.loading = true; this.error = null;
           try {
-            const [keysResp, infoResp] = await Promise.all([fetch('/keys'), fetch('/providers')]);
+            const [keysResp, infoResp, pricingResp] = await Promise.all([fetch('/keys'), fetch('/providers'), fetch('/providers/pricing')]);
             if (!keysResp.ok) throw new Error(await keysResp.text());
             this.keys = await keysResp.json();
+            if (pricingResp.ok) {
+              const pc = await pricingResp.json();
+              this.pricingCacheLabel = pc ? `Updated ${pc.age_days}d ago` : 'Using bundled defaults';
+            }
             if (infoResp.ok) this.providerInfoList = await infoResp.json();
             this.keys.forEach(k => {
               if (this.inputs[k.provider] === undefined) this.inputs[k.provider] = '';
@@ -1846,6 +1863,20 @@ Do not wrap the JSON in markdown fences.`;
 
         llmKeys() {
           return this.keys.filter(k => this.getProviderType(k.provider) === 'llm');
+        },
+
+        async refreshPricing() {
+          this.pricingRefreshing = true;
+          try {
+            const resp = await fetch('/providers/pricing/refresh', { method: 'POST' });
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            this.pricingCacheLabel = `Updated just now (${data.models_updated} models)`;
+          } catch(e) {
+            this.pricingCacheLabel = 'Refresh failed';
+          } finally {
+            this.pricingRefreshing = false;
+          }
         },
 
         toolKeys() {
