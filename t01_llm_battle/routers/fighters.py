@@ -22,7 +22,8 @@ from pydantic import BaseModel
 
 from ..db import get_db, DB_PATH
 from ..providers.registry import list_providers, get_provider
-from ..providers.base import ProviderType, TokenPricing, CreditPricing
+from ..providers.base import ProviderType
+from ..pricing import get_llm_cost, load_llm_pricing, load_tool_pricing
 
 _SYSTEM_PROVIDERS = {
     "openai", "anthropic", "google", "groq",
@@ -307,7 +308,6 @@ class ProviderInfo(BaseModel):
 
 
 def _build_provider_info(name: str) -> ProviderInfo | None:
-    import sys
     try:
         p = get_provider(name)
     except KeyError:
@@ -316,31 +316,28 @@ def _build_provider_info(name: str) -> ProviderInfo | None:
     model_ids = p.models()
     models: list[ProviderModelInfo] = []
 
-    # Locate the provider's module to read module-level pricing constants
-    provider_module = sys.modules.get(type(p).__module__)
-
     if p.provider_type == ProviderType.LLM:
-        # Get per-model pricing dict from module (_PRICING or PRICING)
-        pricing_dict: dict = {}
-        if provider_module:
-            pricing_dict = getattr(provider_module, "_PRICING", None) or getattr(provider_module, "PRICING", None) or {}
+        llm_pricing = load_llm_pricing()
+        provider_prices = llm_pricing.get(name, {})
         for mid in model_ids:
-            if mid in pricing_dict:
-                inp, out = pricing_dict[mid]
+            entry = provider_prices.get(mid)
+            if entry:
+                inp = entry["input_per_million"]
+                out = entry["output_per_million"]
                 label = f"${inp:.2f} in / ${out:.2f} out per 1M tokens"
             else:
                 label = "pricing unknown"
             models.append(ProviderModelInfo(id=mid, pricing_label=label))
         native_tools: list[str] = list(getattr(p, "native_tools", []))
     else:
-        # TOOL provider — models() returns function names; get credit pricing from module
-        pricing: CreditPricing | None = None
-        if provider_module:
-            pricing = getattr(provider_module, "_PRICING", None) or getattr(provider_module, "PRICING", None)
+        # TOOL provider — models() returns function names; get credit pricing from centralized module
+        tool_pricing = load_tool_pricing().get(name, {})
+        credits_per_call = tool_pricing.get("credits_per_call", 0.0)
+        usd_per_credit = tool_pricing.get("usd_per_credit", 0.0)
         for fn in model_ids:
-            if pricing:
-                usd = pricing.credits_per_call * pricing.usd_per_credit
-                label = f"{pricing.credits_per_call:.0f} credit (${usd:.4f} per call)"
+            if credits_per_call:
+                usd = credits_per_call * usd_per_credit
+                label = f"{credits_per_call:.0f} credit (${usd:.4f} per call)"
             else:
                 label = "pricing unknown"
             models.append(ProviderModelInfo(id=fn, pricing_label=label))
