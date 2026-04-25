@@ -497,11 +497,11 @@
       <div style="padding:0.5rem 0.5rem 0;">
         <div class="sidebar-section-header" style="margin-bottom:0;">
           <span class="sidebar-section-title">Providers</span>
-          <button class="btn-sidebar-new" @click="$root.navigate('/keys'); $root.sidebarOpen = false">Manage</button>
+          <button class="btn-sidebar-new" @click="window.location.hash = '#/keys'">Manage</button>
         </div>
         <p class="text-muted" style="font-size:0.82rem;padding:2px 8px 4px;margin:0;"
            x-text="(function(){
-             var active = providerInfoList.filter(function(p){ return p.enabled; });
+             var active = providerInfoList.filter(function(p){ return p.has_key; });
              var count = active.length;
              if (count === 0) return 'No active providers';
              var names = active.slice(0,3).map(function(p){ return p.display_name || p.name; }).join(', ');
