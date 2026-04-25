@@ -206,13 +206,11 @@ async def _execute_pair(
 async def execute_run(run_id: str, db_path=DB_PATH) -> None:
     """Execute a run: all fighter x source pairs in parallel; steps sequential within each pair."""
 
-    now = datetime.now(timezone.utc).isoformat()
-
-    # Mark run as running
+    # Mark run as running — preserve original started_at set at creation time (FR-10)
     async with get_db(db_path) as db:
         await db.execute(
-            "UPDATE run SET status = ?, started_at = ? WHERE id = ?",
-            ("running", now, run_id),
+            "UPDATE run SET status = ? WHERE id = ?",
+            ("running", run_id),
         )
         await db.commit()
 
