@@ -334,6 +334,7 @@ async def get_run_results(run_id: str):
                 fr.total_input_tokens,
                 fr.total_output_tokens,
                 fr.judge_score,
+                fr.judge_reasoning,
                 fr.status,
                 f.name           AS fighter_name,
                 bs.label         AS source_label
@@ -407,6 +408,7 @@ async def get_run_results(run_id: str):
                 "source_id": fr["source_id"],
                 "source_label": fr["source_label"],
                 "score": fr["judge_score"],
+                "reasoning": fr["judge_reasoning"],
                 "total_cost_usd": agg["agg_cost_usd"] if agg else fr["total_cost_usd"],
                 "total_latency_ms": agg["agg_latency_ms"] if agg else fr["total_latency_ms"],
                 "total_input_tokens": agg["agg_input_tokens"] if agg else fr["total_input_tokens"],
