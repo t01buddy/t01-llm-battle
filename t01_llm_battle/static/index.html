@@ -497,23 +497,16 @@
       <div style="padding:0.5rem 0.5rem 0;">
         <div class="sidebar-section-header" style="margin-bottom:0;">
           <span class="sidebar-section-title">Providers</span>
-          <a href="#/keys" class="btn-provider-edit" title="Manage providers" @click="$root.sidebarOpen = false" style="font-size:0.8rem;padding:1px 6px;">Manage</a>
+          <button class="btn-sidebar-new" @click="$root.navigate('/keys'); $root.sidebarOpen = false">Manage</button>
         </div>
-        <template x-for="p in providerInfoList" :key="p.name">
-          <div class="sidebar-provider-item">
-            <span class="sidebar-provider-name" :class="{ disabled: !p.enabled }" x-text="p.display_name || p.name"></span>
-            <label class="toggle-switch" :title="p.enabled ? 'Disable' : 'Enable'">
-              <input type="checkbox" :checked="p.enabled" @change="toggleProvider(p.name, $event.target.checked)">
-              <span class="toggle-track" :class="{ on: p.enabled }">
-                <span class="toggle-thumb"></span>
-              </span>
-            </label>
-            <button class="btn-provider-edit" title="Edit" @click="$root.navigate('/keys'); $root.sidebarOpen = false">✎</button>
-          </div>
-        </template>
-        <template x-if="providerInfoList.length === 0">
-          <a href="#/keys" class="sidebar-provider-link" @click="$root.sidebarOpen = false">◈ Configure Providers</a>
-        </template>
+        <p class="text-muted" style="font-size:0.82rem;padding:2px 8px 4px;margin:0;"
+           x-text="(function(){
+             var active = providerInfoList.filter(function(p){ return p.enabled; });
+             var count = active.length;
+             if (count === 0) return 'No active providers';
+             var names = active.slice(0,3).map(function(p){ return p.display_name || p.name; }).join(', ');
+             return count + ' active — ' + names + (count > 3 ? '…' : '');
+           })()"></p>
       </div>
 
       <div class="sidebar-battles">
