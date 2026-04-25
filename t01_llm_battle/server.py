@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -5,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .db import init_db, DB_PATH
+from .pricing import get_cache_info, refresh_llm_pricing
 from .routers.battles import router as battles_router
 from .routers.keys import router as keys_router
 from .routers.runs import router as runs_router
@@ -12,11 +15,26 @@ from .routers.sources import router as sources_router
 from .routers.fighters import router as fighters_router, providers_router
 from .routers.providers import router as provider_mgmt_router
 
+log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    # Auto-refresh LLM pricing if no user cache exists
+    cache = get_cache_info()
+    if cache["age_seconds"] is None:
+        asyncio.create_task(_background_pricing_refresh())
     yield
+
+
+async def _background_pricing_refresh():
+    try:
+        result = await asyncio.to_thread(refresh_llm_pricing)
+        total = sum(result.values())
+        log.info("Auto-refreshed LLM pricing: %d models", total)
+    except Exception as e:
+        log.warning("Failed to auto-refresh LLM pricing: %s", e)
 
 
 def create_app(db_path=DB_PATH) -> FastAPI:
