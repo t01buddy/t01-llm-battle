@@ -1965,7 +1965,7 @@ Do not wrap the JSON in markdown fences.`;
           const seen = new Set();
           return this.run.fighter_results.filter(fr => {
             if (seen.has(fr.source_id)) return false; seen.add(fr.source_id); return true;
-          }).map(fr => ({ source_id: fr.source_id, source_label: fr.source_id ? fr.source_id.slice(0,12) + '...' : fr.source_id }));
+          }).map(fr => ({ source_id: fr.source_id, source_label: fr.source_label || fr.source_id }));
         },
 
         fighters() {
