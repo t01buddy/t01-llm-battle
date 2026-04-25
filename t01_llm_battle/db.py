@@ -166,6 +166,7 @@ async def get_db(
     """Async context manager that yields an aiosqlite.Connection with row_factory set."""
     async with aiosqlite.connect(db_path) as db:
         await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA foreign_keys = ON")
         db.row_factory = aiosqlite.Row
         yield db
 
