@@ -13,6 +13,7 @@ GET    /providers                                             — list all provi
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -303,6 +304,7 @@ class ProviderInfo(BaseModel):
     models: list[ProviderModelInfo]
     native_tools: list[str]  # only for LLM providers; empty list for tool providers
     enabled: bool = True
+    has_key: bool = False  # True if a configured API key or reachable local server exists
     is_system: bool = True
     config: dict = {}
 
@@ -352,13 +354,29 @@ def _build_provider_info(name: str) -> ProviderInfo | None:
     )
 
 
+_LOCAL_PROVIDERS = {"ollama", "llm-studio"}
+_LOCAL_DEFAULT_URLS = {"ollama": "http://localhost:11434", "llm-studio": "http://localhost:1234"}
+
+
+async def _check_local_reachable(url: str) -> bool:
+    """Return True if the local server responds within 1s."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=1.0) as client:
+            r = await client.get(url)
+            return r.status_code < 500
+    except Exception:
+        return False
+
+
 @providers_router.get("", response_model=list[ProviderInfo])
 async def list_provider_info() -> list[ProviderInfo]:
     """Return all registered providers with type, models/functions, pricing, enabled state, and config."""
     names = list_providers()
 
-    # Fetch all provider_config rows in one query
+    # Fetch provider_config and api_key rows in one DB connection
     provider_configs: dict[str, dict] = {}
+    providers_with_db_key: set[str] = set()
     async with get_db(DB_PATH) as db:
         cur = await db.execute("SELECT provider, enabled, server_url FROM provider_config")
         rows = await cur.fetchall()
@@ -367,6 +385,16 @@ async def list_provider_info() -> list[ProviderInfo]:
                 "enabled": bool(row["enabled"]),
                 "server_url": row["server_url"],
             }
+        cur2 = await db.execute("SELECT provider FROM api_key WHERE key_value IS NOT NULL AND key_value != ''")
+        key_rows = await cur2.fetchall()
+        for row in key_rows:
+            providers_with_db_key.add(row["provider"])
+
+    # Determine which providers have env-var keys set
+    from ..routers.keys import _ENV_VARS as _KEYS_ENV_VARS
+    providers_with_env_key: set[str] = {
+        p for p, var in _KEYS_ENV_VARS.items() if var and os.environ.get(var)
+    }
 
     result = []
     for name in names:
@@ -376,5 +404,12 @@ async def list_provider_info() -> list[ProviderInfo]:
             info.enabled = cfg["enabled"]
             info.is_system = name in _SYSTEM_PROVIDERS
             info.config = {"server_url": cfg["server_url"]} if cfg["server_url"] else {}
+
+            if name in _LOCAL_PROVIDERS:
+                server_url = cfg["server_url"] or _LOCAL_DEFAULT_URLS.get(name, "")
+                info.has_key = await _check_local_reachable(server_url)
+            else:
+                info.has_key = name in providers_with_env_key or name in providers_with_db_key
+
             result.append(info)
     return result

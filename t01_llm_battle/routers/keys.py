@@ -9,6 +9,7 @@ DELETE /keys/{provider} — remove key from DB
 import os
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -138,19 +139,59 @@ async def get_key(provider: str):
     )
 
 
+_VALIDATION_ENDPOINTS: dict[str, tuple[str, dict]] = {
+    "openai":      ("https://api.openai.com/v1/models", {"Authorization": "Bearer {key}"}),
+    "anthropic":   ("https://api.anthropic.com/v1/models", {"x-api-key": "{key}", "anthropic-version": "2023-06-01"}),
+    "google":      ("https://generativelanguage.googleapis.com/v1beta/models?key={key}", {}),
+    "groq":        ("https://api.groq.com/openai/v1/models", {"Authorization": "Bearer {key}"}),
+    "openrouter":  ("https://openrouter.ai/api/v1/models", {"Authorization": "Bearer {key}"}),
+    "serper":      ("https://google.serper.dev/search", {"X-API-KEY": "{key}"}),
+    "tavily":      ("https://api.tavily.com/search", {}),
+    "firecrawl":   ("https://api.firecrawl.dev/v0/crawl", {}),
+}
+
+
+async def _validate_api_key(provider: str, key: str) -> str | None:
+    """
+    Return None if key appears valid, or an error string if validation fails.
+    Skips validation for providers with no dedicated lightweight check.
+    """
+    entry = _VALIDATION_ENDPOINTS.get(provider)
+    if not entry:
+        return None
+
+    url_template, header_template = entry
+    url = url_template.replace("{key}", key)
+    headers = {k: v.replace("{key}", key) for k, v in header_template.items()}
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(url, headers=headers)
+            if r.status_code in (401, 403):
+                return f"Key rejected by {provider} (HTTP {r.status_code})"
+            return None
+    except Exception as exc:
+        # Network error — don't block save, just warn
+        return f"Could not reach {provider} for validation: {exc}"
+
+
 @router.put("/{provider}")
 async def set_key(provider: str, body: KeyUpdate):
-    """Store key, display_name, and/or base_url in DB."""
+    """Store key, display_name, and/or base_url in DB. Validates the key before saving."""
     if provider not in _ENV_VARS:
         raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
 
     now = datetime.now(timezone.utc).isoformat()
+    validation_warning: str | None = None
 
     async with get_db() as db:
         # Update API key if provided
         if body.key is not None:
             if not body.key.strip():
                 raise HTTPException(status_code=422, detail="Key must not be empty")
+            validation_err = await _validate_api_key(provider, body.key.strip())
+            if validation_err:
+                validation_warning = validation_err  # save key but report issue to UI
             encrypted = encrypt_key(body.key.strip())
             await db.execute(
                 """
@@ -177,7 +218,10 @@ async def set_key(provider: str, body: KeyUpdate):
 
         await db.commit()
 
-    return {"provider": provider, "status": "saved"}
+    result: dict = {"provider": provider, "status": "saved", "valid": validation_warning is None}
+    if validation_warning:
+        result["warning"] = validation_warning
+    return result
 
 
 @router.delete("/{provider}")
