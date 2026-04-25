@@ -100,11 +100,12 @@ async def get_run_status(run_id: str):
     async with get_db() as db:
         cursor = await db.execute(
             "SELECT fr.id, fr.fighter_id, f.name AS fighter_name, "
-            "fr.source_id, fr.status, fr.final_output, "
+            "fr.source_id, bs.label AS source_label, fr.status, fr.final_output, "
             "fr.total_cost_usd, fr.total_latency_ms, fr.total_input_tokens, "
             "fr.total_output_tokens, fr.judge_score, fr.judge_reasoning "
             "FROM fighter_result fr "
             "JOIN fighter f ON f.id = fr.fighter_id "
+            "JOIN battle_source bs ON bs.id = fr.source_id "
             "WHERE fr.run_id = ?",
             (run_id,),
         )
@@ -152,6 +153,7 @@ async def get_run_status(run_id: str):
                 "fighter_id": fr["fighter_id"],
                 "fighter_name": fr["fighter_name"],
                 "source_id": fr["source_id"],
+                "source_label": fr["source_label"],
                 "status": fr["status"],
                 "final_output": fr["final_output"],
                 "total_cost_usd": fr["total_cost_usd"],
