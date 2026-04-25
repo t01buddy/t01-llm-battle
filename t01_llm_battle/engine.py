@@ -9,31 +9,19 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from .db import DB_PATH, get_db, resolve_api_key, _PROVIDER_ENV_VARS
+from .db import DB_PATH, get_db, resolve_api_key
 from .judge import score_response, generate_report
 from .providers.base import ProviderRequest, ProviderResult
 from .providers.registry import get_provider
 from . import rate_limiter
 
 
-async def _inject_api_key(provider_name: str, db_path) -> str | None:
-    """If the env var for provider is not set, look up DB and set it temporarily.
+async def _resolve_api_key(provider_name: str, db_path) -> str | None:
+    """Return the API key for a provider without mutating os.environ.
 
-    Returns the env var name that was set (so the caller can restore it), or None.
+    Resolves from env var first, then DB.  Safe for concurrent coroutines.
     """
-    import os
-
-    env_var = _PROVIDER_ENV_VARS.get(provider_name)
-    if not env_var:
-        return None
-    if os.environ.get(env_var):
-        return None  # env already set; nothing to do
-
-    key = await resolve_api_key(provider_name, db_path)
-    if key:
-        os.environ[env_var] = key
-        return env_var
-    return None
+    return await resolve_api_key(provider_name, db_path)
 
 
 async def _execute_pair(
@@ -47,8 +35,6 @@ async def _execute_pair(
     db_path,
 ) -> bool:
     """Execute one fighter x source pair. Returns True if successful (not errored)."""
-    import os
-
     fighter_id = fighter["id"]
     is_manual = fighter["is_manual"]
     source_id = source["id"]
@@ -109,13 +95,13 @@ async def _execute_pair(
                 extra=extra,
             )
 
+            api_key = await _resolve_api_key(step["provider"], db_path)
+            if api_key:
+                request.api_key = api_key
             await rate_limiter.acquire(step["provider"])
-            injected_env_var = await _inject_api_key(step["provider"], db_path)
             t0 = time.monotonic()
             result: ProviderResult = await provider.run(request)
             latency_ms = int((time.monotonic() - t0) * 1000)
-            if injected_env_var:
-                os.environ.pop(injected_env_var, None)
 
             async with get_db(db_path) as db:
                 await db.execute(
@@ -183,16 +169,15 @@ async def _execute_pair(
 
     # Run judge scoring for completed results
     if not had_error and final_output and judge_provider and judge_model:
-        injected_judge_env_var = await _inject_api_key(judge_provider, db_path)
+        judge_api_key = await _resolve_api_key(judge_provider, db_path)
         judge_score, judge_reasoning = await score_response(
             judge_provider=judge_provider,
             judge_model=judge_model,
             judge_rubric=judge_rubric or "",
             source_content=source_content,
             response_content=final_output,
+            api_key=judge_api_key,
         )
-        if injected_judge_env_var:
-            os.environ.pop(injected_judge_env_var, None)
         async with get_db(db_path) as db:
             await db.execute(
                 "UPDATE fighter_result SET judge_score = ?, judge_reasoning = ? WHERE id = ?",
@@ -293,11 +278,8 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
 
     # Generate markdown report after all judging is complete
     if judge_provider and judge_model:
-        import os
-        injected_report_env_var = await _inject_api_key(judge_provider, db_path)
-        await generate_report(run_id, judge_provider, judge_model, db_path)
-        if injected_report_env_var:
-            os.environ.pop(injected_report_env_var, None)
+        report_api_key = await _resolve_api_key(judge_provider, db_path)
+        await generate_report(run_id, judge_provider, judge_model, db_path, api_key=report_api_key)
 
 
 def start_run_background(run_id: str, db_path=DB_PATH) -> None:

@@ -17,7 +17,7 @@ class GroqProvider(BaseProvider):
         return get_llm_models(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
-        api_key = os.environ.get("GROQ_API_KEY", "")
+        api_key = request.api_key or os.environ.get("GROQ_API_KEY", "")
         provider = PAIGroqProvider(api_key=api_key)
         model = GroqModel(request.model, provider=provider)
         agent = Agent(model, system_prompt=request.system_prompt or "")

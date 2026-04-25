@@ -15,7 +15,7 @@ class TavilyProvider(BaseProvider):
         return get_tool_functions(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
-        api_key = os.environ.get("TAVILY_API_KEY", "")
+        api_key = request.api_key or os.environ.get("TAVILY_API_KEY", "")
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
