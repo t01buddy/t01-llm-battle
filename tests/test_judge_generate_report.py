@@ -168,6 +168,84 @@ async def test_generate_report_provider_raises(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_generate_report_mixed_manual_automated_fighters(tmp_path):
+    """generate_report works correctly when mix of manual (cost=0) and automated fighters."""
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    import uuid
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    battle_id = str(uuid.uuid4())
+    run_id = str(uuid.uuid4())
+    source_id = str(uuid.uuid4())
+
+    async with get_db(db_path) as db:
+        await db.execute(
+            "INSERT INTO battle (id, name, judge_provider, judge_model, judge_rubric, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (battle_id, "Mixed Battle", "openai", "gpt-4o", "Quality.", now),
+        )
+        await db.execute(
+            "INSERT INTO battle_source (id, battle_id, label, content, position) VALUES (?, ?, ?, ?, ?)",
+            (source_id, battle_id, "q1", "Explain AI.", 1),
+        )
+        await db.execute(
+            "INSERT INTO run (id, battle_id, status, started_at) VALUES (?, ?, ?, ?)",
+            (run_id, battle_id, "complete", now),
+        )
+        # Manual fighter (is_manual=1, cost=0)
+        manual_id = str(uuid.uuid4())
+        await db.execute(
+            "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (manual_id, battle_id, "Human Expert", 1, 1, now),
+        )
+        await db.execute(
+            "INSERT INTO fighter_result "
+            "(id, run_id, fighter_id, source_id, final_output, total_cost_usd, "
+            "total_latency_ms, status, judge_score, judge_reasoning, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), run_id, manual_id, source_id,
+             "AI is artificial intelligence.", 0.0, 0, "complete", 9.0,
+             "Excellent. SCORE: 9.0", now),
+        )
+        # Automated fighter
+        auto_id = str(uuid.uuid4())
+        await db.execute(
+            "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (auto_id, battle_id, "GPT-4o", 0, 2, now),
+        )
+        await db.execute(
+            "INSERT INTO fighter_result "
+            "(id, run_id, fighter_id, source_id, final_output, total_cost_usd, "
+            "total_latency_ms, status, judge_score, judge_reasoning, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), run_id, auto_id, source_id,
+             "AI means machines that mimic human intelligence.", 0.005, 1200,
+             "complete", 7.5, "Good answer. SCORE: 7.5", now),
+        )
+        await db.commit()
+
+    mock_provider = AsyncMock()
+    mock_provider.run.return_value = _mock_result(
+        "## Rankings\n1. Human Expert\n2. GPT-4o"
+    )
+
+    with patch("t01_llm_battle.judge.get_provider", return_value=mock_provider):
+        report = await generate_report(run_id, "openai", "gpt-4o", db_path)
+
+    assert "Human Expert" in report
+    assert "GPT-4o" in report
+    mock_provider.run.assert_awaited_once()
+    prompt = mock_provider.run.call_args[0][0].user_prompt
+    assert "Human Expert" in prompt
+    assert "GPT-4o" in prompt
+
+
+@pytest.mark.asyncio
 async def test_generate_report_prompt_includes_fighter_names(tmp_path):
     """The prompt sent to the judge includes fighter names and scores."""
     db_path = str(tmp_path / "test.db")

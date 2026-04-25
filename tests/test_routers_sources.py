@@ -119,3 +119,47 @@ async def test_list_sources_returns_items(client, db_path):
     assert len(sources) == 2
     labels = {s["label"] for s in sources}
     assert labels == {"a.txt", "b.txt"}
+
+
+@pytest.mark.asyncio
+async def test_delete_source_removes_item(client, db_path):
+    """DELETE /battles/{battle_id}/sources/{source_id} removes the source."""
+    battle_id = await _create_battle(db_path)
+
+    upload_resp = await client.post(
+        f"/battles/{battle_id}/sources",
+        files={"file": ("del.txt", io.BytesIO(b"to delete"), "text/plain")},
+    )
+    assert upload_resp.status_code == 201
+    source_id = upload_resp.json()["sources"][0]["id"]
+
+    del_resp = await client.delete(f"/battles/{battle_id}/sources/{source_id}")
+    assert del_resp.status_code == 204
+
+    list_resp = await client.get(f"/battles/{battle_id}/sources")
+    assert list_resp.status_code == 200
+    assert list_resp.json()["sources"] == []
+
+
+@pytest.mark.asyncio
+async def test_delete_source_not_found_returns_404(client, db_path):
+    """DELETE with a nonexistent source_id returns 404."""
+    battle_id = await _create_battle(db_path)
+    resp = await client.delete(f"/battles/{battle_id}/sources/{uuid.uuid4()}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_source_wrong_battle_returns_404(client, db_path):
+    """DELETE a source from a different battle returns 404 (not found for that battle)."""
+    battle_a = await _create_battle(db_path)
+    battle_b = await _create_battle(db_path)
+
+    upload_resp = await client.post(
+        f"/battles/{battle_a}/sources",
+        files={"file": ("x.txt", io.BytesIO(b"content"), "text/plain")},
+    )
+    source_id = upload_resp.json()["sources"][0]["id"]
+
+    resp = await client.delete(f"/battles/{battle_b}/sources/{source_id}")
+    assert resp.status_code == 404
