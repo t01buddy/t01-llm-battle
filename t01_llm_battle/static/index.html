@@ -1186,6 +1186,9 @@
                         <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)" x-text="fighter.score !== null ? fighter.score.toFixed(1) : 'N/A'"></span>
                       </div>
                       <div style="padding:10px 14px;">
+                        <template x-if="fighter.reasoning">
+                          <div style="font-size:0.78rem;color:var(--mid);font-style:italic;margin-bottom:6px;line-height:1.4;" x-text="fighter.reasoning"></div>
+                        </template>
                         <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
                           style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--gold);margin-bottom:6px;user-select:none;">
                           <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
@@ -2138,7 +2141,10 @@ Do not wrap the JSON in markdown fences.`;
           for (const source of this.sourceGroups()) {
             lines.push('### ' + source.label, '');
             for (const fighter of source.fighters) {
-              lines.push('**' + fighter.fighter_name + '** — Score: ' + (fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'), '', '```', fighter.final_output || '(no output)', '```', '');
+              const reasoningLine = fighter.reasoning ? '_' + fighter.reasoning + '_' : '';
+              lines.push('**' + fighter.fighter_name + '** — Score: ' + (fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'));
+              if (reasoningLine) lines.push('', reasoningLine);
+              lines.push('', '```', fighter.final_output || '(no output)', '```', '');
             }
           }
           if (this.results.report_markdown) lines.push('## Judge Report', '', this.results.report_markdown, '');
