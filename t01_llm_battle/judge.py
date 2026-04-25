@@ -30,6 +30,7 @@ async def score_response(
     judge_rubric: str,
     source_content: str,
     response_content: str,
+    api_key: str | None = None,
 ) -> tuple[float | None, str]:
     """
     Returns (score, explanation).
@@ -47,6 +48,7 @@ async def score_response(
                 model=judge_model,
                 system_prompt="You are an objective evaluator. Always end with 'SCORE: <0-10>'.",
                 user_prompt=prompt,
+                api_key=api_key,
             )
         )
         # Parse score from last line
@@ -66,6 +68,7 @@ async def generate_report(
     judge_provider: str,
     judge_model: str,
     db_path: str,
+    api_key: str | None = None,
 ) -> str:
     """Generate a markdown summary report for the run using the judge model.
 
@@ -160,6 +163,7 @@ async def generate_report(
                 model=judge_model,
                 system_prompt="You are an expert technical writer producing clear, insightful battle reports.",
                 user_prompt=report_prompt,
+                api_key=api_key,
             )
         )
         markdown = result.content

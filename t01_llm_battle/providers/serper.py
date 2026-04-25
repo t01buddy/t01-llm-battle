@@ -21,7 +21,7 @@ class SerperProvider(BaseProvider):
         return get_tool_functions(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
-        api_key = os.environ.get("SERPER_API_KEY", "")
+        api_key = request.api_key or os.environ.get("SERPER_API_KEY", "")
         function = request.model  # "search" or "news"
         endpoint = _ENDPOINTS.get(function, _ENDPOINTS["search"])
 

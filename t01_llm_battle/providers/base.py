@@ -16,6 +16,7 @@ class ProviderRequest:
     temperature: float = 0.7
     max_tokens: int = 2048
     extra: dict = field(default_factory=dict)
+    api_key: str | None = None  # resolved key; avoids shared os.environ mutation
 
 
 @dataclass

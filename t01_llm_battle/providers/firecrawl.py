@@ -15,7 +15,7 @@ class FirecrawlProvider(BaseProvider):
         return get_tool_functions(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
-        api_key = os.environ.get("FIRECRAWL_API_KEY", "")
+        api_key = request.api_key or os.environ.get("FIRECRAWL_API_KEY", "")
         function = request.model  # "scrape" or "crawl"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 

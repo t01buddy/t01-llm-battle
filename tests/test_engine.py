@@ -117,7 +117,7 @@ async def test_sequential_steps_output_chaining(tmp_path):
         patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
         patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(8.0, "good"))),
         patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="report")),
-        patch("t01_llm_battle.engine._inject_api_key", new=AsyncMock(return_value=None)),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
     ):
         await execute_run(run_id, db_path)
 
@@ -153,7 +153,7 @@ async def test_step_error_stops_subsequent_steps(tmp_path):
         patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
         patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(None, "err"))),
         patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="report")),
-        patch("t01_llm_battle.engine._inject_api_key", new=AsyncMock(return_value=None)),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
     ):
         await execute_run(run_id, db_path)
 
@@ -184,7 +184,7 @@ async def test_manual_fighter_awaiting_input(tmp_path):
         patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
         patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(None, ""))),
         patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="")),
-        patch("t01_llm_battle.engine._inject_api_key", new=AsyncMock(return_value=None)),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
     ):
         await execute_run(run_id, db_path)
 

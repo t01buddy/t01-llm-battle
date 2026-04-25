@@ -17,7 +17,7 @@ class AnthropicProvider(BaseProvider):
         return get_llm_models(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        api_key = request.api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
 

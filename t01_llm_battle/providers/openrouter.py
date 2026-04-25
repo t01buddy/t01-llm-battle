@@ -17,7 +17,7 @@ class OpenRouterProvider(BaseProvider):
         return get_llm_models(self.name)
 
     async def run(self, request: ProviderRequest) -> ProviderResult:
-        api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        api_key = request.api_key or os.environ.get("OPENROUTER_API_KEY", "")
         provider = PAIOpenAIProvider(
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1",
