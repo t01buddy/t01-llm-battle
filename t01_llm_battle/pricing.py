@@ -60,12 +60,12 @@ def get_llm_models(provider: str) -> list[str]:
 
 def get_llm_cost(
     provider: str, model: str, input_tokens: int, output_tokens: int
-) -> float:
-    """Calculate cost in USD. Returns 0.0 for unknown provider/model."""
+) -> float | None:
+    """Calculate cost in USD. Returns None for unknown provider/model."""
     pricing = load_llm_pricing()
     entry = pricing.get(provider, {}).get(model)
     if entry is None:
-        return 0.0
+        return None
     return (
         input_tokens * entry["input_per_million"]
         + output_tokens * entry["output_per_million"]

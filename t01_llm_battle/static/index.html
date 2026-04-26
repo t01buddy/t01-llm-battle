@@ -1153,7 +1153,7 @@
                       <td style="text-align:right;">
                         <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''" x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
                       </td>
-                      <td style="text-align:right;font-family:monospace;font-size:0.83rem;" x-text="'$' + f.total_cost.toFixed(4)"></td>
+                      <td style="text-align:right;font-family:monospace;font-size:0.83rem;" x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
                       <td style="text-align:right;font-family:monospace;font-size:0.83rem;color:var(--mid);" x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
                       <td style="text-align:right;font-family:monospace;font-size:0.83rem;color:var(--gold);" x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
                       <td style="text-align:right;font-family:monospace;font-size:0.83rem;" x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
@@ -1192,7 +1192,7 @@
                         <div style="font-size:0.76rem;color:var(--mid);margin-top:6px;">
                           <span x-text="fighter.step_count + ' step(s)'"></span>
                           &nbsp;·&nbsp;
-                          <span style="font-family:monospace;" x-text="'$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
+                          <span style="font-family:monospace;" x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
                           <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
                             <span>&nbsp;·&nbsp;<span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
                           </template>
@@ -2086,8 +2086,9 @@ Do not wrap the JSON in markdown fences.`;
           const map = {};
           for (const item of this.results.summary) {
             const name = item.fighter_name;
-            if (!map[name]) map[name] = { fighter_name: name, scores: [], total_cost: 0, token_cost: 0, credit_cost: 0, total_latency_ms: 0, success_count: 0, failed_count: 0 };
+            if (!map[name]) map[name] = { fighter_name: name, scores: [], total_cost: 0, token_cost: 0, credit_cost: 0, total_latency_ms: 0, success_count: 0, failed_count: 0, pricing_unknown: false };
             if (item.score !== null && item.score !== undefined) map[name].scores.push(item.score);
+            if (item.total_cost_usd === null && (item.total_input_tokens || item.total_output_tokens)) map[name].pricing_unknown = true;
             map[name].total_cost += item.total_cost_usd || 0;
             if (item.total_input_tokens || item.total_output_tokens) map[name].token_cost += item.total_cost_usd || 0;
             else if (item.total_cost_usd) map[name].credit_cost += item.total_cost_usd || 0;
@@ -2129,7 +2130,7 @@ Do not wrap the JSON in markdown fences.`;
           const lines = ['# LLM Battle Results', '', '**Run ID:** ' + (this.results.run_id || this.runId)];
           if (this.results.battle_id) lines.push('**Battle ID:** ' + this.results.battle_id);
           lines.push('', '## Fighter Summary', '', '| Fighter | Avg Score | Total Cost USD | Token Cost | Credit Cost | Time | Success | Failed |', '|---------|-----------|---------------|-----------|-------------|------|---------|--------|');
-          for (const f of summary) lines.push('| ' + f.fighter_name + ' | ' + (f.avg_score !== null ? f.avg_score.toFixed(2) : '—') + ' | $' + f.total_cost.toFixed(4) + ' | ' + (f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—') + ' | ' + (f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—') + ' | ' + (f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—') + ' | ' + f.success_count + ' | ' + f.failed_count + ' |');
+          for (const f of summary) lines.push('| ' + f.fighter_name + ' | ' + (f.avg_score !== null ? f.avg_score.toFixed(2) : '—') + ' | ' + (f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)) + ' | ' + (f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—') + ' | ' + (f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—') + ' | ' + (f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—') + ' | ' + f.success_count + ' | ' + f.failed_count + ' |');
           lines.push('', '## Per-Source Breakdown', '');
           for (const source of this.sourceGroups()) {
             lines.push('### ' + source.label, '');
