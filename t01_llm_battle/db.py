@@ -130,6 +130,9 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
 
     async with aiosqlite.connect(path) as db:
         await db.execute("PRAGMA journal_mode=WAL")
+        # Disable FK enforcement during schema creation and migrations to allow
+        # table renames and recreations without constraint violations.
+        # FK enforcement is enabled per-connection in get_db() for all runtime queries.
         await db.executescript(_SCHEMA_SQL)
         await db.commit()
         for sql in _MIGRATIONS_SQL:
@@ -137,7 +140,7 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
                 await db.execute(sql)
                 await db.commit()
             except Exception:
-                pass  # column already exists
+                pass  # migration already applied
 
     await _migrate_plaintext_keys(db_path)
 
