@@ -254,7 +254,7 @@ async def delete_battle(battle_id: str) -> None:
         if row is None:
             raise HTTPException(status_code=404, detail="Battle not found")
 
-        # Delete child records first (SQLite foreign keys may not be enforced by default)
+        # Delete child records first (schema uses REFERENCES without ON DELETE CASCADE)
         await db.execute(
             "DELETE FROM step_result WHERE run_id IN (SELECT id FROM run WHERE battle_id = ?)",
             (battle_id,),
