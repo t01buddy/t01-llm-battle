@@ -195,3 +195,170 @@ async def test_manual_fighter_awaiting_input(tmp_path):
         row = await cursor.fetchone()
 
     assert row["status"] == "awaiting_input"
+
+
+@pytest.mark.asyncio
+async def test_parallel_fighters_all_complete(tmp_path):
+    """Two fighters run in parallel and both produce 'complete' fighter_results (FR-10)."""
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    battle_id, source_id = await _seed_battle(db_path)
+    fighter_a_id = await _seed_fighter(db_path, battle_id)
+    fighter_b_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    async with get_db(db_path) as db:
+        await db.execute(
+            "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (fighter_b_id, battle_id, "Fighter B", 0, 2, now),
+        )
+        await db.commit()
+    await _seed_step(db_path, fighter_a_id, position=1)
+    await _seed_step(db_path, fighter_b_id, position=1)
+    run_id = await _seed_run(db_path, battle_id)
+
+    call_fighters: list[str] = []
+
+    async def fake_run(request):
+        return _make_result("output")
+
+    mock_provider = MagicMock()
+    mock_provider.run = fake_run
+
+    with (
+        patch("t01_llm_battle.engine.get_provider", return_value=mock_provider),
+        patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
+        patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(7.0, "ok"))),
+        patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="report")),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
+    ):
+        await execute_run(run_id, db_path)
+
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT fighter_id, status FROM fighter_result WHERE run_id = ? ORDER BY fighter_id",
+            (run_id,),
+        )
+        rows = await cursor.fetchall()
+
+    assert len(rows) == 2
+    assert all(r["status"] == "complete" for r in rows)
+
+
+@pytest.mark.asyncio
+async def test_one_fighter_error_does_not_block_other(tmp_path):
+    """If fighter A errors, fighter B still completes and run status is 'complete' (FR-10)."""
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    battle_id, source_id = await _seed_battle(db_path)
+    fighter_a_id = await _seed_fighter(db_path, battle_id)
+    fighter_b_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    async with get_db(db_path) as db:
+        await db.execute(
+            "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (fighter_b_id, battle_id, "Fighter B", 0, 2, now),
+        )
+        await db.commit()
+    step_a_id = await _seed_step(db_path, fighter_a_id, position=1)
+    await _seed_step(db_path, fighter_b_id, position=1)
+    run_id = await _seed_run(db_path, battle_id)
+
+    async def selective_fail(request):
+        # Identify fighter A's step by checking provider — both use openai,
+        # so we distinguish by call order: first call is fighter A (fails), second succeeds.
+        raise RuntimeError("fighter A exploded")
+
+    call_count = 0
+
+    async def sometimes_fail(request):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise RuntimeError("fighter A exploded")
+        return _make_result("fighter-b-output")
+
+    mock_provider = MagicMock()
+    mock_provider.run = sometimes_fail
+
+    with (
+        patch("t01_llm_battle.engine.get_provider", return_value=mock_provider),
+        patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
+        patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(6.0, "ok"))),
+        patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="report")),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
+    ):
+        await execute_run(run_id, db_path)
+
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT status FROM fighter_result WHERE run_id = ? ORDER BY status",
+            (run_id,),
+        )
+        rows = await cursor.fetchall()
+        run_cursor = await db.execute("SELECT status FROM run WHERE id = ?", (run_id,))
+        run_row = await run_cursor.fetchone()
+
+    statuses = {r["status"] for r in rows}
+    assert "error" in statuses
+    assert "complete" in statuses
+    # run is 'complete' because at least one fighter succeeded
+    assert run_row["status"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_called_per_step(tmp_path):
+    """rate_limiter.acquire is called once per step execution (FR-9 + FR-10)."""
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    battle_id, source_id = await _seed_battle(db_path)
+    fighter_id = await _seed_fighter(db_path, battle_id)
+    await _seed_step(db_path, fighter_id, position=1)
+    await _seed_step(db_path, fighter_id, position=2)
+    run_id = await _seed_run(db_path, battle_id)
+
+    mock_acquire = AsyncMock()
+    mock_provider = MagicMock()
+    mock_provider.run = AsyncMock(return_value=_make_result("out"))
+
+    with (
+        patch("t01_llm_battle.engine.get_provider", return_value=mock_provider),
+        patch("t01_llm_battle.engine.rate_limiter.acquire", mock_acquire),
+        patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(8.0, "good"))),
+        patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="report")),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
+    ):
+        await execute_run(run_id, db_path)
+
+    # 2 steps → 2 acquire calls
+    assert mock_acquire.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_manual_fighter_does_not_call_provider(tmp_path):
+    """Manual fighter skips all provider calls and does not invoke rate_limiter (FR-5)."""
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    battle_id, source_id = await _seed_battle(db_path)
+    await _seed_fighter(db_path, battle_id, is_manual=True)
+    run_id = await _seed_run(db_path, battle_id)
+
+    mock_get_provider = MagicMock()
+    mock_acquire = AsyncMock()
+
+    with (
+        patch("t01_llm_battle.engine.get_provider", mock_get_provider),
+        patch("t01_llm_battle.engine.rate_limiter.acquire", mock_acquire),
+        patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(None, ""))),
+        patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="")),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
+    ):
+        await execute_run(run_id, db_path)
+
+    mock_get_provider.assert_not_called()
+    mock_acquire.assert_not_called()
