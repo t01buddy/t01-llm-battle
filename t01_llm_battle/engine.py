@@ -68,6 +68,7 @@ async def _execute_pair(
     step_input = source_content
     had_error = False
     total_cost: float = 0.0
+    any_cost_known: bool = False
     total_latency: int = 0
     total_input_tokens: int = 0
     total_output_tokens: int = 0
@@ -123,7 +124,9 @@ async def _execute_pair(
                 had_error = True
                 break
 
-            total_cost += result.cost_usd or 0.0
+            if result.cost_usd is not None:
+                total_cost += result.cost_usd
+                any_cost_known = True
             total_latency += latency_ms
             total_input_tokens += result.input_tokens or 0
             total_output_tokens += result.output_tokens or 0
@@ -158,7 +161,7 @@ async def _execute_pair(
             "total_latency_ms = ?, total_input_tokens = ?, total_output_tokens = ? "
             "WHERE id = ?",
             (
-                fr_status, final_output, total_cost if total_cost else None,
+                fr_status, final_output, total_cost if any_cost_known else None,
                 total_latency if total_latency else None,
                 total_input_tokens if total_input_tokens else None,
                 total_output_tokens if total_output_tokens else None,
