@@ -74,11 +74,11 @@ def test_get_llm_cost_zero_tokens():
 
 
 def test_get_llm_cost_unknown_model():
-    assert get_llm_cost("openai", "nonexistent-model", 1000, 1000) == 0.0
+    assert get_llm_cost("openai", "nonexistent-model", 1000, 1000) is None
 
 
 def test_get_llm_cost_unknown_provider():
-    assert get_llm_cost("unknown", "gpt-4o", 1000, 1000) == 0.0
+    assert get_llm_cost("unknown", "gpt-4o", 1000, 1000) is None
 
 
 def test_get_tool_functions():
