@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title x-text="board ? board.name : 'News Board'">News Board</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; padding: 1.5rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+    .card { background: #fff; border-radius: 8px; padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .card-title { font-size: 1rem; font-weight: 600; margin-bottom: .5rem; }
+    .card-title a { text-decoration: none; color: #1a56db; }
+    .card-title a:hover { text-decoration: underline; }
+    .summary { font-size: .875rem; color: #555; margin-bottom: .75rem; line-height: 1.5; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .score { font-size: .75rem; font-weight: 700; background: #1a56db; color: #fff; border-radius: 4px; padding: .1rem .45rem; }
+    .tag { font-size: .75rem; background: #e5e7eb; border-radius: 4px; padding: .1rem .45rem; }
+    .empty { text-align: center; color: #888; margin-top: 3rem; }
+  </style>
+</head>
+<body x-data="boardApp()" x-init="init()">
+  <h1 x-text="board ? board.name : 'News Board'">Loading…</h1>
+  <template x-if="items.length === 0 && !loading">
+    <p class="empty">No items yet — run the board to populate it.</p>
+  </template>
+  <div class="grid">
+    <template x-for="item in items" :key="item.url">
+      <div class="card">
+        <p class="card-title"><a :href="item.url" target="_blank" rel="noopener" x-text="item.title"></a></p>
+        <p class="summary" x-text="item.summary || item.description || ''"></p>
+        <div class="meta">
+          <span class="score" x-text="item.score != null ? 'Score ' + item.score : ''" x-show="item.score != null"></span>
+          <template x-for="tag in (item.tags || [])" :key="tag">
+            <span class="tag" x-text="tag"></span>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+  <script>
+    function boardApp() {
+      return {
+        board: null, items: [], loading: true,
+        async init() {
+          try {
+            const res = await fetch('data.json');
+            const data = await res.json();
+            this.board = data.board || null;
+            this.items = data.items || [];
+          } catch (e) { console.error('Failed to load data.json', e); }
+          this.loading = false;
+        }
+      };
+    }
+  </script>
+</body>
+</html>
