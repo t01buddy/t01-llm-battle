@@ -1,9 +1,12 @@
+import sqlite3
+from pathlib import Path
+
 import httpx
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider as PAIOpenAIProvider
 
-from ..db import resolve_base_url
+from ..db import DB_PATH, resolve_base_url
 from .base import BaseProvider, ProviderRequest, ProviderResult, ProviderType
 
 _DEFAULT_BASE_URL = "http://localhost:11434"
@@ -17,15 +20,32 @@ class OllamaProvider(BaseProvider):
     def __init__(self, base_url: str = _DEFAULT_BASE_URL) -> None:
         self.base_url = base_url.rstrip("/")
 
+    def _sync_base_url(self) -> str:
+        """Read DB-configured server_url synchronously; fall back to instance default."""
+        try:
+            db_path = Path(DB_PATH)
+            if db_path.exists():
+                con = sqlite3.connect(str(db_path))
+                row = con.execute(
+                    "SELECT server_url FROM provider_config WHERE provider = 'ollama'"
+                ).fetchone()
+                con.close()
+                if row and row[0]:
+                    return row[0].rstrip("/")
+        except Exception:
+            pass
+        return self.base_url
+
     async def _effective_base_url(self) -> str:
         """Return base_url from DB if configured, otherwise use instance default."""
         db_url = await resolve_base_url("ollama")
         return (db_url or self.base_url).rstrip("/")
 
     def models(self) -> list[str]:
-        """Query Ollama's /api/tags for installed models; return [] if not running."""
+        """Query Ollama's /api/tags for installed models using the DB-configured server URL."""
         try:
-            response = httpx.get(f"{self.base_url}/api/tags", timeout=5.0)
+            base_url = self._sync_base_url()
+            response = httpx.get(f"{base_url}/api/tags", timeout=5.0)
             if response.status_code != 200:
                 return []
             data = response.json()
