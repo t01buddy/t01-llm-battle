@@ -26,6 +26,22 @@ def test_default_rpm_values():
     assert DEFAULT_RPM["groq"] == 30
     assert DEFAULT_RPM["openrouter"] == 20
     assert DEFAULT_RPM["ollama"] == 0  # unlimited
+    assert DEFAULT_RPM["lmstudio"] == 0  # local, unlimited
+    assert DEFAULT_RPM["serper"] == 10
+    assert DEFAULT_RPM["tavily"] == 10
+    assert DEFAULT_RPM["firecrawl"] == 20
+
+
+def test_tool_provider_env_var_overrides(monkeypatch):
+    monkeypatch.setenv("T01_RPM_SERPER", "5")
+    monkeypatch.setenv("T01_RPM_TAVILY", "3")
+    monkeypatch.setenv("T01_RPM_FIRECRAWL", "15")
+    monkeypatch.setenv("T01_RPM_LMSTUDIO", "0")
+    limits = _load_limits()
+    assert limits["serper"] == 5
+    assert limits["tavily"] == 3
+    assert limits["firecrawl"] == 15
+    assert limits["lmstudio"] == 0
 
 
 # ---------------------------------------------------------------------------
