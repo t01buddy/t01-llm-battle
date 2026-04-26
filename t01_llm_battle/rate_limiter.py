@@ -11,6 +11,10 @@ DEFAULT_RPM: dict[str, int] = {
     "groq": 30,
     "openrouter": 20,
     "ollama": 0,  # 0 = unlimited
+    "lmstudio": 0,  # local, unlimited
+    "serper": 10,   # free tier: ~600 req/month ≈ 10 RPM burst budget
+    "tavily": 10,   # free tier: ~1000 req/month ≈ 10 RPM burst budget
+    "firecrawl": 20,  # free tier: ~500 req/month ≈ 20 RPM burst budget
 }
 
 # Env var names for per-provider overrides
@@ -21,6 +25,10 @@ _ENV_VARS: dict[str, str] = {
     "groq": "T01_RPM_GROQ",
     "openrouter": "T01_RPM_OPENROUTER",
     "ollama": "T01_RPM_OLLAMA",
+    "lmstudio": "T01_RPM_LMSTUDIO",
+    "serper": "T01_RPM_SERPER",
+    "tavily": "T01_RPM_TAVILY",
+    "firecrawl": "T01_RPM_FIRECRAWL",
 }
 
 
@@ -43,7 +51,8 @@ class RateLimiter:
     Uses asyncio.sleep for backoff — never blocks the event loop.
     Limits are loaded from DEFAULT_RPM and can be overridden via env vars
     (T01_RPM_OPENAI, T01_RPM_ANTHROPIC, T01_RPM_GOOGLE, T01_RPM_GROQ,
-    T01_RPM_OPENROUTER, T01_RPM_OLLAMA).
+    T01_RPM_OPENROUTER, T01_RPM_OLLAMA, T01_RPM_LMSTUDIO,
+    T01_RPM_SERPER, T01_RPM_TAVILY, T01_RPM_FIRECRAWL).
     """
 
     def __init__(self, limits: dict[str, int] | None = None):
