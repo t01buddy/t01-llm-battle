@@ -15,6 +15,8 @@ The user runs a CLI, opens a browser, defines a "battle" — a set of source inp
 
 After running, the final output of each fighter is judged side-by-side: quality score, cost, latency, token usage. No accounts, no cloud, no SaaS. Keys live on the developer's machine.
 
+Beyond battles, the tool also powers **personal news & trending boards** — scheduled pipelines that fetch content from live data sources (URLs, RSS feeds, APIs, social feeds), analyze and summarize it using fighter pipelines, and present curated, ranked news organized by topics. Results can be viewed locally or published to GitHub Pages.
+
 ### Positioning
 
 | Aspect | t01-llm-battle | Promptfoo (incumbent) |
@@ -25,6 +27,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | Sharing | Markdown report (copy/print) | Local artifacts |
 | Cost model | Free forever (OSS) | OSS core + paid Enterprise tier |
 | Scope | Deliberately small, no teams/CI | Full eval platform, red team, SSO, teams |
+| News boards | Scheduled fighter pipelines fetch, analyze, and publish curated content | N/A |
 
 **We are not trying to beat Promptfoo.** We are taking one slice of its surface (pick-the-right-approach-now) and making it a dead-simple standalone tool.
 
@@ -35,6 +38,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | Senior developer evaluating models for a new feature | "Is Haiku good enough or do I need Sonnet?" | Can decide in < 10 minutes with confidence |
 | AI engineer comparing pipelines vs single models | "Does my two-step extraction pipeline actually beat a single call?" | Sees cost × latency × quality on same axes |
 | LLM beginner learning the ecosystem | "What do different models actually do differently?" | Understands tradeoffs from one shareable report |
+| Developer wanting curated tech news | "I want an AI-powered news digest without yet another SaaS subscription" | Gets a personal, scheduled news board running locally in minutes |
 
 ## Document Index
 
@@ -47,6 +51,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | [05-user-stories.md](./05-user-stories.md) | Key workflows |
 | [06-data-models.md](./06-data-models.md) | SQLite schema: battle / source / fighter / step / run / result / judgment / api_key |
 | [07-roadmap.md](./07-roadmap.md) | Phased delivery plan |
+| [08-news-boards.md](./08-news-boards.md) | News & trending boards — source pool, fighters, normalizer, topics, scheduling, publishing |
 
 ## v0.1 Scope
 
@@ -102,6 +107,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | **Bring-your-own-keys, stored locally** | Env vars or SQLite. Keys never leave the user's machine. |
 | **Provider adapters use appropriate abstractions** | LLM providers use Pydantic AI as a unified abstraction layer (tool-calling, structured output, model switching). Tool providers (Serper, Tavily, Firecrawl) remain thin `httpx` clients — no SDK needed. Adding a provider is one file. |
 | **Custom model IDs always allowed** | Curated model catalog is a starting point; users can enter any model slug. Pricing is just "unknown" for custom models. Tool ages well when providers ship new models. |
+| **Boards reuse fighter pipelines** | No parallel abstraction for news processing. Boards reference existing fighters. Normalizer standardizes output like judge standardizes scoring. |
 | **No streaming in v0.1** | We need full responses to compare final token counts and latency apples-to-apples. Streaming adds complexity and asymmetric UX. |
 
 ## Non-Goals

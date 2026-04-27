@@ -23,6 +23,24 @@
 | FR-19 | Provider Management UI | Sidebar footer link labelled "Providers"; lists providers with enable/disable toggle; edit popup for display name, API key, server URL (Ollama/LLM Studio/self-hosted); uninstall non-system providers |
 | FR-20 | Sidebar Layout | Single page: left sidebar (app name, battle list, "Providers" footer link) + main content area (selected battle or default empty battle with 2 fighters) |
 
+### v0.2 — News & Trending Boards
+
+| # | Area | Summary |
+|---|------|---------|
+| FR-21 | Source Pool | Global data source management: CRUD, types (URL/RSS/API/social), tags, priority, max items per source, fighter affinity, status |
+| FR-22 | News Fighters | Promote battle fighters to news fighters list; system prebuilts; fallback chain; priority for load balancing |
+| FR-23 | Load Balancing | Priority-ordered fetch, dedup by URL+title hash, cap at max_news_per_run (default 100), affinity-based assignment, fallback on failure |
+| FR-24 | Normalizer | Dedicated LLM step to convert raw fighter output to standard news item schema; classify, tag, and rank items (0–10) |
+| FR-25 | Topics | User-defined categories with tag filter rules; dynamic tag-based filtering; built-in "All" topic |
+| FR-26 | Board Creation | Source selection (by tags/IDs), fighter selection, normalizer config, topics, schedule, max news per run |
+| FR-27 | Scheduled Execution | In-process cron (APScheduler), dedup by URL+title hash, history retention with pruning |
+| FR-28 | Output & Templates | Standard JSON schema for news items; 2 bundled templates (card grid, news list); user-custom templates |
+| FR-29 | Publishing | GitHub Pages push (template HTML + data.json) + static HTML/JSON export to local directory |
+| FR-30 | Source Management UI | Dedicated section: CRUD, type-specific config forms, tags, priority, affinity, health status |
+| FR-31 | Topic Pages UI | Topic detail page with dynamic tag filters, pagination (default 20 items), ranked by relevance score |
+| FR-32 | System Defaults | Ship with 4 system sources, 3 system fighters, 1 default board with 3 topics — works immediately after adding API keys |
+| FR-33 | Fighter Promotion | "Add to News Fighters" action on battle fighter cards; copies fighter + steps independently |
+
 ---
 
 ## Detail: FR-8 Provider Management

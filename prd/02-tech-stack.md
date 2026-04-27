@@ -122,3 +122,10 @@ dependencies = [
 ```
 
 No `rich`, no `pydantic-settings` — intentionally minimal. `pydantic-ai` is the single LLM SDK dependency; tool providers use plain `httpx`.
+
+### v0.2 Additions
+
+| Dependency | Why | Size |
+|-----------|-----|------|
+| `feedparser` | RSS/Atom feed parsing for news board sources | ~0.1 MB |
+| `APScheduler>=4` | In-process async cron scheduler for board execution | ~0.3 MB |
