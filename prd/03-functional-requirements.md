@@ -2,7 +2,7 @@
 
 | # | Area | Summary |
 |---|------|---------|
-| FR-1 | CLI & Server | `t01-llm-battle serve` starts FastAPI on port 7878, opens browser |
+| FR-1 | CLI & Server | `t01-llm-battle serve` starts FastAPI on port 7979, opens browser |
 | FR-2 | Battle Creation | Name, sources, fighters (multi-step pipelines or manual), judge config (optional) |
 | FR-3 | Sources | Upload text/md files or a CSV; each file or CSV row = one input item |
 | FR-4 | Fighters & Steps | Named pipelines; each step has system prompt, provider, model, config |
@@ -22,6 +22,24 @@
 | FR-16 | Custom Model IDs | Override catalog slugs; pricing shown as "unknown" |
 | FR-19 | Provider Management UI | Modal overlay (opened from sidebar icon); lists LLM and tool providers with enable/disable toggle, key status, edit form for API key, display name, server URL; pricing refresh button; uninstall non-system providers |
 | FR-20 | App Layout | 3-column layout: collapsible icon rail sidebar (64px) + tabbed main content (Setup/Run/Results) + right rail battle list (320px). See [09-ui-redesign.md](./09-ui-redesign.md) for mockups. |
+
+### v0.2 — News & Trending Boards
+
+| # | Area | Summary |
+|---|------|---------|
+| FR-21 | Source Pool | Global data source management: CRUD, types (URL/RSS/API/social), tags, priority, max items per source, fighter affinity, status |
+| FR-22 | News Fighters | Promote battle fighters to news fighters list; system prebuilts; fallback chain; priority for load balancing |
+| FR-23 | Load Balancing | Priority-ordered fetch, dedup by URL+title hash, cap at max_news_per_run (default 100), affinity-based assignment, fallback on failure |
+| FR-24 | Normalizer | Dedicated LLM step to convert raw fighter output to standard news item schema; classify, tag, and rank items (0–10) |
+| FR-25 | Topics | User-defined categories with tag filter rules; dynamic tag-based filtering; built-in "All" topic |
+| FR-26 | Board Creation | Source selection (by tags/IDs), fighter selection, normalizer config, topics, schedule, max news per run |
+| FR-27 | Scheduled Execution | In-process cron (APScheduler), dedup by URL+title hash, history retention with pruning |
+| FR-28 | Output & Templates | Standard JSON schema for news items; 2 bundled templates (card grid, news list); user-custom templates |
+| FR-29 | Publishing | GitHub Pages push (template HTML + data.json) + static HTML/JSON export to local directory |
+| FR-30 | Source Management UI | Dedicated section: CRUD, type-specific config forms, tags, priority, affinity, health status |
+| FR-31 | Topic Pages UI | Topic detail page with dynamic tag filters, pagination (default 20 items), ranked by relevance score |
+| FR-32 | System Defaults | Ship with 4 system sources, 3 system fighters, 1 default board with 3 topics — works immediately after adding API keys |
+| FR-33 | Fighter Promotion | "Add to News Fighters" action on battle fighter cards; copies fighter + steps independently |
 
 ---
 

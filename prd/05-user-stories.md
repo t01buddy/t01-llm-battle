@@ -19,11 +19,24 @@
 | US-15 | Any user | Manage providers in the sidebar (enable/disable, edit API key, server URL) | I can configure my providers without touching env vars or config files |
 | US-16 | Any user | Navigate battles from a persistent sidebar | I can switch between battles without losing my place |
 
+### v0.2 — News & Trending Boards
+
+| ID | As a… | I want to… | So that… |
+|----|-------|-----------|----------|
+| US-17 | Developer | Install and see a working "Tech News Daily" board immediately | I get value without configuration beyond API keys |
+| US-18 | Developer | Add my own RSS feeds and URL sources to the source pool | I can monitor content specific to my interests |
+| US-19 | AI engineer | Promote a battle fighter I built to the news fighters list | I reuse my proven analysis pipeline for ongoing monitoring |
+| US-20 | Developer | Reserve YouTube sources for my "YouTube Analyzer" fighter | Only the right fighter processes video content |
+| US-21 | Developer | Publish my board results to GitHub Pages | My team sees curated news without running the tool |
+| US-22 | Any user | Browse the "AI & ML" topic page and filter by "llm" tag | I find relevant news quickly within a topic |
+| US-23 | Any user | View the "All" topic to see top-ranked news across all topics | I don't miss important items that span categories |
+| US-24 | Developer | Set max 5 items per source and 100 max per run | I control costs and processing time |
+
 ---
 
 ## Key Workflow: Multi-Step Pipeline Battle (US-1)
 
-1. `pipx install t01-llm-battle && t01-llm-battle serve` → browser opens at `localhost:7878`
+1. `pipx install t01-llm-battle && t01-llm-battle serve` → browser opens at `localhost:7979`
 2. Click **New Battle**
 3. Enter name + judge config (provider, model, rubric)
 4. **Add sources**: upload `cases.csv` (10 rows → 10 source items)

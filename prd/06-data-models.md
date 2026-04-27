@@ -135,7 +135,7 @@ One row per (run × fighter × source item). Aggregates step results and stores 
 
 ---
 
-## Entity Relationships
+## Entity Relationships (v0.1 — Battles)
 
 ```
 battle
@@ -145,4 +145,159 @@ battle
   └── run (1..N)
         └── fighter_result (fighter × source)
               └── step_result (step × source)  [empty if is_manual]
+```
+
+---
+
+## v0.2 — News & Trending Boards
+
+### `news_source`
+
+Global pool of data sources for news boards.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | UUID |
+| name | TEXT | Display name |
+| source_type | TEXT | `url` / `rss` / `api` / `social` |
+| config | TEXT | JSON: type-specific fetch config |
+| tags | TEXT | JSON array of tag strings |
+| priority | INTEGER | 1 = highest, controls fetch order |
+| max_items | INTEGER | Max items per fetch (default 5) |
+| fighter_affinity | TEXT | JSON array of news_fighter IDs (empty = any fighter) |
+| is_system | INTEGER | 1 = shipped with product, cannot be deleted |
+| status | TEXT | `active` / `paused` / `error` |
+| last_error | TEXT | Nullable — last fetch error message |
+| created_at | TEXT | ISO-8601 |
+
+---
+
+### `news_fighter`
+
+Fighters available for news processing. References existing fighter entities.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | UUID |
+| fighter_id | TEXT FK | → fighter.id (reuses existing fighter + steps) |
+| name | TEXT | Display name (may differ from source fighter) |
+| fallback_fighter_id | TEXT FK | → news_fighter.id, nullable — retry with this on failure |
+| priority | INTEGER | 1 = highest, for load balancing |
+| is_system | INTEGER | 1 = shipped with product |
+| created_at | TEXT | ISO-8601 |
+
+---
+
+### `board`
+
+A personal news/info dashboard.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | UUID |
+| name | TEXT | Board name |
+| description | TEXT | Optional |
+| source_filter | TEXT | JSON: `{"tags": ["ai"], "source_ids": ["..."]}` |
+| fighter_ids | TEXT | JSON array of news_fighter IDs |
+| normalizer_provider | TEXT | Provider slug for normalizer LLM |
+| normalizer_model | TEXT | Model slug for normalizer |
+| normalizer_instructions | TEXT | System prompt for normalizer (editable) |
+| schedule_cron | TEXT | Cron expression (e.g., `0 */6 * * *`) |
+| max_news_per_run | INTEGER | Default 100 |
+| max_history | INTEGER | Runs to keep (default 10), older pruned |
+| is_active | INTEGER | 1 = scheduler runs this board |
+| template_id | TEXT | Template filename |
+| publish_target | TEXT | `github_pages` / `static` / NULL |
+| publish_config | TEXT | JSON config for publish target |
+| is_system | INTEGER | 1 = shipped with product |
+| created_at | TEXT | ISO-8601 |
+
+---
+
+### `board_topic`
+
+User-defined categories for organizing news within a board.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | UUID |
+| board_id | TEXT FK | → board.id |
+| name | TEXT | Topic name (e.g., "AI & ML") |
+| description | TEXT | Optional |
+| tag_filter | TEXT | JSON: `{"include": ["ai", "ml"], "exclude": ["spam"]}` |
+| position | INTEGER | Display order |
+
+> The built-in "All" topic is not stored — it is implicit and always shows all items ranked by relevance.
+
+---
+
+### `board_run`
+
+One execution of a board's news pipeline.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | UUID |
+| board_id | TEXT FK | → board.id |
+| status | TEXT | `pending` / `running` / `complete` / `error` |
+| items_fetched | INTEGER | Raw items before dedup |
+| items_processed | INTEGER | After dedup + cap |
+| cost_usd | REAL | Total cost of this run |
+| started_at | TEXT | ISO-8601 |
+| finished_at | TEXT | ISO-8601, nullable |
+
+---
+
+### `board_news_item`
+
+Normalized news items, one row per item per run.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | UUID |
+| run_id | TEXT FK | → board_run.id |
+| board_id | TEXT FK | → board.id |
+| title | TEXT | Normalized title |
+| summary | TEXT | Normalized summary |
+| source_url | TEXT | Original URL |
+| source_name | TEXT | Source display name |
+| fighter_name | TEXT | Fighter that processed this item |
+| category | TEXT | Primary category |
+| tags | TEXT | JSON array of tag/label strings |
+| relevance_score | REAL | 0–10, assigned by normalizer |
+| published_at | TEXT | Original publish date |
+| created_at | TEXT | ISO-8601 |
+
+---
+
+### `board_seen_item`
+
+Deduplication tracking. Prevents re-processing items across runs.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| board_id | TEXT | → board.id |
+| item_hash | TEXT | SHA-256 of URL + title |
+| first_seen_at | TEXT | ISO-8601 |
+| PK | | (board_id, item_hash) |
+
+---
+
+## Entity Relationships (v0.2 — Boards)
+
+```
+news_source (global pool)
+  └── fighter_affinity → news_fighter (optional, many-to-many via JSON)
+
+news_fighter
+  ├── fighter_id → fighter (reuses battle fighter + steps)
+  └── fallback_fighter_id → news_fighter (self-referential)
+
+board
+  ├── source_filter → news_source (by tags or IDs, via JSON)
+  ├── fighter_ids → news_fighter (multiple, via JSON)
+  ├── board_topic (1..N)
+  ├── board_run (0..N)
+  │     └── board_news_item (0..N)
+  └── board_seen_item (0..N)
 ```

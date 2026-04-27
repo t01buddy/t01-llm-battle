@@ -6,7 +6,7 @@ app = typer.Typer(help="LLM Battle Arena — compare LLMs side by side.")
 
 @app.command()
 def serve(
-    port: int = typer.Option(7878, help="Port to listen on"),
+    port: int = typer.Option(7979, help="Port to listen on"),
     no_browser: bool = typer.Option(False, "--no-browser", help="Don't open browser"),
 ) -> None:
     """Start the LLM Battle server."""
