@@ -37,50 +37,143 @@
       overflow: hidden;
     }
 
-    /* ── Sidebar ──────────────────────────────────── */
-    .sidebar {
-      width: 260px;
-      min-width: 260px;
+    /* ── Icon Rail ────────────────────────────────── */
+    .icon-rail {
+      width: 64px;
+      min-width: 64px;
       background: var(--sidebar-bg);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
+      align-items: center;
       overflow: hidden;
+      transition: width 0.22s ease, min-width 0.22s ease;
+      flex-shrink: 0;
+    }
+    .icon-rail.expanded {
+      width: 200px;
+      min-width: 200px;
     }
 
-    .sidebar-brand {
-      padding: 1.1rem 1rem 0.9rem;
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: -0.01em;
+    .rail-brand {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 0;
+      font-size: 1.3rem;
       color: var(--gold);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+      overflow: hidden;
+      white-space: nowrap;
     }
+    .icon-rail.expanded .rail-brand {
+      justify-content: flex-start;
+      padding: 1rem 0.75rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+    .rail-brand .rail-brand-label {
+      display: none;
+      margin-left: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .icon-rail.expanded .rail-brand-label { display: inline; }
 
-    .sidebar-battles {
+    .rail-nav {
       flex: 1;
-      overflow-y: auto;
-      padding: 0.6rem 0.5rem;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.75rem 0;
+      gap: 0.25rem;
     }
 
-    .sidebar-section-header {
+    .rail-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--mid);
+      font-size: 1.25rem;
+      border-radius: 6px;
+      transition: background 0.1s, color 0.1s;
+      position: relative;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .icon-rail.expanded .rail-btn {
+      justify-content: flex-start;
+      padding: 0.6rem 0.75rem;
+    }
+    .rail-btn:hover { background: var(--border); color: var(--high); }
+    .rail-btn.active { color: var(--gold); }
+    .rail-btn .rail-btn-label {
+      display: none;
+      font-size: 0.83rem;
+      font-weight: 500;
+    }
+    .icon-rail.expanded .rail-btn-label { display: inline; }
+
+    .rail-collapse {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.6rem 0;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .icon-rail.expanded .rail-collapse { justify-content: flex-end; padding: 0.6rem 0.75rem; }
+    .btn-rail-collapse {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--mid);
+      font-size: 1rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .btn-rail-collapse:hover { background: var(--border); color: var(--high); }
+
+    /* ── Right Rail (Battle List) ─────────────────── */
+    .right-rail {
+      width: 260px;
+      min-width: 260px;
+      background: var(--sidebar-bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .right-rail-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 0.5rem;
-      margin-bottom: 0.4rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
     }
-
-    .sidebar-section-title {
+    .right-rail-title {
       font-size: 0.7rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.07em;
       color: var(--low);
     }
-
-    .btn-sidebar-new {
+    .btn-new-battle {
       background: none;
       border: 1px solid var(--border);
       color: var(--mid);
@@ -91,7 +184,13 @@
       cursor: pointer;
       transition: border-color 0.12s, color 0.12s;
     }
-    .btn-sidebar-new:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-new-battle:hover { border-color: var(--gold); color: var(--gold); }
+
+    .right-rail-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.4rem 0.5rem;
+    }
 
     .battle-item {
       display: flex;
@@ -131,6 +230,55 @@
     .battle-item:hover .btn-delete-battle { opacity: 1; }
     .btn-delete-battle:hover { color: var(--danger); }
 
+    /* ── Topbar + Tabs ────────────────────────────── */
+    .main-topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--ink);
+    }
+    .main-topbar-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--high);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .main-topbar-id {
+      font-size: 0.75rem;
+      color: var(--low);
+      font-family: monospace;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      flex-shrink: 0;
+      background: var(--ink);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.6rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--mid);
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover { color: var(--high); }
+    .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ── Legacy sidebar compat classes (kept for providers section) ── */
     .sidebar-footer {
       border-top: 1px solid var(--border);
       padding: 0.6rem 0.5rem;
@@ -149,6 +297,33 @@
     }
     .sidebar-footer a:hover { background: var(--border); color: var(--high); }
     .sidebar-footer a.active { color: var(--gold); }
+
+    .sidebar-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 0.5rem;
+      margin-bottom: 0.4rem;
+    }
+    .sidebar-section-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--low);
+    }
+    .btn-sidebar-new {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--mid);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+    }
+    .btn-sidebar-new:hover { border-color: var(--gold); color: var(--gold); }
 
     .sidebar-provider-link {
       display: flex;
@@ -245,22 +420,19 @@
       z-index: 100;
     }
 
+    @media (max-width: 1100px) {
+      .icon-rail.expanded { width: 64px; min-width: 64px; }
+      .icon-rail.expanded .rail-brand-label { display: none; }
+      .icon-rail.expanded .rail-btn-label { display: none; }
+      .icon-rail.expanded .rail-brand { justify-content: center; font-size: 1.3rem; padding: 1rem 0; }
+      .icon-rail.expanded .rail-btn { justify-content: center; padding: 0.6rem 0; }
+      .icon-rail.expanded .rail-collapse { justify-content: center; padding: 0.6rem 0; }
+      .right-rail { display: none; }
+    }
+
     @media (max-width: 767px) {
       .btn-hamburger { display: block; }
-
-      .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100%;
-        z-index: 150;
-        transform: translateX(-100%);
-        transition: transform 0.22s ease;
-        width: 260px;
-        min-width: 260px;
-      }
-      .sidebar.open { transform: translateX(0); }
-
+      .icon-rail { display: none; }
       .main-content { padding-top: 3.5rem; }
     }
 
@@ -346,6 +518,16 @@
       background: var(--ink);
       margin-top: -0.4rem;
       margin-bottom: 0.4rem;
+    }
+
+    /* ── Main wrapper (holds topbar + tab bar + scrollable content) */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--ink);
+      min-width: 0;
     }
 
     /* ── Main content ─────────────────────────────── */
@@ -538,65 +720,70 @@
 
   <div class="app-shell">
 
-    <!-- ── Sidebar ─────────────────────────────────── -->
-    <aside class="sidebar"
-           :class="{ open: sidebarOpen }"
-           x-data="sidebarData()"
-           x-init="load()"
-           @battle-created.window="load()"
-           @battle-deleted.window="load()"
-           @provider-updated.window="load()"
-           @source-updated.window="load()"
-           @create-battle.window="newBattle()">
+    <!-- ── Icon Rail ───────────────────────────────── -->
+    <nav class="icon-rail" :class="{ expanded: railExpanded }">
 
-      <span class="sidebar-brand" style="cursor:pointer;" @click="(function(){ const m = window.location.hash.match(/^#\/battles\/([^\/]+)$/); if(m) navigate('/battles/'+m[1]); else newBattle(); })()">T01 LLM Battle</span>
-
-      <div style="padding:0.5rem 0.5rem 0;">
-        <div class="sidebar-section-header" style="margin-bottom:0;">
-          <span class="sidebar-section-title">Providers</span>
-          <button class="btn-sidebar-new" @click="$dispatch('open-providers-modal')">Manage</button>
-        </div>
-        <div class="sidebar-section-header" style="margin-bottom:0;margin-top:0.4rem;">
-          <span class="sidebar-section-title">News Sources</span>
-          <button class="btn-sidebar-new" @click="window.location.hash = '#/news-sources'">Manage</button>
-        </div>
-        <p class="text-muted" style="font-size:0.82rem;padding:2px 8px 4px;margin:0;"
-           x-text="(function(){
-             var active = providerInfoList.filter(function(p){ return p.has_key; });
-             var count = active.length;
-             if (count === 0) return 'No active providers';
-             var names = active.slice(0,3).map(function(p){ return p.display_name || p.name; }).join(', ');
-             return count + ' active — ' + names + (count > 3 ? '…' : '');
-           })()"></p>
+      <!-- Brand -->
+      <div class="rail-brand">
+        <span>⚔</span>
+        <span class="rail-brand-label">T01 Battle</span>
       </div>
 
-      <div class="sidebar-battles">
-        <div class="sidebar-section-header">
-          <span class="sidebar-section-title">Battles</span>
-          <button class="btn-sidebar-new" @click="newBattle()">+ New</button>
-        </div>
-
-        <template x-if="loading">
-          <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">Loading...</p>
-        </template>
-
-        <template x-if="!loading && battles.length === 0">
-          <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">No battles yet.</p>
-        </template>
-
-        <template x-for="b in battles" :key="b.id">
-          <div class="battle-item"
-               :class="{ active: params.id === b.id }"
-               @click="window.location.hash = '#/battles/' + b.id; $root.sidebarOpen = false">
-            <span class="battle-item-name" x-text="b.name"></span>
-            <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
-            <button class="btn-delete-battle" title="Delete"
-                    @click.stop="deleteBattle(b.id)">×</button>
-          </div>
-        </template>
+      <!-- Nav icons -->
+      <div class="rail-nav">
+        <button class="rail-btn" :class="{ active: route === 'battles/detail' || route === 'battles' }"
+                @click="window.location.hash = params.id ? '#/battles/' + params.id : '#/battles'"
+                title="Battles">
+          <span>⚔</span>
+          <span class="rail-btn-label">Battles</span>
+        </button>
+        <button class="rail-btn"
+                @click="$dispatch('open-providers-modal')"
+                title="Providers">
+          <span>⚙</span>
+          <span class="rail-btn-label">Providers</span>
+        </button>
+        <button class="rail-btn" :class="{ active: route === 'news-sources' }"
+                @click="window.location.hash = '#/news-sources'"
+                title="News Sources">
+          <span>☵</span>
+          <span class="rail-btn-label">Sources</span>
+        </button>
+        <button class="rail-btn" :class="{ active: route === 'keys' }"
+                @click="window.location.hash = '#/keys'"
+                title="Settings">
+          <span>⚿</span>
+          <span class="rail-btn-label">Settings</span>
+        </button>
       </div>
 
-    </aside>
+      <!-- Collapse toggle -->
+      <div class="rail-collapse">
+        <button class="btn-rail-collapse" @click="railExpanded = !railExpanded"
+                :title="railExpanded ? 'Collapse' : 'Expand'">
+          <span x-text="railExpanded ? '◀' : '▶'"></span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ── Main Wrapper ─────────────────────────────── -->
+    <div class="main-wrapper">
+
+      <!-- Topbar (battle/run/results views) -->
+      <div class="main-topbar" x-show="route === 'battles/detail' || route === 'runs/detail' || route === 'results/detail'">
+        <span class="main-topbar-name"
+              x-text="route === 'battles/detail' ? 'Battle Setup' : route === 'runs/detail' ? 'Live Run' : 'Results'">
+        </span>
+        <span class="main-topbar-id"
+              x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span>
+      </div>
+
+      <!-- Tab bar (battle detail only) -->
+      <div class="tab-bar" x-show="route === 'battles/detail'">
+        <button class="tab-btn" :class="{ active: activeTab === 'setup' }" @click="activeTab = 'setup'">Setup</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'run' }" @click="activeTab = 'run'">Run</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'results' }" @click="activeTab = 'results'">Results</button>
+      </div>
 
     <!-- ── Main content ────────────────────────────── -->
     <main class="main-content">
@@ -620,13 +807,18 @@
                x-data="battleDetail()"
                x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
 
-        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
-          <h1 style="margin:0;">Battle Detail</h1>
+        <!-- Battle name row (compact, under topbar) -->
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;" x-show="activeTab === 'setup'">
           <input type="text" x-model="nameInput"
-            style="font-size:0.95rem;padding:4px 8px;width:240px;"
+            style="font-size:0.95rem;padding:4px 8px;width:280px;"
             @keydown.enter="saveName()" placeholder="Battle name">
-          <span class="badge-muted" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span>
+          <button @click="saveName()" class="btn-secondary" :disabled="nameSaving" style="padding:4px 12px;font-size:0.84rem;">
+            <span x-text="nameSaving ? 'Saving...' : 'Save Name'"></span>
+          </button>
         </div>
+
+        <!-- Tab: Setup -->
+        <div x-show="activeTab === 'setup'">
 
         <!-- Sources card -->
         <div class="card">
@@ -1018,11 +1210,6 @@
         <!-- Run Battle -->
         <div style="display:flex;align-items:center;gap:1rem;"
              @fighters-updated.window="fighterCount = $event.detail.count">
-          <button @click="saveName()" class="btn-secondary"
-            :disabled="nameSaving"
-            style="padding:10px 24px;font-size:0.92rem;">
-            <span x-text="nameSaving ? 'Saving...' : 'Save'"></span>
-          </button>
           <button @click="runBattle()" class="btn-primary"
             :disabled="running || sources.length === 0 || fighterCount === 0"
             style="padding:10px 24px;font-size:0.92rem;">
@@ -1037,6 +1224,29 @@
             <p class="text-danger" style="margin:0;font-size:0.88rem;" x-text="runError"></p>
           </template>
         </div>
+
+        </div><!-- end tab: setup -->
+
+        <!-- Tab: Run (placeholder — populated by ticket #280) -->
+        <div x-show="activeTab === 'run'">
+          <div class="placeholder" style="height:180px;">
+            <div style="text-align:center;">
+              <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">Run tab coming soon.</p>
+              <p class="text-muted" style="margin:0;font-size:0.82rem;">Use the <strong>Run Battle</strong> button in Setup to start a battle.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Results (placeholder — populated by ticket #281) -->
+        <div x-show="activeTab === 'results'">
+          <div class="placeholder" style="height:180px;">
+            <div style="text-align:center;">
+              <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">Results tab coming soon.</p>
+              <p class="text-muted" style="margin:0;font-size:0.82rem;">Run a battle to see results here.</p>
+            </div>
+          </div>
+        </div>
+
       </section>
 
       <!-- ── Live run view ───────────────────────── -->
@@ -1538,7 +1748,46 @@
       </section>
 
     </main>
-  </div>
+    </div><!-- end .main-wrapper -->
+
+    <!-- ── Right Rail (Battle List) ───────────────── -->
+    <aside class="right-rail"
+           x-data="sidebarData()"
+           x-init="load()"
+           @battle-created.window="load()"
+           @battle-deleted.window="load()"
+           @provider-updated.window="load()"
+           @source-updated.window="load()"
+           @create-battle.window="newBattle()">
+
+      <div class="right-rail-header">
+        <span class="right-rail-title">Battles</span>
+        <button class="btn-new-battle" @click="newBattle()">+ New</button>
+      </div>
+
+      <div class="right-rail-list">
+        <template x-if="loading">
+          <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">Loading...</p>
+        </template>
+        <template x-if="!loading && battles.length === 0">
+          <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">No battles yet.</p>
+        </template>
+        <template x-for="b in battles" :key="b.id">
+          <div class="battle-item"
+               :class="{ active: $root.params.id === b.id }"
+               @click="window.location.hash = '#/battles/' + b.id">
+            <span class="battle-item-name" x-text="b.name"></span>
+            <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
+            <span x-show="b.has_sources && b.run_count > 0" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;" x-text="b.run_count + ' run' + (b.run_count > 1 ? 's' : '')"></span>
+            <button class="btn-delete-battle" title="Delete"
+                    @click.stop="deleteBattle(b.id)">×</button>
+          </div>
+        </template>
+      </div>
+
+    </aside>
+
+  </div><!-- end .app-shell -->
 
   <script src="/vendor/alpine.min.js" defer></script>
   <script src="/vendor/marked.min.js"></script>
@@ -2331,6 +2580,8 @@ Do not wrap the JSON in markdown fences.`;
         params: {},
         hasActiveProvider: true,
         sidebarOpen: false,
+        railExpanded: false,
+        activeTab: 'setup',
 
         async checkKeys() {
           try {
