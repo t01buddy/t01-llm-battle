@@ -1,0 +1,35 @@
+/* theme-paper.css — Paper theme CSS variables
+ * Fraunces serif display + Inter body + JetBrains Mono
+ * Generated for issue #277 — CSS foundation ticket.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ── Background ─────────────────────────────────────── */
+  --ba-bg-paper:   #FAF9F6;
+  --ba-bg-card:    #FFFFFF;
+  --ba-bg-sidebar: #F0EDE8;
+
+  /* ── Accent ─────────────────────────────────────────── */
+  --ba-accent:       #D4A02A;
+  --ba-accent-dim:   #b8861e;
+  --ba-accent-muted: #FDF3DC;
+
+  /* ── Text ───────────────────────────────────────────── */
+  --ba-text-high: #1a1a2e;
+  --ba-text-mid:  #6b7280;
+  --ba-text-low:  #9ca3af;
+
+  /* ── Border ─────────────────────────────────────────── */
+  --ba-border: #e5e5e5;
+
+  /* ── Status ─────────────────────────────────────────── */
+  --ba-danger:  #dc2626;
+  --ba-success: #16a34a;
+
+  /* ── Fonts ──────────────────────────────────────────── */
+  --ba-font-display: "Fraunces", Georgia, serif;
+  --ba-font-body:    "Inter", system-ui, -apple-system, sans-serif;
+  --ba-font-mono:    "JetBrains Mono", "Fira Code", monospace;
+}
