@@ -822,7 +822,7 @@
         </div>
 
         <!-- Tab: Setup -->
-        <div x-show="activeTab === 'setup'" @fighters-updated.window="fighterCount = $event.detail.count">
+        <div x-show="activeTab === 'setup'">
 
         <!-- 1 Sources -->
         <div class="ba-section">
@@ -2060,7 +2060,7 @@ Do not wrap the JSON in markdown fences.`;
 
         async upload(event, battleId) {
           if (!battleId) return;
-          const files = Array.from(event.target.files || []);
+          const files = Array.from(event.target?.files || event.dataTransfer?.files || []);
           if (!files.length) return;
           this.uploading = true; this.error = null;
           for (const file of files) {
