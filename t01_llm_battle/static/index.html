@@ -1849,7 +1849,7 @@
         </template>
         <template x-for="b in battles" :key="b.id">
           <div class="battle-item"
-               :class="{ active: $root.params.id === b.id }"
+               :class="{ active: ($root.params || {}).id === b.id }"
                @click="window.location.hash = '#/battles/' + b.id">
             <span class="battle-item-name" x-text="b.name"></span>
             <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
