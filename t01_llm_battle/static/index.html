@@ -824,113 +824,110 @@
         <!-- Tab: Setup -->
         <div x-show="activeTab === 'setup'">
 
-        <!-- Sources card -->
-        <div class="card">
-          <h2 style="display:flex;align-items:center;">
-            Sources <span class="badge" x-text="sources.length"></span>
-          </h2>
-
-          <div style="margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
-            <div>
-              <label>Upload files</label>
-              <p class="text-muted" style="margin:0 0 6px;font-size:0.8rem;">
-                Accepts <code>.txt</code>, <code>.md</code> (one source per file) and <code>.csv</code> (one source per row).
-              </p>
-              <input type="file" accept=".txt,.md,.csv" multiple
-                     :disabled="uploading"
-                     @change="upload($event, currentBattleId)">
-              <template x-if="uploading">
-                <p class="text-gold" style="font-size:0.86rem;margin:4px 0 0;">Uploading...</p>
-              </template>
-            </div>
-
-            <div>
-              <button @click="showTextForm = !showTextForm" class="btn-primary"
-                style="padding:5px 14px;font-size:0.83rem;">+ Add Text</button>
-            </div>
-
-            <template x-if="showTextForm">
-              <div style="border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:0.6rem;">
-                <h3 style="margin:0 0 0.5rem;">Add Text Sources</h3>
-                <template x-for="(item, idx) in textItems" :key="idx">
-                  <div style="display:flex;flex-direction:column;gap:0.4rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border);">
-                    <textarea x-model="item.content" rows="3" :placeholder="'Source text #' + (idx+1)"
-                      style="resize:vertical;font-size:0.88rem;"></textarea>
-                  </div>
-                </template>
-                <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-                  <button @click="textItems.push({ content: '', label: '' })"
-                    style="background:none;border:1px solid var(--border);color:var(--mid);cursor:pointer;border-radius:6px;padding:4px 12px;font-size:0.83rem;">+ Add Another</button>
-                  <button @click="addTextSources(currentBattleId)" class="btn-primary"
-                    :disabled="addingText || !textItems.some(i => i.content.trim())"
-                    style="padding:5px 14px;font-size:0.83rem;">
-                    <span x-text="addingText ? 'Saving...' : 'Save'"></span>
-                  </button>
-                  <button @click="showTextForm = false; textItems = [{content:'',label:''}]"
-                    style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.83rem;">Cancel</button>
-                </div>
-              </div>
-            </template>
+        <!-- 1 Sources -->
+        <div class="ba-section">
+          <div class="ba-section-title" style="justify-content:space-between;">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <span class="ba-section-num">1</span> Sources
+            </span>
+            <button @click="showTextForm = !showTextForm" class="ba-btn ba-btn-ghost" style="font-size:12px;">+ Add Text</button>
           </div>
+
+          <label class="ba-uploader"
+            @dragover.prevent="$el.classList.add('dragover')"
+            @dragleave="$el.classList.remove('dragover')"
+            @drop.prevent="$el.classList.remove('dragover'); upload($event, currentBattleId)">
+            <span class="ba-uploader-icon">📂</span>
+            <div>Upload files</div>
+            <div style="font-size:11px;margin-top:2px;">.txt .md .csv</div>
+            <input type="file" accept=".txt,.md,.csv" multiple :disabled="uploading"
+                   @change="upload($event, currentBattleId)" style="display:none;">
+          </label>
+
+          <template x-if="uploading">
+            <p style="font-size:12px;color:var(--ba-accent);margin:6px 0 0;">Uploading...</p>
+          </template>
 
           <template x-if="error">
             <div class="error-box" x-text="error"></div>
           </template>
 
+          <template x-if="showTextForm">
+            <div style="border:1px solid var(--ba-border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+              <div style="font-size:13px;font-weight:600;">Add Text Sources</div>
+              <template x-for="(item, idx) in textItems" :key="idx">
+                <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--ba-border);">
+                  <textarea x-model="item.content" rows="3" :placeholder="'Source text #' + (idx+1)"
+                    class="ba-input" style="resize:vertical;font-size:13px;"></textarea>
+                </div>
+              </template>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button @click="textItems.push({ content: '', label: '' })" class="ba-btn ba-btn-secondary" style="font-size:12px;padding:4px 12px;">+ Add Another</button>
+                <button @click="addTextSources(currentBattleId)" class="ba-btn ba-btn-primary"
+                  :disabled="addingText || !textItems.some(i => i.content.trim())"
+                  style="font-size:12px;padding:4px 12px;">
+                  <span x-text="addingText ? 'Saving...' : 'Save'"></span>
+                </button>
+                <button @click="showTextForm = false; textItems = [{content:'',label:''}]"
+                  class="ba-btn ba-btn-ghost" style="font-size:12px;">Cancel</button>
+              </div>
+            </div>
+          </template>
+
           <template x-if="sources.length === 0">
-            <p class="text-muted" style="font-size:0.86rem;margin:0;">No sources yet. Upload files above to add source items.</p>
+            <p style="font-size:12px;color:var(--ba-text-mid);margin:10px 0 0;">No sources yet.</p>
           </template>
 
           <template x-if="sources.length > 0">
-            <div>
+            <ul class="ba-source-list">
               <template x-for="s in sources" :key="s.id">
-                <div class="source-item">
-                  <span x-text="s.label"></span>
-                  <button class="btn-danger-sm" @click="remove(currentBattleId, s.id)">Delete</button>
-                </div>
+                <li class="ba-source-item">
+                  <span class="ba-source-item-name" x-text="s.label"></span>
+                  <button class="ba-source-remove" @click="remove(currentBattleId, s.id)" title="Remove">✕</button>
+                </li>
               </template>
-            </div>
+            </ul>
           </template>
         </div>
 
-        <!-- Fighters card -->
-        <div class="card" x-data="fighterList()" x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-            <h2 style="margin:0;">Fighters</h2>
-            <button class="btn-primary" @click="showAddFighter = !showAddFighter" style="padding:6px 14px;font-size:0.83rem;">
-              + Add Fighter
-            </button>
+        <!-- 2 Fighters -->
+        <div class="ba-section" x-data="fighterList()" x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
+          <div class="ba-section-title" style="justify-content:space-between;">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <span class="ba-section-num">2</span> Fighters
+            </span>
+            <button class="ba-btn ba-btn-ghost" style="font-size:12px;" @click="showAddFighter = !showAddFighter">+ Add Fighter</button>
           </div>
 
           <!-- Add fighter form -->
           <template x-if="showAddFighter">
             <form @submit.prevent="addFighter(battleId)"
-              style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
-              <h3>New Fighter</h3>
-              <div style="display:flex;gap:1rem;align-items:flex-end;">
+              style="background:var(--ba-bg-paper);border:1px solid var(--ba-border);border-radius:8px;padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;">
+              <div style="font-size:13px;font-weight:600;">New Fighter</div>
+              <div style="display:flex;gap:12px;align-items:flex-end;">
                 <div style="flex:1;">
-                  <label>Fighter Name <span class="text-danger">*</span></label>
-                  <input type="text" x-model="newFighter.name" required placeholder="e.g. GPT-4o pipeline">
+                  <label style="font-size:12px;">Fighter Name <span class="text-danger">*</span></label>
+                  <input type="text" x-model="newFighter.name" required placeholder="e.g. GPT-4o pipeline" class="ba-input">
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;padding-bottom:2px;">
                   <input type="checkbox" id="f-manual" x-model="newFighter.is_manual" style="width:16px;height:16px;cursor:pointer;">
-                  <label for="f-manual" style="margin:0;cursor:pointer;">Manual</label>
+                  <label for="f-manual" style="margin:0;cursor:pointer;font-size:13px;">Manual</label>
                 </div>
               </div>
               <template x-if="addFighterError">
-                <p class="text-danger" style="margin:0;font-size:0.84rem;" x-text="addFighterError"></p>
+                <p class="text-danger" style="margin:0;font-size:12px;" x-text="addFighterError"></p>
               </template>
-              <div style="display:flex;gap:0.75rem;">
-                <button type="submit" class="btn-primary" :disabled="addingFighter" style="padding:6px 14px;font-size:0.84rem;">
+              <div style="display:flex;gap:8px;">
+                <button type="submit" class="ba-btn ba-btn-primary" :disabled="addingFighter" style="font-size:12px;">
                   <span x-text="addingFighter ? 'Adding...' : 'Add Fighter'"></span>
                 </button>
-                <button type="button" class="btn-secondary" @click="showAddFighter = false">Cancel</button>
+                <button type="button" class="ba-btn ba-btn-secondary" style="font-size:12px;" @click="showAddFighter = false">Cancel</button>
               </div>
             </form>
           </template>
 
           <template x-if="loadingFighters">
-            <p class="text-muted" style="font-size:0.86rem;">Loading fighters...</p>
+            <p style="font-size:13px;color:var(--ba-text-mid);">Loading fighters...</p>
           </template>
 
           <template x-if="!loadingFighters && fighters.length === 0">
@@ -938,239 +935,252 @@
           </template>
 
           <template x-if="!loadingFighters && fighters.length > 0">
-            <div style="display:flex;flex-direction:column;gap:0.75rem;">
-              <template x-for="fighter in fighters" :key="fighter.id">
-                <div style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:1rem;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-                    <div>
-                      <span style="font-weight:600;font-size:0.9rem;" x-text="fighter.name"></span>
-                      <span x-show="fighter.is_manual" class="badge-muted">manual</span>
-                    </div>
-                    <button x-show="!fighter.is_manual"
-                      @click="toggleAddStep(fighter.id)"
-                      style="background:rgba(240,185,11,0.1);color:var(--gold);border:1px solid rgba(240,185,11,0.25);padding:4px 12px;border-radius:5px;font-size:0.8rem;font-weight:600;cursor:pointer;">
-                      + Add Step
-                    </button>
-                  </div>
-
-                  <template x-if="fighter.steps && fighter.steps.length > 0">
-                    <div style="margin-bottom:0.5rem;">
-                      <template x-for="(step, idx) in fighter.steps" :key="step.id">
-                        <div>
-                          <!-- Step summary row -->
-                          <template x-if="activeEditStepId !== step.id">
-                            <div class="step-row" style="cursor:pointer;" @click="startEditStep(step)" title="Click to edit">
-                              <span style="color:var(--low);font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
-                              <span class="text-muted" x-text="step.provider"></span>
-                              <span style="color:var(--high);font-weight:500;" x-text="step.model_id"></span>
-                              <span x-show="step.system_prompt" style="color:var(--low);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;" x-text="step.system_prompt"></span>
-                              <span style="margin-left:auto;display:flex;gap:2px;">
-                                <button @click.stop="moveStep(fighter.id, step.id, 'up')" :disabled="idx === 0" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.8rem;padding:0 3px;line-height:1;" title="Move up">▲</button>
-                                <button @click.stop="moveStep(fighter.id, step.id, 'down')" :disabled="idx === fighter.steps.length - 1" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.8rem;padding:0 3px;line-height:1;" title="Move down">▼</button>
-                                <button @click.stop="deleteStep(fighter.id, step.id)" style="background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.9rem;padding:0 2px;" title="Delete step">×</button>
-                              </span>
-                            </div>
-                          </template>
-                          <!-- Inline edit form -->
-                          <template x-if="activeEditStepId === step.id">
-                            <div style="background:#fff;border:1px solid var(--gold);border-radius:6px;padding:0.75rem;margin-bottom:0.4rem;display:flex;flex-direction:column;gap:0.5rem;">
-                              <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-                                <div style="flex:0 0 auto;">
-                                  <label style="font-size:0.78rem;">Provider</label>
-                                  <select x-effect="$el.value = editStep.provider" @change="editStep.provider = $event.target.value" style="font-size:0.83rem;padding:3px 6px;">
-                                    <template x-for="p in providerInfoList.filter(pi => pi.enabled)" :key="p.name">
-                                      <option :value="p.name" x-text="p.display_name" :selected="p.name === editStep.provider"></option>
-                                    </template>
-                                    <template x-if="providerInfoList.length === 0">
-                                      <template x-for="p in providers" :key="p">
-                                        <option :value="p" x-text="p" :selected="p === editStep.provider"></option>
-                                      </template>
-                                    </template>
-                                  </select>
-                                </div>
-                                <template x-if="editStepProviderType() !== 'tool'">
-                                  <div style="flex:1;min-width:120px;">
-                                    <label style="font-size:0.78rem;">Model</label>
-                                    <input type="text" x-model="editStep.model_id" style="font-size:0.83rem;padding:3px 6px;width:100%;" placeholder="e.g. gpt-4o">
-                                  </div>
-                                </template>
-                                <template x-if="editStepProviderType() === 'tool'">
-                                  <div style="flex:1;min-width:120px;">
-                                    <label style="font-size:0.78rem;">Function <span class="text-danger">*</span></label>
-                                    <select x-model="editStep.model_id" style="font-size:0.83rem;padding:3px 6px;width:100%;">
-                                      <template x-for="m in editStepProviderModels()" :key="m.id">
-                                        <option :value="m.id" x-text="m.id"></option>
-                                      </template>
-                                    </select>
-                                  </div>
-                                </template>
-                              </div>
-                              <template x-if="editStepProviderType() !== 'tool'">
-                                <div>
-                                  <label style="font-size:0.78rem;">System Prompt <span style="font-weight:400;color:var(--low);">(optional)</span></label>
-                                  <textarea x-model="editStep.system_prompt" rows="2" style="font-size:0.83rem;resize:vertical;font-family:inherit;" placeholder="You are a helpful assistant..."></textarea>
-                                </div>
-                              </template>
-                              <div>
-                                <label style="font-size:0.78rem;">Provider Config <span style="font-weight:400;color:var(--low);">(JSON)</span></label>
-                                <input type="text" x-model="editStep.provider_config" style="font-size:0.82rem;font-family:monospace;padding:3px 6px;" placeholder="{}">
-                              </div>
-                              <template x-if="editStepError">
-                                <p class="text-danger" style="margin:0;font-size:0.8rem;" x-text="editStepError"></p>
-                              </template>
-                              <div style="display:flex;gap:0.5rem;">
-                                <button @click="saveEditStep(fighter.id, step)" class="btn-primary" :disabled="savingStep" style="padding:4px 12px;font-size:0.82rem;">
-                                  <span x-text="savingStep ? 'Saving...' : 'Save'"></span>
-                                </button>
-                                <button @click="cancelEditStep()" class="btn-secondary" style="padding:4px 10px;font-size:0.82rem;">Cancel</button>
-                                <button @click="deleteStep(fighter.id, step.id)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--mid);font-size:0.82rem;padding:0 4px;">Delete step</button>
-                              </div>
-                            </div>
-                          </template>
-                        </div>
-                      </template>
-                    </div>
+            <div class="ba-fighters">
+              <template x-for="(fighter, fi) in fighters" :key="fighter.id">
+                <div>
+                  <!-- VS divider between fighters -->
+                  <template x-if="fi > 0">
+                    <div class="ba-vs-mark">─── VS ───</div>
                   </template>
 
-                  <template x-if="!fighter.steps || fighter.steps.length === 0">
-                    <p x-show="!fighter.is_manual" class="text-muted" style="margin:0 0 0.4rem;font-size:0.82rem;">No steps yet.</p>
-                  </template>
+                  <!-- Fighter card -->
+                  <div class="ba-card">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-weight:600;font-size:13px;" x-text="fighter.name"></span>
+                        <span x-show="fighter.is_manual" class="badge-muted">manual</span>
+                      </div>
+                      <button x-show="!fighter.is_manual"
+                        @click="toggleAddStep(fighter.id)"
+                        class="ba-btn ba-btn-ghost" style="font-size:12px;">
+                        + Add Step
+                      </button>
+                    </div>
 
-                  <!-- Add step inline form -->
-                  <template x-if="activeStepFighterId === fighter.id">
-                    <form @submit.prevent="addStep(battleId, fighter.id)"
-                      style="background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:0.75rem;margin-top:0.5rem;display:flex;flex-direction:column;gap:0.6rem;">
-                      <h4 style="margin:0;font-size:0.88rem;">New Step</h4>
-
-                      <template x-if="stepProviderType() === 'llm'">
-                        <div>
-                          <label>System Prompt <span style="font-weight:400;color:var(--low);">(optional)</span></label>
-                          <textarea x-model="newStep.system_prompt" rows="2"
-                            placeholder="You are a helpful assistant..."
-                            style="resize:vertical;font-family:inherit;font-size:0.84rem;"></textarea>
-                        </div>
-                      </template>
-
-                      <div class="form-grid-2">
-                        <div>
-                          <label>Provider <span class="text-danger">*</span></label>
-                          <select x-model="newStep.provider" @change="onStepProviderChange()" required>
-                            <template x-if="providerInfoList.filter(p => p.provider_type === 'llm' && p.enabled).length > 0">
-                              <optgroup label="LLM Providers">
-                                <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm' && pi.enabled)" :key="p.name">
-                                  <option :value="p.name" x-text="p.display_name"></option>
-                                </template>
-                              </optgroup>
-                            </template>
-                            <template x-if="providerInfoList.filter(p => p.provider_type === 'tool' && p.enabled).length > 0">
-                              <optgroup label="Tool Providers">
-                                <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool' && pi.enabled)" :key="p.name">
-                                  <option :value="p.name" x-text="p.display_name"></option>
-                                </template>
-                              </optgroup>
-                            </template>
-                            <template x-if="providerInfoList.length === 0">
-                              <template x-for="p in providers" :key="p">
-                                <option :value="p" x-text="p"></option>
+                    <template x-if="fighter.steps && fighter.steps.length > 0">
+                      <div>
+                        <template x-for="(step, idx) in fighter.steps" :key="step.id">
+                          <div class="ba-fighter">
+                            <div class="ba-step" x-text="idx + 1"></div>
+                            <div class="ba-fighter-body">
+                              <!-- Step summary row -->
+                              <template x-if="activeEditStepId !== step.id">
+                                <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" @click="startEditStep(step)" title="Click to edit">
+                                  <span style="font-size:12px;color:var(--ba-text-mid);" x-text="step.provider"></span>
+                                  <span style="font-size:12px;font-weight:500;color:var(--ba-text-high);" x-text="step.model_id"></span>
+                                  <span x-show="step.system_prompt" style="font-size:11px;color:var(--ba-text-mid);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" x-text="step.system_prompt"></span>
+                                  <span style="margin-left:auto;display:flex;gap:2px;flex-shrink:0;">
+                                    <button @click.stop="moveStep(fighter.id, step.id, 'up')" :disabled="idx === 0" class="ba-btn ba-btn-ghost" style="padding:1px 4px;font-size:11px;line-height:1;" title="Move up">▲</button>
+                                    <button @click.stop="moveStep(fighter.id, step.id, 'down')" :disabled="idx === fighter.steps.length - 1" class="ba-btn ba-btn-ghost" style="padding:1px 4px;font-size:11px;line-height:1;" title="Move down">▼</button>
+                                    <button @click.stop="deleteStep(fighter.id, step.id)" class="ba-btn ba-btn-ghost" style="padding:1px 4px;font-size:13px;line-height:1;" title="Delete step">✕</button>
+                                  </span>
+                                </div>
                               </template>
-                            </template>
-                          </select>
-                        </div>
+                              <!-- Inline edit form -->
+                              <template x-if="activeEditStepId === step.id">
+                                <div style="background:var(--ba-bg-card);border:1px solid var(--ba-accent);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+                                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                    <div style="flex:0 0 auto;">
+                                      <label style="font-size:11px;">Provider</label>
+                                      <select class="ba-select" x-effect="$el.value = editStep.provider" @change="editStep.provider = $event.target.value" style="font-size:12px;padding:3px 6px;">
+                                        <template x-for="p in providerInfoList.filter(pi => pi.enabled)" :key="p.name">
+                                          <option :value="p.name" x-text="p.display_name" :selected="p.name === editStep.provider"></option>
+                                        </template>
+                                        <template x-if="providerInfoList.length === 0">
+                                          <template x-for="p in providers" :key="p">
+                                            <option :value="p" x-text="p" :selected="p === editStep.provider"></option>
+                                          </template>
+                                        </template>
+                                      </select>
+                                    </div>
+                                    <template x-if="editStepProviderType() !== 'tool'">
+                                      <div style="flex:1;min-width:120px;">
+                                        <label style="font-size:11px;">Model</label>
+                                        <input type="text" x-model="editStep.model_id" class="ba-input" style="font-size:12px;padding:3px 6px;" placeholder="e.g. gpt-4o">
+                                      </div>
+                                    </template>
+                                    <template x-if="editStepProviderType() === 'tool'">
+                                      <div style="flex:1;min-width:120px;">
+                                        <label style="font-size:11px;">Function <span class="text-danger">*</span></label>
+                                        <select x-model="editStep.model_id" class="ba-select" style="font-size:12px;padding:3px 6px;">
+                                          <template x-for="m in editStepProviderModels()" :key="m.id">
+                                            <option :value="m.id" x-text="m.id"></option>
+                                          </template>
+                                        </select>
+                                      </div>
+                                    </template>
+                                  </div>
+                                  <template x-if="editStepProviderType() !== 'tool'">
+                                    <div>
+                                      <label style="font-size:11px;">System Prompt <span style="font-weight:400;color:var(--ba-text-mid);">(optional)</span></label>
+                                      <textarea x-model="editStep.system_prompt" rows="2" class="ba-input" style="font-size:12px;resize:vertical;" placeholder="You are a helpful assistant..."></textarea>
+                                    </div>
+                                  </template>
+                                  <div>
+                                    <label style="font-size:11px;">Provider Config <span style="font-weight:400;color:var(--ba-text-mid);">(JSON)</span></label>
+                                    <input type="text" x-model="editStep.provider_config" class="ba-input" style="font-size:12px;font-family:monospace;padding:3px 6px;" placeholder="{}">
+                                  </div>
+                                  <template x-if="editStepError">
+                                    <p class="text-danger" style="margin:0;font-size:12px;" x-text="editStepError"></p>
+                                  </template>
+                                  <div style="display:flex;gap:8px;">
+                                    <button @click="saveEditStep(fighter.id, step)" class="ba-btn ba-btn-primary" :disabled="savingStep" style="font-size:12px;padding:4px 10px;">
+                                      <span x-text="savingStep ? 'Saving...' : 'Save'"></span>
+                                    </button>
+                                    <button @click="cancelEditStep()" class="ba-btn ba-btn-secondary" style="font-size:12px;padding:4px 10px;">Cancel</button>
+                                    <button @click="deleteStep(fighter.id, step.id)" class="ba-btn ba-btn-ghost" style="margin-left:auto;font-size:12px;color:var(--ba-danger);">Delete step</button>
+                                  </div>
+                                </div>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <template x-if="!fighter.steps || fighter.steps.length === 0">
+                      <p x-show="!fighter.is_manual" style="font-size:12px;color:var(--ba-text-mid);margin:0;">No steps yet.</p>
+                    </template>
+
+                    <!-- Add step inline form -->
+                    <template x-if="activeStepFighterId === fighter.id">
+                      <form @submit.prevent="addStep(battleId, fighter.id)"
+                        style="background:var(--ba-bg-paper);border:1px solid var(--ba-border);border-radius:6px;padding:10px;margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+                        <div style="font-size:12px;font-weight:600;">New Step</div>
+
                         <template x-if="stepProviderType() === 'llm'">
                           <div>
-                            <label>Model <span class="text-danger">*</span></label>
-                            <select x-model="newStep.model_id" required>
-                              <template x-for="m in stepProviderModels()" :key="m.id">
-                                <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
-                              </template>
-                              <option value="">Custom…</option>
-                            </select>
-                            <template x-if="newStep.model_id === ''">
-                              <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID" style="margin-top:4px;">
-                            </template>
+                            <label style="font-size:12px;">System Prompt <span style="font-weight:400;color:var(--ba-text-mid);">(optional)</span></label>
+                            <textarea x-model="newStep.system_prompt" rows="2"
+                              placeholder="You are a helpful assistant..."
+                              class="ba-input" style="resize:vertical;font-size:12px;"></textarea>
                           </div>
                         </template>
-                        <template x-if="stepProviderType() === 'tool'">
-                          <div>
-                            <label>Function <span class="text-danger">*</span></label>
-                            <select x-model="newStep.model_id" required>
-                              <template x-for="m in stepProviderModels()" :key="m.id">
-                                <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
-                              </template>
-                            </select>
-                          </div>
-                        </template>
-                        <template x-if="stepProviderType() === null">
-                          <div>
-                            <label>Model <span class="text-danger">*</span></label>
-                            <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o">
-                          </div>
-                        </template>
-                      </div>
 
-                      <template x-if="stepPricingHint()">
-                        <p style="margin:0;font-size:0.76rem;color:var(--gold);background:rgba(240,185,11,0.07);border:1px solid rgba(240,185,11,0.2);border-radius:4px;padding:4px 8px;" x-text="stepPricingHint()"></p>
-                      </template>
-
-                      <template x-if="stepNativeTools().length > 0">
-                        <div>
-                          <label>Tools <span style="font-weight:400;color:var(--low);">(optional)</span></label>
-                          <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                            <template x-for="tool in stepNativeTools()" :key="tool">
-                              <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer;margin:0;">
-                                <input type="checkbox" :value="tool" x-model="newStep.selected_tools">
-                                <span x-text="tool"></span>
-                              </label>
-                            </template>
+                        <div class="form-grid-2">
+                          <div>
+                            <label style="font-size:12px;">Provider <span class="text-danger">*</span></label>
+                            <select x-model="newStep.provider" @change="onStepProviderChange()" required class="ba-select" style="font-size:12px;">
+                              <template x-if="providerInfoList.filter(p => p.provider_type === 'llm' && p.enabled).length > 0">
+                                <optgroup label="LLM Providers">
+                                  <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm' && pi.enabled)" :key="p.name">
+                                    <option :value="p.name" x-text="p.display_name"></option>
+                                  </template>
+                                </optgroup>
+                              </template>
+                              <template x-if="providerInfoList.filter(p => p.provider_type === 'tool' && p.enabled).length > 0">
+                                <optgroup label="Tool Providers">
+                                  <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool' && pi.enabled)" :key="p.name">
+                                    <option :value="p.name" x-text="p.display_name"></option>
+                                  </template>
+                                </optgroup>
+                              </template>
+                              <template x-if="providerInfoList.length === 0">
+                                <template x-for="p in providers" :key="p">
+                                  <option :value="p" x-text="p"></option>
+                                </template>
+                              </template>
+                            </select>
                           </div>
+                          <template x-if="stepProviderType() === 'llm'">
+                            <div>
+                              <label style="font-size:12px;">Model <span class="text-danger">*</span></label>
+                              <select x-model="newStep.model_id" required class="ba-select" style="font-size:12px;">
+                                <template x-for="m in stepProviderModels()" :key="m.id">
+                                  <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                </template>
+                                <option value="">Custom…</option>
+                              </select>
+                              <template x-if="newStep.model_id === ''">
+                                <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:12px;">
+                              </template>
+                            </div>
+                          </template>
+                          <template x-if="stepProviderType() === 'tool'">
+                            <div>
+                              <label style="font-size:12px;">Function <span class="text-danger">*</span></label>
+                              <select x-model="newStep.model_id" required class="ba-select" style="font-size:12px;">
+                                <template x-for="m in stepProviderModels()" :key="m.id">
+                                  <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                </template>
+                              </select>
+                            </div>
+                          </template>
+                          <template x-if="stepProviderType() === null">
+                            <div>
+                              <label style="font-size:12px;">Model <span class="text-danger">*</span></label>
+                              <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o" class="ba-input" style="font-size:12px;">
+                            </div>
+                          </template>
                         </div>
-                      </template>
 
-                      <div>
-                        <label>Provider Config <span style="font-weight:400;color:var(--low);">(JSON, optional)</span></label>
-                        <textarea x-model="newStep.provider_config" rows="2" placeholder="{}" style="resize:vertical;font-family:monospace;font-size:0.82rem;"></textarea>
-                      </div>
+                        <template x-if="stepPricingHint()">
+                          <p style="margin:0;font-size:11px;color:var(--ba-accent);background:var(--ba-accent-muted);border:1px solid rgba(212,160,42,0.2);border-radius:4px;padding:4px 8px;" x-text="stepPricingHint()"></p>
+                        </template>
 
-                      <template x-if="addStepError">
-                        <p class="text-danger" style="margin:0;font-size:0.82rem;" x-text="addStepError"></p>
-                      </template>
+                        <template x-if="stepNativeTools().length > 0">
+                          <div>
+                            <label style="font-size:12px;">Tools <span style="font-weight:400;color:var(--ba-text-mid);">(optional)</span></label>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                              <template x-for="tool in stepNativeTools()" :key="tool">
+                                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;margin:0;">
+                                  <input type="checkbox" :value="tool" x-model="newStep.selected_tools">
+                                  <span x-text="tool"></span>
+                                </label>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
 
-                      <div style="display:flex;gap:0.75rem;">
-                        <button type="submit" class="btn-primary" :disabled="addingStep" style="padding:6px 14px;font-size:0.82rem;">
-                          <span x-text="addingStep ? 'Adding...' : 'Add Step'"></span>
-                        </button>
-                        <button type="button" class="btn-secondary" @click="activeStepFighterId = null">Cancel</button>
-                      </div>
-                    </form>
-                  </template>
+                        <div>
+                          <label style="font-size:12px;">Provider Config <span style="font-weight:400;color:var(--ba-text-mid);">(JSON, optional)</span></label>
+                          <textarea x-model="newStep.provider_config" rows="2" placeholder="{}" class="ba-input" style="resize:vertical;font-family:monospace;font-size:12px;"></textarea>
+                        </div>
+
+                        <template x-if="addStepError">
+                          <p class="text-danger" style="margin:0;font-size:12px;" x-text="addStepError"></p>
+                        </template>
+
+                        <div style="display:flex;gap:8px;">
+                          <button type="submit" class="ba-btn ba-btn-primary" :disabled="addingStep" style="font-size:12px;">
+                            <span x-text="addingStep ? 'Adding...' : 'Add Step'"></span>
+                          </button>
+                          <button type="button" class="ba-btn ba-btn-secondary" style="font-size:12px;" @click="activeStepFighterId = null">Cancel</button>
+                        </div>
+                      </form>
+                    </template>
+                  </div>
                 </div>
               </template>
             </div>
           </template>
 
           <template x-if="fightersError">
-            <p class="text-danger" style="font-size:0.86rem;" x-text="fightersError"></p>
+            <p class="text-danger" style="font-size:13px;" x-text="fightersError"></p>
           </template>
         </div>
 
-        <!-- Judge card -->
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-            <h2 style="margin:0;">Judge <span class="badge-muted" style="font-size:0.72rem;font-weight:400;">optional</span></h2>
+        <!-- 3 Judge -->
+        <div class="ba-section">
+          <div class="ba-section-title" style="justify-content:space-between;">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <span class="ba-section-num">3</span> Judge
+              <span class="badge-muted" style="font-size:11px;font-weight:400;">optional</span>
+            </span>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;">
-              <input type="checkbox" x-model="judgeEnabled" @change="onJudgeToggle()" style="width:16px;height:16px;cursor:pointer;">
-              <span style="font-size:0.84rem;" x-text="judgeEnabled ? 'Enabled' : 'Disabled'"></span>
+              <input type="checkbox" x-model="judgeEnabled" @change="onJudgeToggle()" style="width:15px;height:15px;cursor:pointer;">
+              <span style="font-size:13px;" x-text="judgeEnabled ? 'Enabled' : 'Disabled'"></span>
             </label>
           </div>
           <template x-if="!judgeEnabled">
-            <p class="text-muted" style="font-size:0.84rem;margin:0;">Judge disabled — results will show outputs side-by-side without scores.</p>
+            <p style="font-size:13px;color:var(--ba-text-mid);margin:0 0 10px;">Judge disabled — results will show outputs side-by-side without scores.</p>
           </template>
           <template x-if="judgeEnabled">
-            <div style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div style="display:flex;flex-direction:column;gap:10px;">
               <div class="form-grid-2">
                 <div>
-                  <label style="font-size:0.84rem;">Provider</label>
-                  <select x-model="judgeProvider" @change="onJudgeProviderChange()" style="font-size:0.84rem;">
+                  <label style="font-size:12px;">Provider</label>
+                  <select x-model="judgeProvider" @change="onJudgeProviderChange()" class="ba-select" style="font-size:13px;">
                     <template x-for="p in llmProviders()" :key="p.name">
                       <option :value="p.name" x-text="p.display_name"></option>
                     </template>
@@ -1180,53 +1190,59 @@
                   </select>
                 </div>
                 <div>
-                  <label style="font-size:0.84rem;">Model</label>
-                  <select x-model="judgeModel" style="font-size:0.84rem;">
+                  <label style="font-size:12px;">Model</label>
+                  <select x-model="judgeModel" class="ba-select" style="font-size:13px;">
                     <template x-for="m in judgeProviderModels()" :key="m.id">
                       <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
                     </template>
                     <option value="">Custom…</option>
                   </select>
                   <template x-if="judgeModel === ''">
-                    <input type="text" x-model="judgeModelCustom" placeholder="Enter custom model ID" style="margin-top:4px;font-size:0.84rem;">
+                    <input type="text" x-model="judgeModelCustom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:13px;">
                   </template>
                 </div>
               </div>
-              <div>
-                <label style="font-size:0.84rem;">Rubric</label>
-                <textarea x-model="judgeRubric" rows="6" style="resize:vertical;font-size:0.83rem;font-family:inherit;" placeholder="Score the output on a scale of 0-10..."></textarea>
+              <div x-init="
+                const editor = new EasyMDE({
+                  element: $el.querySelector('textarea'),
+                  spellChecker: false,
+                  status: false,
+                  toolbar: ['bold', 'italic', 'heading', '|', 'unordered-list', 'ordered-list', '|', 'preview', 'guide']
+                });
+                editor.codemirror.on('change', () => { judgeRubric = editor.value(); });
+                $watch('judgeRubric', val => { if (editor.value() !== val) editor.value(val); });
+              ">
+                <label style="font-size:12px;">Rubric</label>
+                <textarea rows="6" class="ba-input" style="resize:vertical;font-size:13px;" placeholder="Score the output on a scale of 0-10..."></textarea>
               </div>
-              <div style="display:flex;gap:0.75rem;align-items:center;">
-                <button @click="saveJudge()" class="btn-primary" :disabled="judgeSaving" style="padding:5px 14px;font-size:0.83rem;">
-                  <span x-text="judgeSaving ? 'Saving...' : 'Save Judge'"></span>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button @click="saveJudge()" class="ba-btn ba-btn-secondary" :disabled="judgeSaving">
+                  <span x-text="judgeSaving ? 'Saving...' : 'Save'"></span>
                 </button>
                 <template x-if="judgeSaved">
-                  <span style="font-size:0.82rem;color:var(--gold);">Saved</span>
+                  <span style="font-size:12px;color:var(--ba-accent);">Saved</span>
                 </template>
                 <template x-if="judgeError">
-                  <span class="text-danger" style="font-size:0.82rem;" x-text="judgeError"></span>
+                  <span class="text-danger" style="font-size:12px;" x-text="judgeError"></span>
                 </template>
               </div>
             </div>
           </template>
-        </div>
-
-        <!-- Run Battle -->
-        <div style="display:flex;align-items:center;gap:1rem;"
-             @fighters-updated.window="fighterCount = $event.detail.count">
-          <button @click="runBattle()" class="btn-primary"
-            :disabled="running || sources.length === 0 || fighterCount === 0"
-            style="padding:10px 24px;font-size:0.92rem;">
-            <span x-text="running ? 'Starting...' : 'Run Battle'"></span>
-          </button>
-          <template x-if="sources.length === 0 || fighterCount === 0">
-            <span class="text-muted" style="font-size:0.84rem;"
-              x-text="sources.length === 0 && fighterCount === 0 ? 'Add at least 1 source and 1 fighter to run.' : sources.length === 0 ? 'Add at least 1 source to run.' : 'Add at least 1 fighter to run.'">
-            </span>
-          </template>
-          <template x-if="runError">
-            <p class="text-danger" style="margin:0;font-size:0.88rem;" x-text="runError"></p>
-          </template>
+          <!-- Run Battle row (always visible) -->
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;">
+            <button @click="runBattle()" class="ba-btn ba-btn-primary"
+              :disabled="running || sources.length === 0 || fighterCount === 0">
+              <span x-text="running ? 'Starting...' : 'Run Battle'"></span>
+            </button>
+            <template x-if="sources.length === 0 || fighterCount === 0">
+              <span style="font-size:12px;color:var(--ba-text-mid);"
+                x-text="sources.length === 0 && fighterCount === 0 ? 'Add at least 1 source and 1 fighter to run.' : sources.length === 0 ? 'Add at least 1 source to run.' : 'Add at least 1 fighter to run.'">
+              </span>
+            </template>
+            <template x-if="runError">
+              <p class="text-danger" style="margin:0;font-size:13px;" x-text="runError"></p>
+            </template>
+          </div>
         </div>
 
         </div><!-- end tab: setup -->
@@ -2317,7 +2333,7 @@ Do not wrap the JSON in markdown fences.`;
 
         async upload(event, battleId) {
           if (!battleId) return;
-          const files = Array.from(event.target.files || []);
+          const files = Array.from(event.target?.files || event.dataTransfer?.files || []);
           if (!files.length) return;
           this.uploading = true; this.error = null;
           for (const file of files) {
