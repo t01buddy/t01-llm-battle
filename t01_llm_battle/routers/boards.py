@@ -308,6 +308,19 @@ async def delete_topic(board_id: str, topic_id: str):
         await db.commit()
 
 
+# --- Board Runs ---
+
+class BoardRunOut(BaseModel):
+    id: str
+    board_id: str
+    status: str
+    items_fetched: int
+    items_processed: int
+    cost_usd: float | None
+    started_at: str
+    finished_at: str | None
+
+
 # --- Items sub-routes (FR-31) ---
 
 class BoardNewsItemOut(BaseModel):
@@ -326,12 +339,29 @@ class BoardNewsItemOut(BaseModel):
     created_at: str
 
 
-class ItemsPage(BaseModel):
+class BoardItemsPage(BaseModel):
     items: list[BoardNewsItemOut]
     total: int
     page: int
     page_size: int
     pages: int
+
+
+ItemsPage = BoardItemsPage  # backwards-compat alias
+
+
+def _row_to_run(row) -> BoardRunOut:
+    return BoardRunOut(
+        id=row["id"],
+        board_id=row["board_id"],
+        status=row["status"],
+        items_fetched=row["items_fetched"],
+        items_processed=row["items_processed"],
+        cost_usd=row["cost_usd"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+    )
+
 
 
 def _row_to_news_item(row) -> BoardNewsItemOut:
@@ -352,55 +382,66 @@ def _row_to_news_item(row) -> BoardNewsItemOut:
     )
 
 
-@router.get("/{board_id}/items/tags", response_model=list[str])
-async def list_item_tags(
-    board_id: str,
-    topic_id: str | None = Query(None),
-):
-    """Return unique tags for items in this board, optionally filtered by topic."""
-    await _get_board_or_404(board_id)
-    tag_filter: list[str] = []
-    if topic_id:
-        async with get_db() as db:
-            cur = await db.execute(
-                "SELECT tag_filter FROM board_topic WHERE id = ? AND board_id = ?",
-                (topic_id, board_id),
-            )
-            row = await cur.fetchone()
-        if row:
-            tag_filter = _json.loads(row["tag_filter"] or "[]")
+@router.post("/{board_id}/run", response_model=BoardRunOut, status_code=202)
+async def trigger_board_run(board_id: str):
+    """Manually trigger a board execution run."""
+    import asyncio
+    from ..board_engine import execute_board_run
+    row, _ = await _get_board_or_404(board_id)
+    # Fire and forget — run in background
+    asyncio.create_task(execute_board_run(board_id))
+    # Return a pending run record
+    from ..db import get_db as _get_db
+    async with _get_db() as db:
+        cur = await db.execute(
+            "SELECT * FROM board_run WHERE board_id = ? ORDER BY started_at DESC LIMIT 1",
+            (board_id,),
+        )
+        run_row = await cur.fetchone()
+    if run_row:
+        return _row_to_run(run_row)
+    # Run hasn't been created yet (race) — return minimal response
+    return BoardRunOut(
+        id="pending",
+        board_id=board_id,
+        status="pending",
+        items_fetched=0,
+        items_processed=0,
+        cost_usd=None,
+        started_at=datetime.now(timezone.utc).isoformat(),
+        finished_at=None,
+    )
 
+
+@router.get("/{board_id}/runs", response_model=list[BoardRunOut])
+async def list_board_runs(board_id: str):
+    await _get_board_or_404(board_id)
     async with get_db() as db:
         cur = await db.execute(
-            "SELECT tags FROM board_news_item WHERE board_id = ?", (board_id,)
+            "SELECT * FROM board_run WHERE board_id = ? ORDER BY started_at DESC LIMIT 20",
+            (board_id,),
         )
         rows = await cur.fetchall()
-
-    all_tags: set[str] = set()
-    for row in rows:
-        item_tags = _json.loads(row["tags"] or "[]")
-        if tag_filter and not any(t in item_tags for t in tag_filter):
-            continue
-        all_tags.update(item_tags)
-
-    return sorted(all_tags)
+    return [_row_to_run(r) for r in rows]
 
 
-@router.get("/{board_id}/items", response_model=ItemsPage)
-async def list_board_items(
-    board_id: str,
-    topic_id: str | None = Query(None),
-    tags: list[str] = Query(default=[]),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-):
-    """Paginated board news items, sorted by relevance_score descending.
-
-    - topic_id: filter to items matching the topic's tag_filter rules
-    - tags: additional tag filter chips (AND with topic filter)
-    """
+@router.get("/{board_id}/runs/{run_id}", response_model=BoardRunOut)
+async def get_board_run(board_id: str, run_id: str):
     await _get_board_or_404(board_id)
+    async with get_db() as db:
+        cur = await db.execute(
+            "SELECT * FROM board_run WHERE id = ? AND board_id = ?", (run_id, board_id)
+        )
+        row = await cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+    return _row_to_run(row)
 
+
+@router.get("/{board_id}/items/tags", response_model=list[str])
+async def list_board_item_tags(board_id: str, topic_id: str | None = None):
+    """Return unique tags across all items in this board, optionally filtered by topic."""
+    await _get_board_or_404(board_id)
     topic_tag_filter: list[str] = []
     if topic_id:
         async with get_db() as db:
@@ -411,31 +452,73 @@ async def list_board_items(
             row = await cur.fetchone()
         if row:
             topic_tag_filter = _json.loads(row["tag_filter"] or "[]")
-
     async with get_db() as db:
         cur = await db.execute(
-            "SELECT * FROM board_news_item WHERE board_id = ? ORDER BY relevance_score DESC",
-            (board_id,),
+            "SELECT tags FROM board_news_item WHERE board_id = ?", (board_id,)
         )
-        all_rows = await cur.fetchall()
-
-    # Filter in Python: SQLite JSON support is limited
-    filtered = []
-    for row in all_rows:
+        rows = await cur.fetchall()
+    seen: set[str] = set()
+    for row in rows:
         item_tags = _json.loads(row["tags"] or "[]")
         if topic_tag_filter and not any(t in item_tags for t in topic_tag_filter):
             continue
-        if tags and not any(t in item_tags for t in tags):
-            continue
-        filtered.append(row)
+        for tag in item_tags:
+            seen.add(tag)
+    return sorted(seen)
 
-    total = len(filtered)
+
+@router.get("/{board_id}/items", response_model=BoardItemsPage)
+async def list_board_items(
+    board_id: str,
+    topic_id: str | None = None,
+    tags: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    """List news items for a board, optionally filtered by topic or tags."""
+    await _get_board_or_404(board_id)
+    tag_list = [t.strip() for t in tags.split(",")] if tags else []
+
+    async with get_db() as db:
+        # Build WHERE clause
+        wheres = ["board_id = ?"]
+        params: list = [board_id]
+
+        if topic_id:
+            cur = await db.execute(
+                "SELECT tag_filter FROM board_topic WHERE id = ? AND board_id = ?",
+                (topic_id, board_id),
+            )
+            trow = await cur.fetchone()
+            if trow:
+                topic_tags = _json.loads(trow["tag_filter"] or "[]")
+                if topic_tags:
+                    tag_conditions = " OR ".join(["tags LIKE ?" for _ in topic_tags])
+                    wheres.append(f"({tag_conditions})")
+                    params.extend([f'%"{t}"%' for t in topic_tags])
+
+        if tag_list:
+            tag_conditions = " OR ".join(["tags LIKE ?" for _ in tag_list])
+            wheres.append(f"({tag_conditions})")
+            params.extend([f'%"{t}"%' for t in tag_list])
+
+        where_sql = " AND ".join(wheres)
+
+        # Count
+        cur = await db.execute(f"SELECT COUNT(*) FROM board_news_item WHERE {where_sql}", params)
+        total = (await cur.fetchone())[0]
+
+        # Page
+        offset = (page - 1) * page_size
+        cur = await db.execute(
+            f"SELECT * FROM board_news_item WHERE {where_sql} ORDER BY relevance_score DESC LIMIT ? OFFSET ?",
+            params + [page_size, offset],
+        )
+        rows = await cur.fetchall()
+
     pages = max(1, (total + page_size - 1) // page_size)
-    offset = (page - 1) * page_size
-    page_rows = filtered[offset: offset + page_size]
-
-    return ItemsPage(
-        items=[_row_to_news_item(r) for r in page_rows],
+    return BoardItemsPage(
+        items=[_row_to_news_item(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,

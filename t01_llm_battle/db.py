@@ -178,18 +178,18 @@ CREATE TABLE IF NOT EXISTS board_news_item (
     board_id        TEXT NOT NULL REFERENCES board(id),
     title           TEXT NOT NULL,
     summary         TEXT NOT NULL DEFAULT '',
-    source_url      TEXT NOT NULL DEFAULT '',
+    source_url      TEXT NOT NULL,
     source_name     TEXT NOT NULL DEFAULT '',
     fighter_name    TEXT NOT NULL DEFAULT '',
     category        TEXT NOT NULL DEFAULT '',
     tags            TEXT NOT NULL DEFAULT '[]',
-    relevance_score REAL NOT NULL DEFAULT 0,
+    relevance_score REAL NOT NULL DEFAULT 5.0,
     published_at    TEXT,
     created_at      TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS board_seen_item (
-    board_id     TEXT NOT NULL REFERENCES board(id),
+    board_id     TEXT NOT NULL,
     item_hash    TEXT NOT NULL,
     first_seen_at TEXT NOT NULL,
     PRIMARY KEY (board_id, item_hash)
