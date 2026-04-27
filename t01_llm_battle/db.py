@@ -160,6 +160,40 @@ CREATE TABLE IF NOT EXISTS board_topic (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS board_run (
+    id              TEXT PRIMARY KEY,
+    board_id        TEXT NOT NULL REFERENCES board(id),
+    status          TEXT NOT NULL DEFAULT 'pending',
+    items_fetched   INTEGER NOT NULL DEFAULT 0,
+    items_processed INTEGER NOT NULL DEFAULT 0,
+    cost_usd        REAL,
+    started_at      TEXT NOT NULL,
+    finished_at     TEXT
+);
+
+CREATE TABLE IF NOT EXISTS board_news_item (
+    id              TEXT PRIMARY KEY,
+    run_id          TEXT NOT NULL REFERENCES board_run(id),
+    board_id        TEXT NOT NULL REFERENCES board(id),
+    title           TEXT NOT NULL,
+    summary         TEXT NOT NULL DEFAULT '',
+    source_url      TEXT NOT NULL DEFAULT '',
+    source_name     TEXT NOT NULL DEFAULT '',
+    fighter_name    TEXT NOT NULL DEFAULT '',
+    category        TEXT NOT NULL DEFAULT '',
+    tags            TEXT NOT NULL DEFAULT '[]',
+    relevance_score REAL NOT NULL DEFAULT 0,
+    published_at    TEXT,
+    created_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS board_seen_item (
+    board_id     TEXT NOT NULL REFERENCES board(id),
+    item_hash    TEXT NOT NULL,
+    first_seen_at TEXT NOT NULL,
+    PRIMARY KEY (board_id, item_hash)
+);
 """
 
 # Migrations for existing DBs

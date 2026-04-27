@@ -1,4 +1,4 @@
-"""Boards router — Board CRUD with nested topic management (FR-24, FR-25, FR-26).
+"""Boards router — Board CRUD with nested topic management and items (FR-24, FR-25, FR-26, FR-31).
 
 GET    /boards                              — list all boards
 POST   /boards                             — create a board
@@ -9,6 +9,8 @@ GET    /boards/{id}/topics                 — list topics
 POST   /boards/{id}/topics                 — create topic
 PUT    /boards/{id}/topics/{topic_id}      — update topic
 DELETE /boards/{id}/topics/{topic_id}      — delete topic
+GET    /boards/{id}/items                  — paginated items, filterable by topic/tags
+GET    /boards/{id}/items/tags             — unique tags within a topic
 """
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from ..db import get_db
@@ -304,3 +306,138 @@ async def delete_topic(board_id: str, topic_id: str):
             raise HTTPException(status_code=404, detail="Topic not found")
         await db.execute("DELETE FROM board_topic WHERE id = ?", (topic_id,))
         await db.commit()
+
+
+# --- Items sub-routes (FR-31) ---
+
+class BoardNewsItemOut(BaseModel):
+    id: str
+    run_id: str
+    board_id: str
+    title: str
+    summary: str
+    source_url: str
+    source_name: str
+    fighter_name: str
+    category: str
+    tags: list[str]
+    relevance_score: float
+    published_at: str | None
+    created_at: str
+
+
+class ItemsPage(BaseModel):
+    items: list[BoardNewsItemOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
+def _row_to_news_item(row) -> BoardNewsItemOut:
+    return BoardNewsItemOut(
+        id=row["id"],
+        run_id=row["run_id"],
+        board_id=row["board_id"],
+        title=row["title"],
+        summary=row["summary"],
+        source_url=row["source_url"],
+        source_name=row["source_name"],
+        fighter_name=row["fighter_name"],
+        category=row["category"],
+        tags=_json.loads(row["tags"] or "[]"),
+        relevance_score=row["relevance_score"],
+        published_at=row["published_at"],
+        created_at=row["created_at"],
+    )
+
+
+@router.get("/{board_id}/items/tags", response_model=list[str])
+async def list_item_tags(
+    board_id: str,
+    topic_id: str | None = Query(None),
+):
+    """Return unique tags for items in this board, optionally filtered by topic."""
+    await _get_board_or_404(board_id)
+    tag_filter: list[str] = []
+    if topic_id:
+        async with get_db() as db:
+            cur = await db.execute(
+                "SELECT tag_filter FROM board_topic WHERE id = ? AND board_id = ?",
+                (topic_id, board_id),
+            )
+            row = await cur.fetchone()
+        if row:
+            tag_filter = _json.loads(row["tag_filter"] or "[]")
+
+    async with get_db() as db:
+        cur = await db.execute(
+            "SELECT tags FROM board_news_item WHERE board_id = ?", (board_id,)
+        )
+        rows = await cur.fetchall()
+
+    all_tags: set[str] = set()
+    for row in rows:
+        item_tags = _json.loads(row["tags"] or "[]")
+        if tag_filter and not any(t in item_tags for t in tag_filter):
+            continue
+        all_tags.update(item_tags)
+
+    return sorted(all_tags)
+
+
+@router.get("/{board_id}/items", response_model=ItemsPage)
+async def list_board_items(
+    board_id: str,
+    topic_id: str | None = Query(None),
+    tags: list[str] = Query(default=[]),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    """Paginated board news items, sorted by relevance_score descending.
+
+    - topic_id: filter to items matching the topic's tag_filter rules
+    - tags: additional tag filter chips (AND with topic filter)
+    """
+    await _get_board_or_404(board_id)
+
+    topic_tag_filter: list[str] = []
+    if topic_id:
+        async with get_db() as db:
+            cur = await db.execute(
+                "SELECT tag_filter FROM board_topic WHERE id = ? AND board_id = ?",
+                (topic_id, board_id),
+            )
+            row = await cur.fetchone()
+        if row:
+            topic_tag_filter = _json.loads(row["tag_filter"] or "[]")
+
+    async with get_db() as db:
+        cur = await db.execute(
+            "SELECT * FROM board_news_item WHERE board_id = ? ORDER BY relevance_score DESC",
+            (board_id,),
+        )
+        all_rows = await cur.fetchall()
+
+    # Filter in Python: SQLite JSON support is limited
+    filtered = []
+    for row in all_rows:
+        item_tags = _json.loads(row["tags"] or "[]")
+        if topic_tag_filter and not any(t in item_tags for t in topic_tag_filter):
+            continue
+        if tags and not any(t in item_tags for t in tags):
+            continue
+        filtered.append(row)
+
+    total = len(filtered)
+    pages = max(1, (total + page_size - 1) // page_size)
+    offset = (page - 1) * page_size
+    page_rows = filtered[offset: offset + page_size]
+
+    return ItemsPage(
+        items=[_row_to_news_item(r) for r in page_rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
