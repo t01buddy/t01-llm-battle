@@ -129,6 +129,37 @@ CREATE TABLE IF NOT EXISTS news_fighter (
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS board (
+    id                    TEXT PRIMARY KEY,
+    name                  TEXT NOT NULL,
+    description           TEXT NOT NULL DEFAULT '',
+    source_filter         TEXT NOT NULL DEFAULT '[]',
+    fighter_ids           TEXT NOT NULL DEFAULT '[]',
+    normalizer_provider   TEXT,
+    normalizer_model      TEXT,
+    normalizer_instructions TEXT,
+    schedule_cron         TEXT,
+    max_news_per_run      INTEGER NOT NULL DEFAULT 20,
+    max_history           INTEGER NOT NULL DEFAULT 100,
+    is_active             INTEGER NOT NULL DEFAULT 1,
+    is_system             INTEGER NOT NULL DEFAULT 0,
+    template_id           TEXT,
+    publish_config        TEXT NOT NULL DEFAULT '{}',
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS board_topic (
+    id          TEXT PRIMARY KEY,
+    board_id    TEXT NOT NULL REFERENCES board(id),
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    tag_filter  TEXT NOT NULL DEFAULT '[]',
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
 """
 
 # Migrations for existing DBs
@@ -171,6 +202,7 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
 
     await _seed_system_news_sources(db_path)
     await _seed_system_news_fighters(db_path)
+    await _seed_system_board(db_path)
     await _migrate_plaintext_keys(db_path)
 
 
@@ -313,6 +345,45 @@ async def _seed_system_news_fighters(db_path: str | Path = DB_PATH) -> None:
                 (nf["id"], nf["fighter_id"], nf["name"], nf["priority"], now, now),
             )
 
+        await db.commit()
+
+
+_SYS_BOARD_ID = "sys-board-tech-news-daily"
+
+_SYSTEM_BOARD_TOPICS = [
+    {"id": "sys-topic-ai-ml", "name": "AI & ML", "description": "Artificial intelligence and machine learning news", "tag_filter": '["ai", "ml", "research"]', "position": 0},
+    {"id": "sys-topic-startups", "name": "Startups & VC", "description": "Startup ecosystem and venture capital", "tag_filter": '["startups", "vc"]', "position": 1},
+    {"id": "sys-topic-open-source", "name": "Open Source", "description": "Open source projects and community", "tag_filter": '["code", "opensource"]', "position": 2},
+]
+
+
+async def _seed_system_board(db_path: str | Path = DB_PATH) -> None:
+    """Insert the system board 'Tech News Daily' with 3 default topics if not present."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with get_db(db_path) as db:
+        cur = await db.execute("SELECT id FROM board WHERE id = ?", (_SYS_BOARD_ID,))
+        if await cur.fetchone() is None:
+            await db.execute(
+                """INSERT INTO board (id, name, description, source_filter, fighter_ids,
+                   normalizer_provider, normalizer_model, normalizer_instructions,
+                   schedule_cron, max_news_per_run, max_history, is_active, is_system,
+                   template_id, publish_config, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, '0 8 * * *', 20, 100, 1, 1, NULL, '{}', ?, ?)""",
+                (_SYS_BOARD_ID, "Tech News Daily",
+                 "Daily digest of tech, AI, and startup news",
+                 '["tech", "ai", "startups"]', '[]', now, now),
+            )
+        for topic in _SYSTEM_BOARD_TOPICS:
+            cur = await db.execute("SELECT id FROM board_topic WHERE id = ?", (topic["id"],))
+            if await cur.fetchone() is None:
+                await db.execute(
+                    """INSERT INTO board_topic (id, board_id, name, description, tag_filter, position, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (topic["id"], _SYS_BOARD_ID, topic["name"], topic["description"],
+                     topic["tag_filter"], topic["position"], now, now),
+                )
         await db.commit()
 
 

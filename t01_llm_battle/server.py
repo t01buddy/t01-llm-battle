@@ -17,6 +17,7 @@ from .routers.providers import router as provider_mgmt_router
 from .routers.templates import router as templates_router
 from .routers.news_sources import router as news_sources_router
 from .routers.news_fighters import router as news_fighters_router
+from .routers.boards import router as boards_router
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ def create_app(db_path=DB_PATH) -> FastAPI:
     app.include_router(templates_router)
     app.include_router(news_sources_router)
     app.include_router(news_fighters_router)
+    app.include_router(boards_router)
 
     # Health check
     @app.get("/healthz")
