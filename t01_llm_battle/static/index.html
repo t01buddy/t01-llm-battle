@@ -2131,6 +2131,7 @@ Do not wrap the JSON in markdown fences.`;
         },
 
         async fetchStatus() {
+          if (!this.runId) return;
           try {
             const resp = await fetch('/runs/' + this.runId + '/status');
             if (!resp.ok) throw new Error(await resp.text());
