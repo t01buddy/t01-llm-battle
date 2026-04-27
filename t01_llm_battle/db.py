@@ -118,6 +118,17 @@ CREATE TABLE IF NOT EXISTS news_source (
     created_at       TEXT NOT NULL,
     updated_at       TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS news_fighter (
+    id                  TEXT PRIMARY KEY,
+    fighter_id          TEXT NOT NULL REFERENCES fighter(id),
+    name                TEXT NOT NULL,
+    fallback_fighter_id TEXT REFERENCES news_fighter(id),
+    priority            INTEGER NOT NULL DEFAULT 5,
+    is_system           INTEGER NOT NULL DEFAULT 0,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+);
 """
 
 # Migrations for existing DBs
@@ -159,6 +170,7 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
                 pass  # migration already applied
 
     await _seed_system_news_sources(db_path)
+    await _seed_system_news_fighters(db_path)
     await _migrate_plaintext_keys(db_path)
 
 
@@ -224,6 +236,83 @@ async def _seed_system_news_sources(db_path: str | Path = DB_PATH) -> None:
                      src["tags"], src["priority"], src["max_items"],
                      src["fighter_affinity"], now, now),
                 )
+        await db.commit()
+
+
+# System news fighters: each needs a dummy battle + fighter + step, then a news_fighter row.
+_SYSTEM_NEWS_FIGHTERS = [
+    {
+        "id": "sys-nf-general-summarizer",
+        "fighter_id": "sys-nf-fighter-general-summarizer",
+        "name": "General Summarizer",
+        "priority": 8,
+        "system_prompt": "Summarize the following news article in 3 bullet points.",
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+    },
+    {
+        "id": "sys-nf-tech-deep-dive",
+        "fighter_id": "sys-nf-fighter-tech-deep-dive",
+        "name": "Tech Deep Dive",
+        "priority": 7,
+        "system_prompt": "Analyze the technical aspects of this article. What are the key innovations and implications?",
+        "provider": "openai",
+        "model_id": "gpt-4o",
+    },
+    {
+        "id": "sys-nf-youtube-analyzer",
+        "fighter_id": "sys-nf-fighter-youtube-analyzer",
+        "name": "YouTube Analyzer",
+        "priority": 6,
+        "system_prompt": "Summarize this YouTube video content, focusing on key takeaways and actionable insights.",
+        "provider": "openai",
+        "model_id": "gpt-4o-mini",
+    },
+]
+
+_SYS_BATTLE_ID = "sys-news-fighters-battle"
+
+
+async def _seed_system_news_fighters(db_path: str | Path = DB_PATH) -> None:
+    """Insert system news fighters (and their battle/fighter/step rows) if not present."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with get_db(db_path) as db:
+        # Ensure system battle exists (no FK enforcement during seeding)
+        cur = await db.execute("SELECT id FROM battle WHERE id = ?", (_SYS_BATTLE_ID,))
+        if await cur.fetchone() is None:
+            await db.execute(
+                "INSERT INTO battle (id, name, created_at) VALUES (?, ?, ?)",
+                (_SYS_BATTLE_ID, "System News Fighters", now),
+            )
+
+        for nf in _SYSTEM_NEWS_FIGHTERS:
+            # Skip if news_fighter already seeded
+            cur = await db.execute("SELECT id FROM news_fighter WHERE id = ?", (nf["id"],))
+            if await cur.fetchone() is not None:
+                continue
+
+            # Create fighter row
+            cur = await db.execute("SELECT id FROM fighter WHERE id = ?", (nf["fighter_id"],))
+            if await cur.fetchone() is None:
+                await db.execute(
+                    "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) VALUES (?, ?, ?, 0, 0, ?)",
+                    (nf["fighter_id"], _SYS_BATTLE_ID, nf["name"], now),
+                )
+                step_id = "sys-nf-step-" + nf["id"]
+                await db.execute(
+                    """INSERT INTO fighter_step (id, fighter_id, position, system_prompt, provider, model_id, provider_config, created_at)
+                       VALUES (?, ?, 0, ?, ?, ?, '{}', ?)""",
+                    (step_id, nf["fighter_id"], nf["system_prompt"], nf["provider"], nf["model_id"], now),
+                )
+
+            await db.execute(
+                """INSERT INTO news_fighter (id, fighter_id, name, fallback_fighter_id, priority, is_system, created_at, updated_at)
+                   VALUES (?, ?, ?, NULL, ?, 1, ?, ?)""",
+                (nf["id"], nf["fighter_id"], nf["name"], nf["priority"], now, now),
+            )
+
         await db.commit()
 
 
