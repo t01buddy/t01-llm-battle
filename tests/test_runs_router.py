@@ -218,3 +218,59 @@ async def test_manual_submit_non_awaiting_input_returns_400(client, db_path):
         json={"content": "too late"},
     )
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_not_found(client):
+    """POST /runs/<nonexistent>/cancel should return 404."""
+    resp = await client.post(f"/runs/{uuid.uuid4()}/cancel")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_pending(client, db_path):
+    """Cancel a pending run → status becomes 'cancelled'."""
+    battle_id = str(uuid.uuid4())
+    run_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with get_db(db_path) as db:
+        await db.execute(
+            "INSERT INTO battle (id, name, judge_provider, judge_model, judge_rubric, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (battle_id, "Cancel Battle", None, None, None, now),
+        )
+        await db.execute(
+            "INSERT INTO run (id, battle_id, status, started_at) VALUES (?, ?, ?, ?)",
+            (run_id, battle_id, "pending", now),
+        )
+        await db.commit()
+
+    resp = await client.post(f"/runs/{run_id}/cancel")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["run_id"] == run_id
+    assert data["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_cancel_run_already_complete(client, db_path):
+    """Cancel a completed run → 400."""
+    battle_id = str(uuid.uuid4())
+    run_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with get_db(db_path) as db:
+        await db.execute(
+            "INSERT INTO battle (id, name, judge_provider, judge_model, judge_rubric, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (battle_id, "Done Battle", None, None, None, now),
+        )
+        await db.execute(
+            "INSERT INTO run (id, battle_id, status, started_at) VALUES (?, ?, ?, ?)",
+            (run_id, battle_id, "complete", now),
+        )
+        await db.commit()
+
+    resp = await client.post(f"/runs/{run_id}/cancel")
+    assert resp.status_code == 400
