@@ -291,6 +291,63 @@
     }
     .banner-warning .btn-warning:hover { background: #d97706; }
 
+    /* ── Providers Modal ─────────────────────────── */
+    .providers-modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .providers-modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: min(640px, 96vw);
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .providers-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.25rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .providers-modal-title { font-size: 1rem; font-weight: 700; color: var(--high); margin: 0; }
+    .providers-modal-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--mid); font-size: 1.2rem; padding: 2px 6px; border-radius: 4px;
+    }
+    .providers-modal-close:hover { background: var(--border); color: var(--high); }
+    .providers-modal-body {
+      padding: 1rem 1.25rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .prov-section-title {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--mid); margin: 0 0 0.5rem;
+    }
+    .prov-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 0.4rem;
+      background: var(--ink);
+    }
+    .prov-row-name { font-size: 0.88rem; font-weight: 600; color: var(--high); flex: 1; }
+    .prov-row-status { font-size: 0.75rem; color: var(--mid); min-width: 60px; }
+    .prov-row-status.has-key { color: var(--success); }
+    .prov-edit-form {
+      padding: 0.75rem 0.75rem 0.5rem;
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      background: var(--ink);
+      margin-top: -0.4rem;
+      margin-bottom: 0.4rem;
+    }
+
     /* ── Main content ─────────────────────────────── */
     .main-content {
       flex: 1;
@@ -497,7 +554,7 @@
       <div style="padding:0.5rem 0.5rem 0;">
         <div class="sidebar-section-header" style="margin-bottom:0;">
           <span class="sidebar-section-title">Providers</span>
-          <button class="btn-sidebar-new" @click="window.location.hash = '#/keys'">Manage</button>
+          <button class="btn-sidebar-new" @click="$dispatch('open-providers-modal')">Manage</button>
         </div>
         <div class="sidebar-section-header" style="margin-bottom:0;margin-top:0.4rem;">
           <span class="sidebar-section-title">News Sources</span>
@@ -547,7 +604,7 @@
       <!-- No API keys warning -->
       <div class="banner-warning" x-show="!hasActiveProvider">
         <span>⚠ No API keys configured. Battles require at least one active provider.</span>
-        <button class="btn-warning" @click="navigate('/keys')">Configure API Keys →</button>
+        <button class="btn-warning" @click="$dispatch('open-providers-modal')">Configure API Keys →</button>
       </div>
 
       <!-- Empty state when no battle selected -->
@@ -2395,6 +2452,243 @@ Do not wrap the JSON in markdown fences.`;
         },
       };
     }
+    // ── Providers Modal ───────────────────────────────────────
+    function providersModal() {
+      return {
+        open: false,
+        keys: [], providerInfoList: [], loading: false, error: null,
+        inputs: {}, displayNames: {}, baseUrls: {}, saved: {}, saveErrors: {},
+        pricingRefreshing: false, pricingCacheLabel: '',
+        expandedProvider: null,
+
+        init() {
+          window.addEventListener('open-providers-modal', () => { this.open = true; this.load(); });
+          window.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.open = false; });
+        },
+
+        async load() {
+          this.loading = true; this.error = null;
+          try {
+            const [keysResp, infoResp, pricingResp] = await Promise.all([
+              fetch('/keys'), fetch('/providers'), fetch('/providers/pricing')
+            ]);
+            if (!keysResp.ok) throw new Error(await keysResp.text());
+            this.keys = await keysResp.json();
+            if (pricingResp.ok) {
+              const pc = await pricingResp.json();
+              this.pricingCacheLabel = pc ? `Updated ${pc.age_days}d ago` : 'Using bundled defaults';
+            }
+            if (infoResp.ok) this.providerInfoList = await infoResp.json();
+            this.keys.forEach(k => {
+              if (this.inputs[k.provider] === undefined) this.inputs[k.provider] = '';
+              if (this.displayNames[k.provider] === undefined) this.displayNames[k.provider] = '';
+              if (this.baseUrls[k.provider] === undefined) this.baseUrls[k.provider] = '';
+            });
+          } catch(e) { this.error = e.message; }
+          finally { this.loading = false; }
+        },
+
+        getProviderType(provider) {
+          const info = this.providerInfoList.find(p => p.name === provider);
+          return info ? info.provider_type : 'llm';
+        },
+
+        llmKeys() { return this.keys.filter(k => this.getProviderType(k.provider) === 'llm'); },
+        toolKeys() { return this.keys.filter(k => this.getProviderType(k.provider) === 'tool'); },
+
+        keyStatus(k) {
+          if (k.source === 'env') return 'env var';
+          if (k.source === 'db') return 'key set';
+          if (k.provider === 'ollama') return 'local';
+          return 'no key';
+        },
+
+        hasKey(k) { return k.source === 'env' || k.source === 'db' || k.provider === 'ollama'; },
+
+        showBaseUrl(provider) { return ['ollama', 'llm-studio'].includes(provider); },
+
+        getUrlPlaceholder(provider) {
+          if (provider === 'ollama') return 'e.g. http://localhost:11434';
+          if (provider === 'llm-studio') return 'e.g. http://localhost:8000';
+          return 'Server URL…';
+        },
+
+        async refreshPricing() {
+          this.pricingRefreshing = true;
+          try {
+            const resp = await fetch('/providers/pricing/refresh', { method: 'POST' });
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            this.pricingCacheLabel = `Updated just now (${data.models_updated} models)`;
+          } catch(e) { this.pricingCacheLabel = 'Refresh failed'; }
+          finally { this.pricingRefreshing = false; }
+        },
+
+        toggleEdit(provider) {
+          this.expandedProvider = this.expandedProvider === provider ? null : provider;
+        },
+
+        async save(provider) {
+          const val = (this.inputs[provider] || '').trim();
+          if (!val) { this.saveErrors[provider] = 'Please enter a key.'; return; }
+          delete this.saveErrors[provider];
+          try {
+            const body = { key: val };
+            if (this.displayNames[provider]) body.display_name = this.displayNames[provider];
+            if (this.baseUrls[provider]) body.base_url = this.baseUrls[provider];
+            const resp = await fetch('/keys/' + provider, {
+              method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            this.inputs[provider] = ''; this.saved[provider] = true;
+            setTimeout(() => { delete this.saved[provider]; }, 3000);
+            this.expandedProvider = null;
+            await this.load();
+            window.dispatchEvent(new CustomEvent('provider-updated'));
+          } catch(e) { this.saveErrors[provider] = e.message; }
+        },
+
+        async remove(provider) {
+          delete this.saved[provider]; delete this.saveErrors[provider];
+          try {
+            const resp = await fetch('/keys/' + provider, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(await resp.text());
+            await this.load();
+            window.dispatchEvent(new CustomEvent('provider-updated'));
+          } catch(e) { this.saveErrors[provider] = e.message; }
+        }
+      };
+    }
   </script>
+
+  <!-- Providers Modal -->
+  <div x-data="providersModal()" x-init="init()" style="display:contents;">
+    <div class="providers-modal-backdrop" x-show="open" style="display:none;"
+         @click.self="open = false">
+      <div class="providers-modal" @click.stop>
+        <div class="providers-modal-header">
+          <p class="providers-modal-title">Providers</p>
+          <button class="providers-modal-close" @click="open = false" aria-label="Close">✕</button>
+        </div>
+        <div class="providers-modal-body">
+          <template x-if="loading">
+            <p class="text-muted" style="font-size:0.85rem;">Loading...</p>
+          </template>
+          <template x-if="error && !loading">
+            <div class="error-box" x-text="error"></div>
+          </template>
+          <template x-if="!loading">
+            <div>
+              <!-- LLM Providers -->
+              <template x-if="llmKeys().length > 0">
+                <div style="margin-bottom:1.25rem;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                    <p class="prov-section-title">LLM Providers</p>
+                    <div style="display:flex;align-items:center;gap:0.5rem;">
+                      <span style="font-size:0.72rem;color:var(--mid);" x-text="pricingCacheLabel"></span>
+                      <button class="btn-secondary" style="padding:2px 8px;font-size:0.75rem;"
+                              :disabled="pricingRefreshing" @click="refreshPricing()">
+                        <span x-show="!pricingRefreshing">Refresh Pricing</span>
+                        <span x-show="pricingRefreshing">Refreshing…</span>
+                      </button>
+                    </div>
+                  </div>
+                  <template x-for="k in llmKeys()" :key="k.provider">
+                    <div>
+                      <div class="prov-row">
+                        <span class="prov-row-name" x-text="k.display_name || k.provider"></span>
+                        <span class="prov-row-status" :class="{ 'has-key': hasKey(k) }"
+                              x-text="keyStatus(k)"></span>
+                        <template x-if="k.source === 'db'">
+                          <button class="btn-danger-sm" @click="remove(k.provider)">Remove</button>
+                        </template>
+                        <button class="btn-secondary" style="padding:2px 8px;font-size:0.78rem;"
+                                @click="toggleEdit(k.provider)"
+                                x-text="expandedProvider === k.provider ? 'Cancel' : 'Edit'"></button>
+                      </div>
+                      <template x-if="saveErrors[k.provider]">
+                        <p class="text-danger" style="font-size:0.8rem;margin:0 0 0.3rem;" x-text="saveErrors[k.provider]"></p>
+                      </template>
+                      <template x-if="saved[k.provider]">
+                        <p style="color:var(--success);font-size:0.8rem;margin:0 0 0.3rem;">Saved.</p>
+                      </template>
+                      <template x-if="expandedProvider === k.provider && k.source !== 'env'">
+                        <div class="prov-edit-form">
+                          <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                            <div>
+                              <label style="font-size:0.8rem;color:var(--mid);display:block;margin-bottom:2px;">Display Name (optional)</label>
+                              <input type="text" x-model="displayNames[k.provider]" style="width:100%;font-size:0.84rem;" placeholder="e.g. My OpenAI">
+                            </div>
+                            <div>
+                              <label style="font-size:0.8rem;color:var(--mid);display:block;margin-bottom:2px;">API Key</label>
+                              <input type="password" x-model="inputs[k.provider]" style="width:100%;font-size:0.84rem;font-family:monospace;"
+                                     :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'">
+                            </div>
+                            <template x-if="showBaseUrl(k.provider)">
+                              <div>
+                                <label style="font-size:0.8rem;color:var(--mid);display:block;margin-bottom:2px;">Server URL (optional)</label>
+                                <input type="text" x-model="baseUrls[k.provider]" style="width:100%;font-size:0.84rem;"
+                                       :placeholder="getUrlPlaceholder(k.provider)">
+                              </div>
+                            </template>
+                            <button class="btn-primary" style="align-self:flex-start;padding:4px 14px;font-size:0.83rem;"
+                                    @click="save(k.provider)">Save</button>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <!-- Tool Providers -->
+              <template x-if="toolKeys().length > 0">
+                <div>
+                  <p class="prov-section-title">Tool Providers</p>
+                  <template x-for="k in toolKeys()" :key="k.provider">
+                    <div>
+                      <div class="prov-row">
+                        <span class="prov-row-name" x-text="k.display_name || k.provider"></span>
+                        <span class="prov-row-status" :class="{ 'has-key': hasKey(k) }"
+                              x-text="keyStatus(k)"></span>
+                        <template x-if="k.source === 'db'">
+                          <button class="btn-danger-sm" @click="remove(k.provider)">Remove</button>
+                        </template>
+                        <button class="btn-secondary" style="padding:2px 8px;font-size:0.78rem;"
+                                @click="toggleEdit(k.provider)"
+                                x-text="expandedProvider === k.provider ? 'Cancel' : 'Edit'"></button>
+                      </div>
+                      <template x-if="saveErrors[k.provider]">
+                        <p class="text-danger" style="font-size:0.8rem;margin:0 0 0.3rem;" x-text="saveErrors[k.provider]"></p>
+                      </template>
+                      <template x-if="saved[k.provider]">
+                        <p style="color:var(--success);font-size:0.8rem;margin:0 0 0.3rem;">Saved.</p>
+                      </template>
+                      <template x-if="expandedProvider === k.provider">
+                        <div class="prov-edit-form">
+                          <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                            <div>
+                              <label style="font-size:0.8rem;color:var(--mid);display:block;margin-bottom:2px;">Display Name (optional)</label>
+                              <input type="text" x-model="displayNames[k.provider]" style="width:100%;font-size:0.84rem;" placeholder="e.g. My Serper">
+                            </div>
+                            <div>
+                              <label style="font-size:0.8rem;color:var(--mid);display:block;margin-bottom:2px;">API Key</label>
+                              <input type="password" x-model="inputs[k.provider]" style="width:100%;font-size:0.84rem;font-family:monospace;"
+                                     :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'">
+                            </div>
+                            <button class="btn-primary" style="align-self:flex-start;padding:4px 14px;font-size:0.83rem;"
+                                    @click="save(k.provider)">Save</button>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
