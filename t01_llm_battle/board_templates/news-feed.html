@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title x-text="board ? board.name : 'News Feed'">News Feed</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #fff; color: #222; max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1.25rem; }
+    .item { border-bottom: 1px solid #e5e7eb; padding: .9rem 0; }
+    .item:last-child { border-bottom: none; }
+    .item-title { font-size: 1rem; font-weight: 600; }
+    .item-title a { text-decoration: none; color: #1a56db; }
+    .item-title a:hover { text-decoration: underline; }
+    .meta { font-size: .75rem; color: #888; margin: .25rem 0; }
+    .summary { font-size: .875rem; color: #444; line-height: 1.55; overflow: hidden; }
+    .summary.expanded { max-height: none; }
+    .toggle { font-size: .75rem; color: #1a56db; cursor: pointer; margin-top: .25rem; display: inline-block; }
+    .tag { font-size: .7rem; background: #f0f0f0; border-radius: 3px; padding: .1rem .4rem; margin-right: .25rem; }
+    .empty { text-align: center; color: #888; margin-top: 3rem; }
+  </style>
+</head>
+<body x-data="feedApp()" x-init="init()">
+  <h1 x-text="board ? board.name : 'News Feed'">Loading…</h1>
+  <template x-if="items.length === 0 && !loading">
+    <p class="empty">No items yet — run the board to populate it.</p>
+  </template>
+  <template x-for="item in items" :key="item.url">
+    <div class="item">
+      <p class="item-title"><a :href="item.url" target="_blank" rel="noopener" x-text="item.title"></a></p>
+      <p class="meta">
+        <span x-text="item.source || ''" x-show="item.source"></span>
+        <span x-show="item.source && item.published_at"> · </span>
+        <span x-text="item.published_at ? new Date(item.published_at).toLocaleDateString() : ''" x-show="item.published_at"></span>
+        <template x-for="tag in (item.tags || [])" :key="tag">
+          <span class="tag" x-text="tag"></span>
+        </template>
+      </p>
+      <p class="summary" :class="{ expanded: item._open }" :style="item._open ? '' : 'max-height:3.5em'" x-text="item.summary || item.description || ''"></p>
+      <span class="toggle" x-show="item.summary || item.description" @click="item._open = !item._open" x-text="item._open ? 'Show less' : 'Show more'"></span>
+    </div>
+  </template>
+  <script>
+    function feedApp() {
+      return {
+        board: null, items: [], loading: true,
+        async init() {
+          try {
+            const res = await fetch('data.json');
+            const data = await res.json();
+            this.board = data.board || null;
+            this.items = (data.items || []).map(i => ({ ...i, _open: false }));
+          } catch (e) { console.error('Failed to load data.json', e); }
+          this.loading = false;
+        }
+      };
+    }
+  </script>
+</body>
+</html>
