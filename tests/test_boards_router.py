@@ -170,3 +170,158 @@ async def test_topic_not_found(client):
     board_id = resp.json()["id"]
     resp = await client.delete(f"/boards/{board_id}/topics/nonexistent")
     assert resp.status_code == 404
+
+
+# --- Items endpoint tests (FR-31) ---
+
+async def _seed_items(db_path, board_id, items):
+    """Insert board_run + board_news_item rows directly for testing."""
+    import aiosqlite, uuid
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    run_id = str(uuid.uuid4())
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "INSERT INTO board_run (id, board_id, status, started_at) VALUES (?, ?, 'complete', ?)",
+            (run_id, board_id, now),
+        )
+        for item in items:
+            import json
+            await db.execute(
+                """INSERT INTO board_news_item
+                   (id, run_id, board_id, title, summary, source_url, source_name, fighter_name,
+                    category, tags, relevance_score, published_at, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (str(uuid.uuid4()), run_id, board_id, item["title"], item.get("summary", ""),
+                 item.get("source_url", ""), item.get("source_name", ""), item.get("fighter_name", ""),
+                 item.get("category", ""), json.dumps(item.get("tags", [])),
+                 item.get("relevance_score", 5.0), item.get("published_at"), now),
+            )
+        await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_items_empty_board(client):
+    resp = await client.post("/boards", json={"name": "Empty Board"})
+    board_id = resp.json()["id"]
+    resp = await client.get(f"/boards/{board_id}/items")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["page"] == 1
+
+
+@pytest.mark.asyncio
+async def test_items_sorted_by_relevance_score(client, db_path):
+    resp = await client.post("/boards", json={"name": "Score Board"})
+    board_id = resp.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": "Low", "tags": ["tech"], "relevance_score": 2.0},
+        {"title": "High", "tags": ["tech"], "relevance_score": 9.0},
+        {"title": "Mid", "tags": ["tech"], "relevance_score": 5.0},
+    ])
+    resp = await client.get(f"/boards/{board_id}/items")
+    assert resp.status_code == 200
+    titles = [i["title"] for i in resp.json()["items"]]
+    assert titles == ["High", "Mid", "Low"]
+
+
+@pytest.mark.asyncio
+async def test_items_pagination(client, db_path):
+    resp = await client.post("/boards", json={"name": "Paged Board"})
+    board_id = resp.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": f"Item {i}", "tags": ["tech"], "relevance_score": float(i)} for i in range(25)
+    ])
+    resp = await client.get(f"/boards/{board_id}/items?page=1&page_size=10")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 25
+    assert data["pages"] == 3
+    assert len(data["items"]) == 10
+
+    resp2 = await client.get(f"/boards/{board_id}/items?page=3&page_size=10")
+    assert resp2.status_code == 200
+    assert len(resp2.json()["items"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_items_topic_filter(client, db_path):
+    resp = await client.post("/boards", json={"name": "Topic Filter Board"})
+    board_id = resp.json()["id"]
+    resp_t = await client.post(f"/boards/{board_id}/topics", json={
+        "name": "AI Only", "tag_filter": ["ai"], "position": 0
+    })
+    topic_id = resp_t.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": "AI Item", "tags": ["ai", "tech"], "relevance_score": 8.0},
+        {"title": "Tech Only", "tags": ["tech"], "relevance_score": 7.0},
+    ])
+    resp = await client.get(f"/boards/{board_id}/items?topic_id={topic_id}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "AI Item"
+
+
+@pytest.mark.asyncio
+async def test_items_tag_chip_filter(client, db_path):
+    resp = await client.post("/boards", json={"name": "Tag Filter Board"})
+    board_id = resp.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": "ML Item", "tags": ["ai", "ml"], "relevance_score": 9.0},
+        {"title": "AI Only", "tags": ["ai"], "relevance_score": 8.0},
+    ])
+    resp = await client.get(f"/boards/{board_id}/items?tags=ml")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+    assert resp.json()["items"][0]["title"] == "ML Item"
+
+
+@pytest.mark.asyncio
+async def test_items_all_topic_returns_all(client, db_path):
+    resp = await client.post("/boards", json={"name": "All Topic Board"})
+    board_id = resp.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": "A", "tags": ["ai"], "relevance_score": 5.0},
+        {"title": "B", "tags": ["tech"], "relevance_score": 3.0},
+    ])
+    # No topic_id means "All" — returns everything
+    resp = await client.get(f"/boards/{board_id}/items")
+    assert resp.json()["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_tags_endpoint_returns_unique_tags(client, db_path):
+    resp = await client.post("/boards", json={"name": "Tags Board"})
+    board_id = resp.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": "X", "tags": ["ai", "tech"], "relevance_score": 7.0},
+        {"title": "Y", "tags": ["tech", "ml"], "relevance_score": 5.0},
+    ])
+    resp = await client.get(f"/boards/{board_id}/items/tags")
+    assert resp.status_code == 200
+    tags = resp.json()
+    assert set(tags) == {"ai", "tech", "ml"}
+
+
+@pytest.mark.asyncio
+async def test_tags_endpoint_filtered_by_topic(client, db_path):
+    resp = await client.post("/boards", json={"name": "Tags Topic Board"})
+    board_id = resp.json()["id"]
+    resp_t = await client.post(f"/boards/{board_id}/topics", json={
+        "name": "AI Topic", "tag_filter": ["ai"], "position": 0
+    })
+    topic_id = resp_t.json()["id"]
+    await _seed_items(db_path, board_id, [
+        {"title": "AI+Tech", "tags": ["ai", "tech"], "relevance_score": 8.0},
+        {"title": "Tech Only", "tags": ["tech", "vc"], "relevance_score": 5.0},
+    ])
+    resp = await client.get(f"/boards/{board_id}/items/tags?topic_id={topic_id}")
+    assert resp.status_code == 200
+    tags = set(resp.json())
+    # Only item with "ai" tag qualifies; its tags are "ai" + "tech"
+    assert "ai" in tags
+    assert "tech" in tags
+    assert "vc" not in tags
