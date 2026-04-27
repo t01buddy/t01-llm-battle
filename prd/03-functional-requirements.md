@@ -17,11 +17,11 @@
 | FR-11 | Live Run View | Polling UI; step-level status per fighter per source item |
 | FR-12 | LLM-as-Judge | Optional. When configured, scores final step output per fighter per source (0–10 + reasoning). When not configured, run completes without scoring. |
 | FR-13 | Markdown Report | Judge generates a markdown summary; rendered in browser via marked.js |
-| FR-14 | Results View | Side-by-side results: cost, latency, expandable step drill-down. When judge is configured, shows scores. When no judge, outputs shown side-by-side without scores. |
+| FR-14 | Results View | Fighter summary leaderboard table (rank, avg score, cost, tokens, time) + per-source breakdown with expandable output. When no judge, outputs shown without scores. See [09-ui-redesign.md](./09-ui-redesign.md). |
 | FR-15 | SQLite Persistence | All battles, sources, fighters, steps, runs, results, judgments, api_keys |
 | FR-16 | Custom Model IDs | Override catalog slugs; pricing shown as "unknown" |
-| FR-19 | Provider Management UI | Sidebar footer link labelled "Providers"; lists providers with enable/disable toggle; edit popup for display name, API key, server URL (Ollama/LLM Studio/self-hosted); uninstall non-system providers |
-| FR-20 | Sidebar Layout | Single page: left sidebar (app name, battle list, "Providers" footer link) + main content area (selected battle or default empty battle with 2 fighters) |
+| FR-19 | Provider Management UI | Modal overlay (opened from sidebar icon); lists LLM and tool providers with enable/disable toggle, key status, edit form for API key, display name, server URL; pricing refresh button; uninstall non-system providers |
+| FR-20 | App Layout | 3-column layout: collapsible icon rail sidebar (64px) + tabbed main content (Setup/Run/Results) + right rail battle list (320px). See [09-ui-redesign.md](./09-ui-redesign.md) for mockups. |
 
 ---
 
@@ -44,34 +44,34 @@
 
 ---
 
-## Detail: FR-20 Sidebar Layout
+## Detail: FR-20 App Layout
 
-- **Single page** with left sidebar (~260 px) + main content area (fills remaining width)
-- **Sidebar contents**:
-  - App name: "T01 LLM Battle"
-  - Battle list: + New button; each entry shows name + created time + delete button; click name to load in main area
-  - Providers section: list of providers with enable/disable toggle and edit button
-- **Main area**: selected battle (Input / Definition / Result sections) or default empty battle (2 manual fighters) if none selected
-- Sidebar collapses on narrow viewports
+- **3-column layout**: icon rail sidebar (64px collapsible) + main content area (flex: 1) + right rail battle list (~320px)
+- **Icon rail sidebar**: brand icon, navigation icons (Battles, Providers, Settings), collapse toggle. Providers opens a modal overlay.
+- **Main content**: topbar (battle name + run ID) + tab bar (Setup / Run / Results) + active tab content
+- **Right rail**: battle list with active highlighting, status tags (new/done), "+ New" button
+- **Responsive**: sidebar collapses to icons on narrow viewports; right rail hides on mobile (<1100px)
+- See [09-ui-redesign.md](./09-ui-redesign.md) for full mockups
 
 ---
 
-## Brand Theme (Paper Light)
+## Brand Theme (Paper)
 
-Applies to FR-20 sidebar layout and all UI components. Paper-like aesthetic: warm off-white backgrounds, clean white cards, dark readable text.
+Applies to all UI components. Paper-like editorial aesthetic with serif display font.
 
 | Token | Value |
 |-------|-------|
 | `bg.paper` | `#FAF9F6` (warm off-white / parchment) |
-| `bg.card` | `#FFFFFF` (white with subtle shadow/border) |
-| Primary accent | `#F0B90B` (gold — kept for contrast on light bg) |
+| `bg.card` | `#FFFFFF` (white with subtle shadow) |
+| Primary accent | `#D4A02A` (warm gold) |
 | `text.high` | `#1a1a2e` (dark primary text) |
 | `text.mid` | `#6b7280` (muted secondary text) |
 | Borders | `#e5e5e5` (light gray) |
-| Typography | system-ui stack, weight 600, `letter-spacing: -0.01em` |
-| Sidebar bg | slightly tinted off-white or very light gray |
+| Display font | `"Fraunces", serif` (headings, battle names, scores) |
+| Body font | `"Inter", system-ui, sans-serif` (content, labels) |
+| Mono font | `"JetBrains Mono", monospace` (metadata, IDs, costs) |
 
-Replaces previous Gold-on-Ink dark theme (`#0d0f13` background, `#14181f` cards, `#E7ECF3` text).
+CSS architecture: all component classes use `.ba-*` prefix (battle-app). Framework-agnostic, works directly with Alpine.js.
 
 ---
 
@@ -177,8 +177,9 @@ Unknown keys are passed through to the provider as-is — forward-compatible wit
 
 ## Detail: FR-14 Results View
 
-- Side-by-side comparison of all fighters per source item
-- Always shown: final output, total cost (USD), total latency (ms), expandable step drill-down
-- **When judge is configured**: judge score (0–10) and reasoning displayed per fighter
-- **When no judge is configured**: outputs displayed side-by-side without scores; users compare quality visually
-- Judge scores column hidden when no judge is configured on the battle
+- **Fighter Summary**: leaderboard table showing rank, fighter name, avg score, total cost, token count, latency, success/fail counts
+- **Per-Source Breakdown**: expandable cards per source item showing each fighter's output, score, cost, and tokens side-by-side
+- "Show output" toggle per fighter result to expand/collapse full output text
+- **When judge is configured**: scores shown in leaderboard and per-source cards
+- **When no judge is configured**: outputs shown without scores; users compare quality visually
+- Download Markdown button for judge report

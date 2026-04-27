@@ -47,6 +47,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 | [05-user-stories.md](./05-user-stories.md) | Key workflows |
 | [06-data-models.md](./06-data-models.md) | SQLite schema: battle / source / fighter / step / run / result / judgment / api_key |
 | [07-roadmap.md](./07-roadmap.md) | Phased delivery plan |
+| [09-ui-redesign.md](./09-ui-redesign.md) | UI redesign — 3-column layout, Paper theme, tabbed content, mockups |
 
 ## v0.1 Scope
 
