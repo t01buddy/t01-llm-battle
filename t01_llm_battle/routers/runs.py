@@ -426,3 +426,27 @@ async def get_run_results(run_id: str):
         "report_markdown": run_data.get("report_markdown"),
         "summary": summary,
     }
+
+
+@router.post("/{run_id}/cancel", status_code=200)
+async def cancel_run(run_id: str):
+    """Cancel a running or pending run by setting its status to 'cancelled'."""
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id, status FROM run WHERE id = ?", (run_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Run not found")
+        if row["status"] not in ("running", "pending"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Run status is '{row['status']}', cannot cancel",
+            )
+        now = datetime.now(timezone.utc).isoformat()
+        await db.execute(
+            "UPDATE run SET status = 'cancelled', finished_at = ? WHERE id = ?",
+            (now, run_id),
+        )
+        await db.commit()
+    return {"run_id": run_id, "status": "cancelled"}

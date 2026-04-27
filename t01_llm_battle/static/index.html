@@ -1293,6 +1293,12 @@
                     View Results →
                   </a>
                 </template>
+                <template x-if="currentRun && (currentRun.status === 'running' || currentRun.status === 'pending')">
+                  <button @click="cancelRun()" class="btn-secondary"
+                          style="padding:5px 14px;font-size:0.84rem;color:var(--danger);border-color:var(--danger);">
+                    Cancel Run
+                  </button>
+                </template>
               </div>
             </div>
           </template>
@@ -2126,11 +2132,21 @@ Do not wrap the JSON in markdown fences.`;
             const resp = await fetch('/runs/' + this.currentRunId + '/status');
             if (!resp.ok) throw new Error(await resp.text());
             this.currentRun = await resp.json();
-            if (this.currentRun.status === 'complete' || this.currentRun.status === 'error') {
+            if (this.currentRun.status === 'complete' || this.currentRun.status === 'error' || this.currentRun.status === 'cancelled') {
               this.stopRunPolling();
               this.running = false;
             }
           } catch(e) { this.stopRunPolling(); this.running = false; }
+        },
+        async cancelRun() {
+          if (!this.currentRunId) return;
+          try {
+            const resp = await fetch('/runs/' + this.currentRunId + '/cancel', { method: 'POST' });
+            if (!resp.ok) throw new Error(await resp.text());
+            this.currentRun = await resp.json();
+            this.stopRunPolling();
+            this.running = false;
+          } catch(e) { /* ignore cancel errors */ }
         },
         runProgress() {
           if (!this.currentRun || !this.currentRun.fighter_results) return 0;
