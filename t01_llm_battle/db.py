@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS provider_config (
     display_name TEXT,
     updated_at   TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS news_source (
+    id               TEXT PRIMARY KEY,
+    name             TEXT NOT NULL,
+    source_type      TEXT NOT NULL,
+    config           TEXT NOT NULL DEFAULT '{}',
+    tags             TEXT NOT NULL DEFAULT '[]',
+    priority         INTEGER NOT NULL DEFAULT 5,
+    max_items        INTEGER NOT NULL DEFAULT 20,
+    fighter_affinity TEXT,
+    is_system        INTEGER NOT NULL DEFAULT 0,
+    status           TEXT NOT NULL DEFAULT 'active',
+    last_error       TEXT,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL
+);
 """
 
 # Migrations for existing DBs
@@ -142,7 +158,73 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
             except Exception:
                 pass  # migration already applied
 
+    await _seed_system_news_sources(db_path)
     await _migrate_plaintext_keys(db_path)
+
+
+_SYSTEM_NEWS_SOURCES = [
+    {
+        "id": "sys-news-hn-top",
+        "name": "HN Top",
+        "source_type": "api",
+        "config": '{"url": "https://hacker-news.firebaseio.com/v0/topstories.json", "limit": 30}',
+        "tags": '["tech", "programming", "startups"]',
+        "priority": 8,
+        "max_items": 30,
+        "fighter_affinity": None,
+    },
+    {
+        "id": "sys-news-techcrunch-rss",
+        "name": "TechCrunch RSS",
+        "source_type": "rss",
+        "config": '{"url": "https://techcrunch.com/feed/"}',
+        "tags": '["tech", "startups", "vc"]',
+        "priority": 7,
+        "max_items": 20,
+        "fighter_affinity": None,
+    },
+    {
+        "id": "sys-news-ai-news-serper",
+        "name": "AI News (Serper)",
+        "source_type": "api",
+        "config": '{"query": "artificial intelligence news", "provider": "serper"}',
+        "tags": '["ai", "ml", "research"]',
+        "priority": 9,
+        "max_items": 20,
+        "fighter_affinity": None,
+    },
+    {
+        "id": "sys-news-github-trending",
+        "name": "GitHub Trending",
+        "source_type": "url",
+        "config": '{"url": "https://github.com/trending"}',
+        "tags": '["code", "opensource", "tech"]',
+        "priority": 6,
+        "max_items": 25,
+        "fighter_affinity": None,
+    },
+]
+
+
+async def _seed_system_news_sources(db_path: str | Path = DB_PATH) -> None:
+    """Insert system news sources if they don't exist yet."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with get_db(db_path) as db:
+        for src in _SYSTEM_NEWS_SOURCES:
+            cur = await db.execute("SELECT id FROM news_source WHERE id = ?", (src["id"],))
+            if await cur.fetchone() is None:
+                await db.execute(
+                    """INSERT INTO news_source
+                       (id, name, source_type, config, tags, priority, max_items,
+                        fighter_affinity, is_system, status, last_error, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', NULL, ?, ?)""",
+                    (src["id"], src["name"], src["source_type"], src["config"],
+                     src["tags"], src["priority"], src["max_items"],
+                     src["fighter_affinity"], now, now),
+                )
+        await db.commit()
 
 
 async def _migrate_plaintext_keys(db_path: str | Path = DB_PATH) -> None:
