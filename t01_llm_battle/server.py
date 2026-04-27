@@ -18,18 +18,25 @@ from .routers.templates import router as templates_router
 from .routers.news_sources import router as news_sources_router
 from .routers.news_fighters import router as news_fighters_router
 from .routers.boards import router as boards_router
+from . import scheduler as board_scheduler
 
 log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    db_path = getattr(app.state, "db_path", DB_PATH)
+    await init_db(db_path)
     # Auto-refresh LLM pricing if no user cache exists
     cache = get_cache_info()
     if cache["age_seconds"] is None:
         asyncio.create_task(_background_pricing_refresh())
+    # Start board scheduler and register active boards
+    board_scheduler.start(db_path)
+    await board_scheduler.load_boards(db_path)
     yield
+    # Graceful shutdown
+    board_scheduler.stop()
 
 
 async def _background_pricing_refresh():
@@ -43,6 +50,7 @@ async def _background_pricing_refresh():
 
 def create_app(db_path=DB_PATH) -> FastAPI:
     app = FastAPI(title="t01-llm-battle", lifespan=lifespan)
+    app.state.db_path = db_path
 
     app.include_router(battles_router)
     app.include_router(keys_router)

@@ -17,6 +17,7 @@ dependencies = [
     "typer>=0.12",
     "python-multipart>=0.0.9",
     "feedparser>=6",
+    "apscheduler>=3,<4",
 ]
 
 [project.scripts]

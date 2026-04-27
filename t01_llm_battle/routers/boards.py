@@ -228,6 +228,14 @@ async def update_board(board_id: str, body: BoardUpdate):
         cur = await db.execute("SELECT * FROM board WHERE id = ?", (board_id,))
         row = await cur.fetchone()
         topics = await _get_topics(db, board_id)
+    # Notify scheduler if schedule-relevant fields changed
+    if "is_active" in updates or "schedule_cron" in updates:
+        from .. import scheduler as board_scheduler
+        board_scheduler.sync_board(
+            board_id,
+            bool(row["is_active"]),
+            row["schedule_cron"],
+        )
     return _row_to_board(row, topics)
 
 

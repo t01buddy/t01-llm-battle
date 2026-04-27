@@ -232,6 +232,24 @@ def _assign_topics(item_tags: list[str], topics: list[dict]) -> list[str]:
     return matched
 
 
+# --- History pruning ---
+
+async def _prune_history(board_id: str, max_history: int, db_path=DB_PATH) -> None:
+    """Delete board_run rows (and their items) beyond max_history."""
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            "SELECT id FROM board_run WHERE board_id = ? ORDER BY started_at DESC",
+            (board_id,),
+        )
+        all_runs = [r["id"] for r in await cur.fetchall()]
+        to_delete = all_runs[max_history:]
+        for run_id in to_delete:
+            await db.execute("DELETE FROM board_news_item WHERE run_id = ?", (run_id,))
+            await db.execute("DELETE FROM board_run WHERE id = ?", (run_id,))
+        if to_delete:
+            await db.commit()
+
+
 # --- Main run execution ---
 
 async def execute_board_run(board_id: str, db_path=DB_PATH) -> str:
@@ -340,6 +358,9 @@ async def execute_board_run(board_id: str, db_path=DB_PATH) -> str:
                 (items_fetched, items_processed, _now(), run_id),
             )
             await db.commit()
+
+        # Prune old runs beyond max_history
+        await _prune_history(board_id, board["max_history"], db_path)
 
     except Exception as e:
         async with get_db(db_path) as db:
