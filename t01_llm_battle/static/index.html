@@ -526,6 +526,102 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Setup tab — ba-* component classes */
+    .ba-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .ba-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .ba-section-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--mid);
+    }
+    .ba-section-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: var(--gold);
+      color: #1a1a2e;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-right: 0.4rem;
+    }
+    .ba-uploader {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      text-align: center;
+      background: #f9fafb;
+      transition: border-color 0.15s;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+    }
+    .ba-uploader:hover { border-color: var(--gold); }
+    .ba-uploader input[type="file"] {
+      display: block;
+      margin: 0.5rem auto 0;
+      cursor: pointer;
+    }
+    .ba-fighters { display: flex; flex-direction: column; gap: 0; }
+    .ba-fighter {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .ba-vs-mark {
+      text-align: center;
+      color: var(--mid);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 0.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ba-vs-mark::before, .ba-vs-mark::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .ba-step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: var(--gold);
+      color: #1a1a2e;
+      border-radius: 50%;
+      font-size: 0.68rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .ba-judge { /* inherits ba-section */ }
+    .ba-judge-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
   </style>
 </head>
 <body x-data="app()" x-init="init()">
@@ -628,17 +724,22 @@
           <span class="badge-muted" x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span>
         </div>
 
-        <!-- Sources card -->
-        <div class="card">
-          <h2 style="display:flex;align-items:center;">
-            Sources <span class="badge" x-text="sources.length"></span>
-          </h2>
+        <!-- Sources section -->
+        <div class="ba-section">
+          <div class="ba-section-header">
+            <h2 style="margin:0;font-size:1rem;">
+              <span class="ba-section-num">1</span>Sources
+              <span class="badge" x-text="sources.length"></span>
+            </h2>
+            <button @click="showTextForm = !showTextForm" class="btn-primary"
+              style="padding:5px 14px;font-size:0.83rem;">+ Add Text</button>
+          </div>
 
           <div style="margin-bottom:1rem;display:flex;flex-direction:column;gap:0.75rem;">
-            <div>
-              <label>Upload files</label>
-              <p class="text-muted" style="margin:0 0 6px;font-size:0.8rem;">
-                Accepts <code>.txt</code>, <code>.md</code> (one source per file) and <code>.csv</code> (one source per row).
+            <div class="ba-uploader">
+              <p class="text-muted" style="margin:0 0 4px;font-size:0.82rem;font-weight:600;">Upload files</p>
+              <p class="text-muted" style="margin:0 0 6px;font-size:0.78rem;">
+                <code>.txt</code> <code>.md</code> (one source per file) · <code>.csv</code> (one source per row)
               </p>
               <input type="file" accept=".txt,.md,.csv" multiple
                      :disabled="uploading"
@@ -646,11 +747,6 @@
               <template x-if="uploading">
                 <p class="text-gold" style="font-size:0.86rem;margin:4px 0 0;">Uploading...</p>
               </template>
-            </div>
-
-            <div>
-              <button @click="showTextForm = !showTextForm" class="btn-primary"
-                style="padding:5px 14px;font-size:0.83rem;">+ Add Text</button>
             </div>
 
             <template x-if="showTextForm">
@@ -697,10 +793,12 @@
           </template>
         </div>
 
-        <!-- Fighters card -->
-        <div class="card" x-data="fighterList()" x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-            <h2 style="margin:0;">Fighters</h2>
+        <!-- Fighters section -->
+        <div class="ba-section" x-data="fighterList()" x-init="$watch('params.id', id => { if (id) load(id); }); if (params.id) load(params.id);">
+          <div class="ba-section-header">
+            <h2 style="margin:0;font-size:1rem;">
+              <span class="ba-section-num">2</span>Fighters
+            </h2>
             <button class="btn-primary" @click="showAddFighter = !showAddFighter" style="padding:6px 14px;font-size:0.83rem;">
               + Add Fighter
             </button>
@@ -742,9 +840,11 @@
           </template>
 
           <template x-if="!loadingFighters && fighters.length > 0">
-            <div style="display:flex;flex-direction:column;gap:0.75rem;">
-              <template x-for="fighter in fighters" :key="fighter.id">
-                <div style="background:#f9fafb;border:1px solid var(--border);border-radius:8px;padding:1rem;">
+            <div class="ba-fighters">
+              <template x-for="(fighter, fi) in fighters" :key="fighter.id">
+                <div>
+                  <div x-show="fi > 0" class="ba-vs-mark">VS</div>
+                <div class="ba-fighter">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
                     <div>
                       <span style="font-weight:600;font-size:0.9rem;" x-text="fighter.name"></span>
@@ -764,7 +864,7 @@
                           <!-- Step summary row -->
                           <template x-if="activeEditStepId !== step.id">
                             <div class="step-row" style="cursor:pointer;" @click="startEditStep(step)" title="Click to edit">
-                              <span style="color:var(--low);font-weight:600;" x-text="'Step ' + (idx + 1)"></span>
+                              <span class="ba-step-badge" x-text="idx + 1"></span>
                               <span class="text-muted" x-text="step.provider"></span>
                               <span style="color:var(--high);font-weight:500;" x-text="step.model_id"></span>
                               <span x-show="step.system_prompt" style="color:var(--low);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;" x-text="step.system_prompt"></span>
@@ -948,6 +1048,7 @@
                     </form>
                   </template>
                 </div>
+                </div>
               </template>
             </div>
           </template>
@@ -957,10 +1058,13 @@
           </template>
         </div>
 
-        <!-- Judge card -->
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
-            <h2 style="margin:0;">Judge <span class="badge-muted" style="font-size:0.72rem;font-weight:400;">optional</span></h2>
+        <!-- Judge section -->
+        <div class="ba-section ba-judge">
+          <div class="ba-section-header ba-judge-header">
+            <h2 style="margin:0;font-size:1rem;">
+              <span class="ba-section-num">3</span>Judge
+              <span class="badge-muted" style="font-size:0.72rem;font-weight:400;">optional</span>
+            </h2>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;">
               <input type="checkbox" x-model="judgeEnabled" @change="onJudgeToggle()" style="width:16px;height:16px;cursor:pointer;">
               <span style="font-size:0.84rem;" x-text="judgeEnabled ? 'Enabled' : 'Disabled'"></span>
