@@ -729,7 +729,7 @@
 
       <!-- Brand -->
       <div class="rail-brand">
-        <span>⚔</span>
+        <span>⚡</span>
         <span class="rail-brand-label">T01 Battle</span>
       </div>
 
@@ -752,12 +752,6 @@
                 title="News Sources">
           <span>☵</span>
           <span class="rail-btn-label">Sources</span>
-        </button>
-        <button class="rail-btn" :class="{ active: route === 'keys' }"
-                @click="window.location.hash = '#/keys'"
-                title="Settings">
-          <span>⚿</span>
-          <span class="rail-btn-label">Settings</span>
         </button>
       </div>
 
@@ -1718,149 +1712,6 @@
         </template>
       </section>
 
-      <!-- ── Providers ────────────────────────────── -->
-      <section x-show="route === 'keys'" x-data="providersList()" x-init="load()">
-        <h1>Providers</h1>
-        <p class="text-muted" style="margin-top:-0.75rem;margin-bottom:1.5rem;font-size:0.88rem;">
-          Keys stored in the database are used when no environment variable is set. Environment variables always take precedence.
-        </p>
-
-        <template x-if="loading">
-          <p class="text-muted">Loading...</p>
-        </template>
-        <template x-if="error && !loading">
-          <div class="error-box" x-text="error"></div>
-        </template>
-
-        <template x-if="!loading">
-          <div style="display:flex;flex-direction:column;gap:1.5rem;max-width:600px;">
-
-            <!-- LLM Providers -->
-            <template x-if="llmKeys().length > 0">
-              <div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-                  <h3 style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--mid);margin:0;">LLM Providers</h3>
-                  <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <span style="font-size:0.78rem;color:var(--mid);"
-                          x-text="pricingCacheLabel"></span>
-                    <button class="btn-secondary" style="padding:3px 10px;font-size:0.78rem;"
-                            :disabled="pricingRefreshing"
-                            @click="refreshPricing()">
-                      <span x-show="!pricingRefreshing">Refresh Pricing</span>
-                      <span x-show="pricingRefreshing">Refreshing…</span>
-                    </button>
-                  </div>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:0.75rem;">
-                  <template x-for="k in llmKeys()" :key="k.provider">
-                    <div class="card" style="padding:1rem 1.25rem;">
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-                        <div style="display:flex;align-items:center;gap:0.5rem;">
-                          <span style="font-weight:600;font-size:0.95rem;text-transform:capitalize;" x-text="k.provider"></span>
-                          <span style="display:inline-block;background:rgba(99,102,241,0.1);color:#6366f1;border:1px solid rgba(99,102,241,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">LLM</span>
-                          <template x-if="k.source === 'env'">
-                            <span style="display:inline-block;background:rgba(39,174,96,0.15);color:var(--success);border:1px solid rgba(39,174,96,0.3);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">env var set</span>
-                          </template>
-                          <template x-if="k.source === 'db'">
-                            <span style="display:inline-block;background:rgba(240,185,11,0.1);color:var(--gold);border:1px solid rgba(240,185,11,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">saved in DB</span>
-                          </template>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:0.5rem;">
-                          <template x-if="k.source === 'db'">
-                            <span class="text-muted" style="font-size:0.84rem;font-family:monospace;" x-text="k.masked_key"></span>
-                          </template>
-                          <template x-if="k.source === 'db'">
-                            <button @click="remove(k.provider)" class="btn-danger-sm">Remove</button>
-                          </template>
-                        </div>
-                      </div>
-                      <template x-if="saved[k.provider]">
-                        <p style="color:var(--success);font-size:0.84rem;margin:0 0 0.5rem;">Key saved successfully.</p>
-                      </template>
-                      <template x-if="saveErrors[k.provider]">
-                        <p class="text-danger" style="font-size:0.84rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
-                      </template>
-                      <template x-if="k.source !== 'env'">
-                        <div style="display:flex;flex-direction:column;gap:0.75rem;">
-                          <div>
-                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Display Name (optional)</label>
-                            <input type="text" placeholder="e.g. My OpenAI account" x-model="displayNames[k.provider]" style="width:100%;">
-                          </div>
-                          <div>
-                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);" x-text="getApiKeyLabel(k.provider)"></label>
-                            <input type="password" :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'" x-model="inputs[k.provider]" style="font-family:monospace;width:100%;">
-                          </div>
-                          <template x-if="showBaseUrl(k.provider)">
-                            <div>
-                              <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Server URL (optional)</label>
-                              <input type="text" :placeholder="getUrlPlaceholder(k.provider)" x-model="baseUrls[k.provider]" style="width:100%;">
-                            </div>
-                          </template>
-                          <button @click="save(k.provider)" class="btn-primary">Save</button>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </template>
-
-            <!-- Tool Providers -->
-            <template x-if="toolKeys().length > 0">
-              <div>
-                <h3 style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--mid);margin:0 0 0.6rem;">Tool Providers</h3>
-                <div style="display:flex;flex-direction:column;gap:0.75rem;">
-                  <template x-for="k in toolKeys()" :key="k.provider">
-                    <div class="card" style="padding:1rem 1.25rem;">
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
-                        <div style="display:flex;align-items:center;gap:0.5rem;">
-                          <span style="font-weight:600;font-size:0.95rem;text-transform:capitalize;" x-text="k.provider"></span>
-                          <span style="display:inline-block;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">Tool</span>
-                          <template x-if="k.source === 'env'">
-                            <span style="display:inline-block;background:rgba(39,174,96,0.15);color:var(--success);border:1px solid rgba(39,174,96,0.3);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">env var set</span>
-                          </template>
-                          <template x-if="k.source === 'db'">
-                            <span style="display:inline-block;background:rgba(240,185,11,0.1);color:var(--gold);border:1px solid rgba(240,185,11,0.25);border-radius:4px;padding:1px 7px;font-size:0.72rem;font-weight:600;">saved in DB</span>
-                          </template>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:0.5rem;">
-                          <template x-if="k.source === 'db'">
-                            <span class="text-muted" style="font-size:0.84rem;font-family:monospace;" x-text="k.masked_key"></span>
-                          </template>
-                          <template x-if="k.source === 'db'">
-                            <button @click="remove(k.provider)" class="btn-danger-sm">Remove</button>
-                          </template>
-                        </div>
-                      </div>
-                      <template x-if="saved[k.provider]">
-                        <p style="color:var(--success);font-size:0.84rem;margin:0 0 0.5rem;">Key saved successfully.</p>
-                      </template>
-                      <template x-if="saveErrors[k.provider]">
-                        <p class="text-danger" style="font-size:0.84rem;margin:0 0 0.5rem;" x-text="saveErrors[k.provider]"></p>
-                      </template>
-                      <template x-if="k.source !== 'env'">
-                        <div style="display:flex;flex-direction:column;gap:0.75rem;">
-                          <div>
-                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);">Display Name (optional)</label>
-                            <input type="text" placeholder="e.g. My Serper account" x-model="displayNames[k.provider]" style="width:100%;">
-                          </div>
-                          <div>
-                            <label style="display:block;font-size:0.85rem;margin-bottom:0.3rem;color:var(--text-mid);" x-text="getApiKeyLabel(k.provider)"></label>
-                            <input type="password" :placeholder="k.source === 'db' ? 'Replace saved key…' : 'Paste API key…'" x-model="inputs[k.provider]" style="font-family:monospace;width:100%;">
-                          </div>
-                          <button @click="save(k.provider)" class="btn-primary">Save</button>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </template>
-
-          </div>
-        </template>
-      </section>
-
       <!-- ── News Sources ───────────────────────── -->
       <section x-show="route === 'news-sources'" x-data="newsSources()" x-init="load()">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.5rem;">
@@ -2607,108 +2458,6 @@ Do not wrap the JSON in markdown fences.`;
       };
     }
 
-    // ── Providers ─────────────────────────────────────────────
-    function providersList() {
-      return {
-        keys: [], providerInfoList: [], loading: false, error: null, inputs: {}, displayNames: {}, baseUrls: {}, saved: {}, saveErrors: {},
-        pricingRefreshing: false, pricingCacheLabel: '',
-
-        async load() {
-          this.loading = true; this.error = null;
-          try {
-            const [keysResp, infoResp, pricingResp] = await Promise.all([fetch('/keys'), fetch('/providers'), fetch('/providers/pricing')]);
-            if (!keysResp.ok) throw new Error(await keysResp.text());
-            this.keys = await keysResp.json();
-            if (pricingResp.ok) {
-              const pc = await pricingResp.json();
-              this.pricingCacheLabel = pc ? `Updated ${pc.age_days}d ago` : 'Using bundled defaults';
-            }
-            if (infoResp.ok) this.providerInfoList = await infoResp.json();
-            this.keys.forEach(k => {
-              if (this.inputs[k.provider] === undefined) this.inputs[k.provider] = '';
-              if (this.displayNames[k.provider] === undefined) this.displayNames[k.provider] = '';
-              if (this.baseUrls[k.provider] === undefined) this.baseUrls[k.provider] = '';
-            });
-          } catch(e) { this.error = e.message; }
-          finally { this.loading = false; }
-        },
-
-        getProviderType(provider) {
-          const info = this.providerInfoList.find(p => p.name === provider);
-          return info ? info.provider_type : 'llm';
-        },
-
-        llmKeys() {
-          return this.keys.filter(k => this.getProviderType(k.provider) === 'llm');
-        },
-
-        async refreshPricing() {
-          this.pricingRefreshing = true;
-          try {
-            const resp = await fetch('/providers/pricing/refresh', { method: 'POST' });
-            if (!resp.ok) throw new Error(await resp.text());
-            const data = await resp.json();
-            this.pricingCacheLabel = `Updated just now (${data.models_updated} models)`;
-          } catch(e) {
-            this.pricingCacheLabel = 'Refresh failed';
-          } finally {
-            this.pricingRefreshing = false;
-          }
-        },
-
-        toolKeys() {
-          return this.keys.filter(k => this.getProviderType(k.provider) === 'tool');
-        },
-
-        showBaseUrl(provider) {
-          return ['ollama', 'llm-studio'].includes(provider);
-        },
-
-        getUrlPlaceholder(provider) {
-          if (provider === 'ollama') return 'e.g. http://localhost:11434';
-          if (provider === 'llm-studio') return 'e.g. http://localhost:8000';
-          return 'Server URL…';
-        },
-
-        getApiKeyLabel(provider) {
-          const type = this.getProviderType(provider);
-          return type === 'tool' ? 'API Key (credits / search quota)' : 'API Key';
-        },
-
-        async save(provider) {
-          const val = (this.inputs[provider] || '').trim();
-          if (!val) { this.saveErrors[provider] = 'Please enter a key before saving.'; return; }
-          delete this.saveErrors[provider];
-          try {
-            const body = { key: val };
-            if (this.displayNames[provider]) body.display_name = this.displayNames[provider];
-            if (this.baseUrls[provider]) body.base_url = this.baseUrls[provider];
-            const resp = await fetch('/keys/' + provider, {
-              method: 'PUT',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify(body)
-            });
-            if (!resp.ok) throw new Error(await resp.text());
-            this.inputs[provider] = '';
-            this.saved[provider] = true;
-            setTimeout(() => { delete this.saved[provider]; }, 3000);
-            await this.load();
-            window.dispatchEvent(new CustomEvent('provider-updated'));
-          } catch(e) { this.saveErrors[provider] = e.message; }
-        },
-
-        async remove(provider) {
-          delete this.saved[provider]; delete this.saveErrors[provider];
-          try {
-            const resp = await fetch('/keys/' + provider, { method: 'DELETE' });
-            if (!resp.ok) throw new Error(await resp.text());
-            await this.load();
-            window.dispatchEvent(new CustomEvent('provider-updated'));
-          } catch(e) { this.saveErrors[provider] = e.message; }
-        }
-      };
-    }
-
     // ── Run view ─────────────────────────────────────────────
     function runView() {
       return {
@@ -2976,9 +2725,7 @@ Do not wrap the JSON in markdown fences.`;
           this.parseRoute();
           await this.checkKeys();
           window.addEventListener('hashchange', () => {
-            const wasKeys = this.route === 'keys';
             this.parseRoute();
-            if (wasKeys) this.checkKeys();
           });
           window.addEventListener('set-active-tab', e => { this.activeTab = e.detail; });
           const h = window.location.hash;
@@ -3009,8 +2756,6 @@ Do not wrap the JSON in markdown fences.`;
             this.route = 'runs/detail'; this.params = { id: parts[1] };
           } else if (parts[0] === 'results' && parts[1]) {
             this.route = 'results/detail'; this.params = { id: parts[1] };
-          } else if (parts[0] === 'keys') {
-            this.route = 'keys'; this.params = {};
           } else if (parts[0] === 'news-sources') {
             this.route = 'news-sources'; this.params = {};
           } else {
