@@ -1241,14 +1241,138 @@
           </div>
         </div>
 
-        <!-- Tab: Results (placeholder — populated by ticket #281) -->
-        <div x-show="activeTab === 'results'">
-          <div class="placeholder" style="height:180px;">
-            <div style="text-align:center;">
-              <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">Results tab coming soon.</p>
-              <p class="text-muted" style="margin:0;font-size:0.82rem;">Run a battle to see results here.</p>
+        <!-- Tab: Results -->
+        <div x-show="activeTab === 'results'"
+             x-data="battleResultsTab()"
+             x-init="$watch('currentBattleId', id => { if (id && activeTab === 'results') load(id); }); if (currentBattleId && activeTab === 'results') load(currentBattleId);">
+
+          <template x-if="tabLoading">
+            <p class="text-muted">Loading results...</p>
+          </template>
+          <template x-if="tabError">
+            <div style="color:var(--ba-danger,#c00);font-size:0.88rem;" x-text="tabError"></div>
+          </template>
+          <template x-if="!tabLoading && !tabError && !results">
+            <div class="placeholder" style="height:180px;">
+              <div style="text-align:center;">
+                <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">No results yet.</p>
+                <p class="text-muted" style="margin:0;font-size:0.82rem;">Run a battle to see results here.</p>
+              </div>
             </div>
-          </div>
+          </template>
+
+          <template x-if="results">
+            <div>
+              <!-- Header -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+                <span class="badge-muted" x-text="results.run_id ? results.run_id.slice(0,8) + '...' : ''"></span>
+                <button @click="downloadMarkdown()" class="ba-btn ba-btn-secondary" style="font-size:0.82rem;">
+                  Download Markdown
+                </button>
+              </div>
+
+              <!-- Fighter Summary Leaderboard -->
+              <h2 style="font-size:1rem;margin:0 0 0.75rem;">Fighter Summary</h2>
+              <div class="ba-section" style="overflow-x:auto;margin-bottom:2rem;">
+                <table class="ba-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Fighter</th>
+                      <th style="text-align:right;">Avg Score</th>
+                      <th style="text-align:right;">Cost</th>
+                      <th style="text-align:right;">Tokens</th>
+                      <th style="text-align:right;">Time</th>
+                      <th style="text-align:right;">S/F</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
+                      <tr>
+                        <td>
+                          <span class="ba-rank-badge" :class="'rank-' + (idx+1)" x-text="idx+1"></span>
+                        </td>
+                        <td style="font-weight:600;" x-text="f.fighter_name"></td>
+                        <td style="text-align:right;">
+                          <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''"
+                                x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
+                        </td>
+                        <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
+                            x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
+                        <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
+                            x-text="(f.token_cost > 0 || f.credit_cost > 0) ? ((f.token_cost || 0) + (f.credit_cost || 0)).toFixed(4) : '—'"></td>
+                        <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
+                            x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
+                        <td style="text-align:right;">
+                          <span x-text="f.success_count"></span>/<span style="color:var(--danger,#c00);" x-text="f.failed_count"></span>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Per-Source Breakdown -->
+              <h2 style="font-size:1rem;margin:0 0 0.75rem;">Per-Source Breakdown</h2>
+              <template x-for="source in sourceGroups()" :key="source.label">
+                <div class="ba-card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
+                  <div style="padding:9px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid var(--ba-border,#e5e5e5);background:var(--ba-bg-paper,#faf9f6);">
+                    <span x-text="source.label"></span>
+                  </div>
+                  <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
+                    <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
+                      <div :style="fi > 0 ? 'border-left:1px solid var(--ba-border,#e5e5e5);' : ''">
+                        <div style="padding:8px 14px;border-bottom:1px solid var(--ba-border,#e5e5e5);display:flex;align-items:center;justify-content:space-between;">
+                          <span style="font-weight:600;font-size:0.84rem;" x-text="fighter.fighter_name"></span>
+                          <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)"
+                                x-text="fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'"></span>
+                        </div>
+                        <div style="padding:10px 14px;">
+                          <template x-if="fighter.reasoning">
+                            <div style="font-size:0.78rem;color:var(--ba-text-mid,#6b7280);font-style:italic;margin-bottom:6px;line-height:1.4;" x-text="fighter.reasoning"></div>
+                          </template>
+                          <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
+                               style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--ba-accent,#d4a02a);margin-bottom:6px;user-select:none;">
+                            <span x-text="tabExpanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
+                          </div>
+                          <template x-if="tabExpanded[source.label + '::' + fighter.fighter_name]">
+                            <pre style="background:var(--ba-bg-paper,#faf9f6);border:1px solid var(--ba-border,#e5e5e5);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;"
+                                 x-text="fighter.final_output || '(no output)'"></pre>
+                          </template>
+                          <div style="font-size:0.76rem;color:var(--ba-text-mid,#6b7280);margin-top:6px;">
+                            <span x-text="fighter.step_count + ' step(s)'"></span>
+                            &nbsp;·&nbsp;
+                            <span style="font-family:var(--ba-font-mono,monospace);"
+                                  x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
+                            <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
+                              <span>&nbsp;·&nbsp;<span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
+                            </template>
+                            <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
+                              <span>&nbsp;·&nbsp;<span style="color:var(--ba-accent,#d4a02a);">credit-based</span></span>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Judge Report -->
+              <template x-if="results.report_markdown">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                    <h2 style="font-size:1rem;margin:0;">Judge Report</h2>
+                    <div style="display:flex;gap:0.5rem;">
+                      <button class="ba-btn ba-btn-secondary" @click="copyReport()" x-text="reportCopied ? 'Copied!' : 'Copy Markdown'" style="font-size:0.8rem;"></button>
+                      <button class="ba-btn ba-btn-secondary" @click="window.print()" style="font-size:0.8rem;">Print</button>
+                    </div>
+                  </div>
+                  <div class="ba-card" style="line-height:1.7;" x-html="marked.parse(results.report_markdown)"></div>
+                </div>
+              </template>
+            </div>
+          </template>
         </div>
 
       </section>
@@ -1389,7 +1513,7 @@
           </div>
           <div style="display:flex;gap:0.75rem;align-items:center;">
             <button @click="downloadMarkdown()" x-show="results"
-              class="btn-secondary" style="color:var(--gold);border-color:rgba(240,185,11,0.3);">
+              class="ba-btn ba-btn-secondary" style="color:var(--ba-accent,#d4a02a);border-color:rgba(212,160,42,0.3);">
               Download Markdown
             </button>
             <a :href="results && results.battle_id ? '#/battles/' + results.battle_id : '#/battles'"
@@ -1401,19 +1525,21 @@
           <p class="text-muted">Loading results...</p>
         </template>
         <template x-if="error">
-          <div class="error-box" x-text="error"></div>
+          <div style="color:var(--ba-danger,#c00);font-size:0.88rem;" x-text="error"></div>
         </template>
 
         <template x-if="results">
           <div>
-            <h2>Fighter Summary</h2>
-            <div style="overflow-x:auto;margin-bottom:2rem;">
-              <table class="data-table">
+            <!-- Fighter Summary Leaderboard -->
+            <h2 style="font-size:1rem;margin:0 0 0.75rem;">Fighter Summary</h2>
+            <div class="ba-section" style="overflow-x:auto;margin-bottom:2rem;">
+              <table class="ba-table">
                 <thead>
                   <tr>
+                    <th>#</th>
                     <th>Fighter</th>
                     <th style="text-align:right;">Avg Score</th>
-                    <th style="text-align:right;">Total Cost USD</th>
+                    <th style="text-align:right;">Total Cost</th>
                     <th style="text-align:right;">Token Cost</th>
                     <th style="text-align:right;">Credit Cost</th>
                     <th style="text-align:right;">Time</th>
@@ -1424,55 +1550,68 @@
                 <tbody>
                   <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
                     <tr>
+                      <td>
+                        <span class="ba-rank-badge" :class="'rank-' + (idx+1)" x-text="idx+1"></span>
+                      </td>
                       <td style="font-weight:600;" x-text="f.fighter_name"></td>
                       <td style="text-align:right;">
-                        <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''" x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
+                        <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''"
+                              x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
                       </td>
-                      <td style="text-align:right;font-family:monospace;font-size:0.83rem;" x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
-                      <td style="text-align:right;font-family:monospace;font-size:0.83rem;color:var(--mid);" x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
-                      <td style="text-align:right;font-family:monospace;font-size:0.83rem;color:var(--gold);" x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
-                      <td style="text-align:right;font-family:monospace;font-size:0.83rem;" x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
+                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;"
+                          x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
+                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;color:var(--ba-text-mid,#6b7280);"
+                          x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
+                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;color:var(--ba-accent,#d4a02a);"
+                          x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
+                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;"
+                          x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
                       <td style="text-align:right;" x-text="f.success_count"></td>
-                      <td style="text-align:right;color:var(--danger, #c00);" x-text="f.failed_count"></td>
+                      <td style="text-align:right;color:var(--danger,#c00);" x-text="f.failed_count"></td>
                     </tr>
                   </template>
                 </tbody>
               </table>
             </div>
 
-            <h2>Per-Source Breakdown</h2>
+            <!-- Per-Source Breakdown -->
+            <h2 style="font-size:1rem;margin:0 0 0.75rem;">Per-Source Breakdown</h2>
             <template x-for="source in sourceGroups()" :key="source.label">
-              <div class="card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
-                <div style="padding:9px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid var(--border);background:#f9fafb;">
+              <div class="ba-card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
+                <div style="padding:9px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid var(--ba-border,#e5e5e5);background:var(--ba-bg-paper,#faf9f6);">
                   <span x-text="source.label"></span>
                 </div>
                 <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
                   <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
-                    <div :style="fi > 0 ? 'border-left:1px solid var(--border);' : ''">
-                      <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+                    <div :style="fi > 0 ? 'border-left:1px solid var(--ba-border,#e5e5e5);' : ''">
+                      <div style="padding:8px 14px;border-bottom:1px solid var(--ba-border,#e5e5e5);display:flex;align-items:center;justify-content:space-between;">
                         <span style="font-weight:600;font-size:0.84rem;" x-text="fighter.fighter_name"></span>
-                        <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)" x-text="fighter.score !== null ? fighter.score.toFixed(1) : 'N/A'"></span>
+                        <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)"
+                              x-text="fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'"></span>
                       </div>
                       <div style="padding:10px 14px;">
                         <template x-if="fighter.reasoning">
-                          <div style="font-size:0.78rem;color:var(--mid);font-style:italic;margin-bottom:6px;line-height:1.4;" x-text="fighter.reasoning"></div>
+                          <div style="font-size:0.78rem;color:var(--ba-text-mid,#6b7280);font-style:italic;margin-bottom:6px;line-height:1.4;"
+                               x-text="fighter.reasoning"></div>
                         </template>
                         <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
-                          style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--gold);margin-bottom:6px;user-select:none;">
+                             style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--ba-accent,#d4a02a);margin-bottom:6px;user-select:none;">
                           <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
                         </div>
                         <template x-if="expanded[source.label + '::' + fighter.fighter_name]">
-                          <pre style="background:#f9fafb;border:1px solid var(--border);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;color:var(--high);" x-text="fighter.final_output || '(no output)'"></pre>
+                          <pre style="background:var(--ba-bg-paper,#faf9f6);border:1px solid var(--ba-border,#e5e5e5);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;"
+                               x-text="fighter.final_output || '(no output)'"></pre>
                         </template>
-                        <div style="font-size:0.76rem;color:var(--mid);margin-top:6px;">
+                        <div style="font-size:0.76rem;color:var(--ba-text-mid,#6b7280);margin-top:6px;">
                           <span x-text="fighter.step_count + ' step(s)'"></span>
                           &nbsp;·&nbsp;
-                          <span style="font-family:monospace;" x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
+                          <span style="font-family:var(--ba-font-mono,monospace);"
+                                x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
                           <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
                             <span>&nbsp;·&nbsp;<span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
                           </template>
                           <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
-                            <span>&nbsp;·&nbsp;<span style="color:var(--gold);">credit-based</span></span>
+                            <span>&nbsp;·&nbsp;<span style="color:var(--ba-accent,#d4a02a);">credit-based</span></span>
                           </template>
                         </div>
                       </div>
@@ -1482,16 +1621,18 @@
               </div>
             </template>
 
+            <!-- Judge Report -->
             <template x-if="results.report_markdown">
               <div>
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-                  <h2 style="margin:0;">Judge Report</h2>
+                  <h2 style="font-size:1rem;margin:0;">Judge Report</h2>
                   <div style="display:flex;gap:0.5rem;">
-                    <button class="btn btn-sm btn-secondary" @click="copyReportMarkdown()" x-text="reportCopied ? 'Copied!' : 'Copy Markdown'"></button>
-                    <button class="btn btn-sm btn-secondary" @click="window.print()">Print</button>
+                    <button class="ba-btn ba-btn-secondary" @click="copyReportMarkdown()"
+                            x-text="reportCopied ? 'Copied!' : 'Copy Markdown'" style="font-size:0.8rem;"></button>
+                    <button class="ba-btn ba-btn-secondary" @click="window.print()" style="font-size:0.8rem;">Print</button>
                   </div>
                 </div>
-                <div class="card" style="line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
+                <div class="ba-card" style="line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
               </div>
             </template>
           </div>
@@ -2477,6 +2618,103 @@ Do not wrap the JSON in markdown fences.`;
         getCellResult(fighter_id, source_id) {
           if (!this.run || !this.run.fighter_results) return null;
           return this.run.fighter_results.find(fr => fr.fighter_id === fighter_id && fr.source_id === source_id) || null;
+        }
+      };
+    }
+
+    // ── Battle Results Tab (inline within battle detail) ─────
+    function battleResultsTab() {
+      return {
+        tabLoading: false, tabError: null, results: null,
+        tabExpanded: {}, reportCopied: false,
+
+        async load(battleId) {
+          if (!battleId) return;
+          this.tabLoading = true; this.tabError = null; this.results = null;
+          try {
+            // Fetch runs for this battle, get the latest complete one
+            const resp = await fetch('/battles/' + battleId + '/runs');
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            const runs = Array.isArray(data) ? data : (data.runs || []);
+            const complete = runs.filter(r => r.status === 'complete');
+            if (!complete.length) { this.tabLoading = false; return; }
+            const latestRunId = complete[0].id; // sorted DESC
+            const rResp = await fetch('/runs/' + latestRunId + '/results');
+            if (!rResp.ok) throw new Error(await rResp.text());
+            this.results = await rResp.json();
+          } catch(e) { this.tabError = e.message; }
+          finally { this.tabLoading = false; }
+        },
+
+        toggleExpand(key) { this.tabExpanded[key] = !this.tabExpanded[key]; },
+
+        fighterSummary() {
+          if (!this.results || !this.results.summary) return [];
+          const map = {};
+          for (const item of this.results.summary) {
+            const name = item.fighter_name;
+            if (!map[name]) map[name] = { fighter_name: name, scores: [], total_cost: 0, token_cost: 0, credit_cost: 0, total_latency_ms: 0, success_count: 0, failed_count: 0, pricing_unknown: false };
+            if (item.score !== null && item.score !== undefined) map[name].scores.push(item.score);
+            if (item.total_cost_usd === null && (item.total_input_tokens || item.total_output_tokens)) map[name].pricing_unknown = true;
+            map[name].total_cost += item.total_cost_usd || 0;
+            map[name].token_cost += item.token_cost || 0;
+            map[name].credit_cost += item.credit_cost || 0;
+            map[name].total_latency_ms += item.total_latency_ms || 0;
+            if (item.status === 'complete') map[name].success_count++;
+            else if (item.status === 'error') map[name].failed_count++;
+          }
+          return Object.values(map).map(f => ({
+            ...f, avg_score: f.scores.length ? f.scores.reduce((a, b) => a + b, 0) / f.scores.length : null,
+          })).sort((a, b) => (b.avg_score ?? -Infinity) - (a.avg_score ?? -Infinity));
+        },
+
+        sourceGroups() {
+          if (!this.results || !this.results.summary) return [];
+          const order = []; const map = {};
+          for (const item of this.results.summary) {
+            const label = item.source_label || item.source_id || 'Unknown';
+            if (!map[label]) { map[label] = { label, fighters: [] }; order.push(label); }
+            map[label].fighters.push(item);
+          }
+          return order.map(l => map[l]);
+        },
+
+        scoreColor(score) {
+          if (score === null || score === undefined) return 'color:var(--ba-text-mid,#6b7280);';
+          if (score >= 8) return 'color:var(--success,#16a34a);';
+          if (score >= 5) return 'color:#e67e22;';
+          return 'color:var(--danger,#c00);';
+        },
+
+        copyReport() {
+          if (!this.results || !this.results.report_markdown) return;
+          navigator.clipboard.writeText(this.results.report_markdown).then(() => {
+            this.reportCopied = true;
+            setTimeout(() => { this.reportCopied = false; }, 2000);
+          });
+        },
+
+        downloadMarkdown() {
+          if (!this.results) return;
+          const summary = this.fighterSummary();
+          const lines = ['# LLM Battle Results', '', '**Run ID:** ' + (this.results.run_id || '')];
+          lines.push('', '## Fighter Summary', '', '| # | Fighter | Avg Score | Cost | Time | S/F |', '|---|---------|-----------|------|------|-----|');
+          summary.forEach((f, i) => lines.push('| ' + (i+1) + ' | ' + f.fighter_name + ' | ' + (f.avg_score !== null ? f.avg_score.toFixed(2) : '—') + ' | ' + (f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)) + ' | ' + (f.total_latency_ms > 0 ? (f.total_latency_ms/1000).toFixed(1)+'s' : '—') + ' | ' + f.success_count + '/' + f.failed_count + ' |'));
+          lines.push('', '## Per-Source Breakdown', '');
+          for (const source of this.sourceGroups()) {
+            lines.push('### ' + source.label, '');
+            for (const fighter of source.fighters) {
+              lines.push('**' + fighter.fighter_name + '** — Score: ' + (fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'));
+              if (fighter.reasoning) lines.push('', '_' + fighter.reasoning + '_');
+              lines.push('', '```', fighter.final_output || '(no output)', '```', '');
+            }
+          }
+          if (this.results.report_markdown) lines.push('## Judge Report', '', this.results.report_markdown, '');
+          const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = 'battle-results.md'; a.click();
+          URL.revokeObjectURL(url);
         }
       };
     }
