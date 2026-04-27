@@ -1231,14 +1231,71 @@
 
         </div><!-- end tab: setup -->
 
-        <!-- Tab: Run (placeholder — populated by ticket #280) -->
+        <!-- Tab: Run -->
         <div x-show="activeTab === 'run'">
-          <div class="placeholder" style="height:180px;">
-            <div style="text-align:center;">
-              <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">Run tab coming soon.</p>
-              <p class="text-muted" style="margin:0;font-size:0.82rem;">Use the <strong>Run Battle</strong> button in Setup to start a battle.</p>
+          <template x-if="!currentRunId">
+            <div class="placeholder" style="height:180px;">
+              <div style="text-align:center;">
+                <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">No active run.</p>
+                <p class="text-muted" style="margin:0;font-size:0.82rem;">Use <strong>Run Battle</strong> in Setup to start.</p>
+              </div>
             </div>
-          </div>
+          </template>
+          <template x-if="currentRunId">
+            <div>
+              <!-- Progress bar -->
+              <div class="ba-runbar-wrap">
+                <div class="ba-runbar-label">
+                  <span x-text="currentRun ? (currentRun.status === 'complete' ? 'Complete' : currentRun.status === 'error' ? 'Error' : 'Running...') : 'Starting...'"></span>
+                  <span x-text="runProgress() + '%'"></span>
+                </div>
+                <div class="ba-runbar">
+                  <div class="ba-runbar-fill" :class="{ running: currentRun && currentRun.status === 'running' }"
+                       :style="'width:' + runProgress() + '%'"></div>
+                </div>
+              </div>
+              <!-- Status grid -->
+              <template x-if="currentRun && runSources().length > 0 && runFighters().length > 0">
+                <div style="overflow-x:auto;">
+                  <table class="ba-rungrid">
+                    <thead>
+                      <tr>
+                        <th style="text-align:left;">Source</th>
+                        <template x-for="f in runFighters()" :key="f.fighter_id">
+                          <th x-text="f.fighter_name"></th>
+                        </template>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="s in runSources()" :key="s.source_id">
+                        <tr>
+                          <td style="text-align:left;font-family:var(--mono);font-size:0.82rem;" x-text="s.source_label"></td>
+                          <template x-for="f in runFighters()" :key="f.fighter_id">
+                            <td x-data="{ get cell() { return getRunCell(f.fighter_id, s.source_id); } }">
+                              <span class="ba-status-dot"
+                                    :class="cell ? (cell.status === 'complete' ? 'done' : cell.status === 'error' ? 'error' : cell.status === 'running' ? 'running' : 'waiting') : 'waiting'"
+                                    :title="cell ? cell.status : 'waiting'"
+                                    x-text="cell ? (cell.status === 'complete' ? '●' : cell.status === 'error' ? '✕' : cell.status === 'running' ? '◌' : '○') : '○'">
+                              </span>
+                            </td>
+                          </template>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+              <!-- Actions -->
+              <div style="margin-top:1rem;display:flex;gap:0.75rem;align-items:center;">
+                <template x-if="currentRun && currentRun.status === 'complete'">
+                  <a :href="'#/results/' + currentRunId"
+                     style="background:var(--success);color:#fff;padding:5px 14px;border-radius:6px;font-size:0.84rem;font-weight:600;text-decoration:none;">
+                    View Results →
+                  </a>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- Tab: Results (placeholder — populated by ticket #281) -->
@@ -1925,6 +1982,7 @@ Do not wrap the JSON in markdown fences.`;
       return {
         sources: [], uploading: false, error: null,
         running: false, fighterCount: 0, runError: null, currentBattleId: null,
+        currentRunId: null, currentRun: null, runPolling: null,
         battleName: '', nameInput: '', nameSaving: false,
         showTextForm: false, textItems: [{ content: '', label: '' }], addingText: false,
         // Judge state
@@ -2047,8 +2105,57 @@ Do not wrap the JSON in markdown fences.`;
             });
             if (!resp.ok) throw new Error(await resp.text());
             const data = await resp.json();
-            window.location.hash = '/runs/' + data.run_id;
+            this.currentRunId = data.run_id;
+            this.currentRun = null;
+            this.stopRunPolling();
+            this.startRunPolling();
+            window.dispatchEvent(new CustomEvent('set-active-tab', { detail: 'run' }));
           } catch(e) { this.runError = e.message; this.running = false; }
+        },
+
+        startRunPolling() {
+          this.fetchRunStatus();
+          this.runPolling = setInterval(() => this.fetchRunStatus(), 2000);
+        },
+        stopRunPolling() {
+          if (this.runPolling) { clearInterval(this.runPolling); this.runPolling = null; }
+        },
+        async fetchRunStatus() {
+          if (!this.currentRunId) return;
+          try {
+            const resp = await fetch('/runs/' + this.currentRunId + '/status');
+            if (!resp.ok) throw new Error(await resp.text());
+            this.currentRun = await resp.json();
+            if (this.currentRun.status === 'complete' || this.currentRun.status === 'error') {
+              this.stopRunPolling();
+              this.running = false;
+            }
+          } catch(e) { this.stopRunPolling(); this.running = false; }
+        },
+        runProgress() {
+          if (!this.currentRun || !this.currentRun.fighter_results) return 0;
+          const total = this.currentRun.fighter_results.length;
+          if (!total) return 0;
+          const done = this.currentRun.fighter_results.filter(fr => fr.status === 'complete' || fr.status === 'error').length;
+          return Math.round((done / total) * 100);
+        },
+        runSources() {
+          if (!this.currentRun || !this.currentRun.fighter_results) return [];
+          const seen = new Set();
+          return this.currentRun.fighter_results.filter(fr => {
+            if (seen.has(fr.source_id)) return false; seen.add(fr.source_id); return true;
+          }).map(fr => ({ source_id: fr.source_id, source_label: fr.source_label || fr.source_id }));
+        },
+        runFighters() {
+          if (!this.currentRun || !this.currentRun.fighter_results) return [];
+          const seen = new Set();
+          return this.currentRun.fighter_results.filter(fr => {
+            if (seen.has(fr.fighter_id)) return false; seen.add(fr.fighter_id); return true;
+          }).map(fr => ({ fighter_id: fr.fighter_id, fighter_name: fr.fighter_name || fr.fighter_id }));
+        },
+        getRunCell(fighter_id, source_id) {
+          if (!this.currentRun || !this.currentRun.fighter_results) return null;
+          return this.currentRun.fighter_results.find(fr => fr.fighter_id === fighter_id && fr.source_id === source_id) || null;
         },
 
         async upload(event, battleId) {
@@ -2603,6 +2710,7 @@ Do not wrap the JSON in markdown fences.`;
             this.parseRoute();
             if (wasKeys) this.checkKeys();
           });
+          window.addEventListener('set-active-tab', e => { this.activeTab = e.detail; });
           const h = window.location.hash;
           if (!h || h === '#/' || h === '#/battles' || h === '#/battles/new') {
             try {
