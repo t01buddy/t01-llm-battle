@@ -362,6 +362,26 @@ async def execute_board_run(board_id: str, db_path=DB_PATH) -> str:
         # Prune old runs beyond max_history
         await _prune_history(board_id, board["max_history"], db_path)
 
+        # Auto-publish if configured
+        publish_config = json.loads(board.get("publish_config") or "{}")
+        if publish_config.get("target"):
+            from .publisher import publish_board
+            # Fetch stored items for this run
+            async with get_db(db_path) as db:
+                cur = await db.execute(
+                    "SELECT * FROM board_news_item WHERE board_id = ? ORDER BY relevance_score DESC LIMIT 100",
+                    (board_id,),
+                )
+                item_rows = [dict(r) for r in await cur.fetchall()]
+            for it in item_rows:
+                it["tags"] = json.loads(it.get("tags") or "[]")
+            try:
+                await publish_board(board, item_rows, publish_config)
+            except Exception as pub_err:
+                # Non-fatal: log but don't fail the run
+                import logging as _log
+                _log.getLogger(__name__).warning("[board_engine] auto-publish failed: %s", pub_err)
+
     except Exception as e:
         async with get_db(db_path) as db:
             await db.execute(

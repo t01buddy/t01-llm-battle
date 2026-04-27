@@ -325,3 +325,40 @@ async def test_tags_endpoint_filtered_by_topic(client, db_path):
     assert "ai" in tags
     assert "tech" in tags
     assert "vc" not in tags
+
+
+# ---------------------------------------------------------------------------
+# Publish endpoint
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_publish_no_target_returns_422(client):
+    resp = await client.post("/boards", json={"name": "Pub Board", "publish_config": {}})
+    board_id = resp.json()["id"]
+    resp = await client.post(f"/boards/{board_id}/publish")
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_publish_static_endpoint(client, db_path, tmp_path):
+    from unittest.mock import AsyncMock, patch
+
+    out_dir = str(tmp_path / "publish_out")
+    resp = await client.post(
+        "/boards",
+        json={"name": "Static Pub", "publish_config": {"target": "static", "output_dir": out_dir}},
+    )
+    board_id = resp.json()["id"]
+
+    resp = await client.post(f"/boards/{board_id}/publish")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["target"] == "static"
+
+
+@pytest.mark.asyncio
+async def test_publish_unknown_board_returns_404(client):
+    resp = await client.post("/boards/nonexistent-id/publish")
+    assert resp.status_code == 404
