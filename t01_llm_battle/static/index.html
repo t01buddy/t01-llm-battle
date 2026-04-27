@@ -1202,9 +1202,18 @@
                   </template>
                 </div>
               </div>
-              <div>
+              <div x-init="
+                const editor = new EasyMDE({
+                  element: $el.querySelector('textarea'),
+                  spellChecker: false,
+                  status: false,
+                  toolbar: ['bold', 'italic', 'heading', '|', 'unordered-list', 'ordered-list', '|', 'preview', 'guide']
+                });
+                editor.codemirror.on('change', () => { judgeRubric = editor.value(); });
+                $watch('judgeRubric', val => { if (editor.value() !== val) editor.value(val); });
+              ">
                 <label style="font-size:12px;">Rubric</label>
-                <textarea x-model="judgeRubric" rows="6" class="ba-input" style="resize:vertical;font-size:13px;" placeholder="Score the output on a scale of 0-10..."></textarea>
+                <textarea rows="6" class="ba-input" style="resize:vertical;font-size:13px;" placeholder="Score the output on a scale of 0-10..."></textarea>
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <button @click="saveJudge()" class="ba-btn ba-btn-secondary" :disabled="judgeSaving">
