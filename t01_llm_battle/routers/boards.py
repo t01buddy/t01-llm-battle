@@ -421,6 +421,32 @@ async def trigger_board_run(board_id: str):
     )
 
 
+@router.post("/{board_id}/publish", status_code=200)
+async def publish_board(board_id: str):
+    """Manually trigger a publish for this board using its publish_config."""
+    from ..publisher import publish_board as _publish_board
+    row, _ = await _get_board_or_404(board_id)
+    publish_config = _json.loads(row["publish_config"] or "{}")
+    if not publish_config.get("target"):
+        from fastapi import HTTPException as _HTTPException
+        raise _HTTPException(status_code=422, detail="No publish target configured for this board")
+
+    # Fetch latest items
+    async with get_db() as db:
+        cur = await db.execute(
+            "SELECT * FROM board_news_item WHERE board_id = ? ORDER BY relevance_score DESC LIMIT 100",
+            (board_id,),
+        )
+        rows = await db.fetchall() if False else await cur.fetchall()
+    items = [dict(r) for r in rows]
+    for item in items:
+        item["tags"] = _json.loads(item.get("tags") or "[]")
+
+    board_dict = dict(row)
+    result = await _publish_board(board_dict, items, publish_config)
+    return result
+
+
 @router.get("/{board_id}/runs", response_model=list[BoardRunOut])
 async def list_board_runs(board_id: str):
     await _get_board_or_404(board_id)
