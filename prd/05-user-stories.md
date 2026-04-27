@@ -23,7 +23,7 @@
 
 ## Key Workflow: Multi-Step Pipeline Battle (US-1)
 
-1. `pipx install t01-llm-battle && t01-llm-battle serve` → browser opens at `localhost:7878`
+1. `pipx install t01-llm-battle && t01-llm-battle serve` → browser opens at `localhost:7979`
 2. Click **New Battle**
 3. Enter name + judge config (provider, model, rubric)
 4. **Add sources**: upload `cases.csv` (10 rows → 10 source items)

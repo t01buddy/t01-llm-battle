@@ -2,7 +2,7 @@
 
 | # | Area | Summary |
 |---|------|---------|
-| FR-1 | CLI & Server | `t01-llm-battle serve` starts FastAPI on port 7878, opens browser |
+| FR-1 | CLI & Server | `t01-llm-battle serve` starts FastAPI on port 7979, opens browser |
 | FR-2 | Battle Creation | Name, sources, fighters (multi-step pipelines or manual), judge config (optional) |
 | FR-3 | Sources | Upload text/md files or a CSV; each file or CSV row = one input item |
 | FR-4 | Fighters & Steps | Named pipelines; each step has system prompt, provider, model, config |

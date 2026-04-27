@@ -52,7 +52,7 @@ After running, the final output of each fighter is judged side-by-side: quality 
 
 **In scope**
 
-- CLI that starts a local FastAPI server on a configurable port (default 7878) and opens the browser
+- CLI that starts a local FastAPI server on a configurable port (default 7979) and opens the browser
 - Single-page web UI (Alpine.js, no build step): sidebar layout with battle list + provider management on the left, battle detail on the right; Paper Light brand theme
 - **Battle creation**:
   - Name + judge config (provider, model, rubric)
