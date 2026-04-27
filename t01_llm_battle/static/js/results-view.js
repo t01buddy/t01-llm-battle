@@ -54,7 +54,10 @@ function resultsView() {
     },
 
     renderMarkdown(text) {
-      if (typeof marked !== 'undefined') return marked.parse ? marked.parse(text) : marked(text);
+      if (typeof marked !== 'undefined') {
+        const raw = marked.parse ? marked.parse(text) : marked(text);
+        return typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(raw) : raw;
+      }
       return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     },
 

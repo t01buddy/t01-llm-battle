@@ -1441,7 +1441,7 @@
                       <button class="ba-btn ba-btn-secondary" @click="window.print()" style="font-size:0.8rem;">Print</button>
                     </div>
                   </div>
-                  <div class="ba-card" style="line-height:1.7;" x-html="marked.parse(results.report_markdown)"></div>
+                  <div class="ba-card" style="line-height:1.7;" x-html="DOMPurify.sanitize(marked.parse(results.report_markdown))"></div>
                 </div>
               </template>
             </div>
@@ -1866,6 +1866,7 @@
 
   <script src="/vendor/alpine.min.js" defer></script>
   <script src="/vendor/marked.min.js"></script>
+  <script src="/vendor/purify.min.js"></script>
   <script src="/vendor/easymde.min.js"></script>
   <script src="/js/constants.js"></script>
   <script src="/js/sidebar-data.js"></script>
