@@ -56,7 +56,7 @@ function app() {
         this.resolveBattlesHash();
         return;
       } else if (parts[0] === 'battles' && parts[1] === 'new') {
-        this.route = 'battles/new'; this.params = {};
+        this.route = 'battles'; this.params = {};
       } else if (parts[0] === 'battles' && parts[1]) {
         localStorage.setItem('t01-battle:lastBattleId', parts[1]);
         this.route = 'battles/detail'; this.params = { id: parts[1] };
