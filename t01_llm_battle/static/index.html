@@ -747,11 +747,11 @@
           <span>⚙</span>
           <span class="rail-btn-label">Providers</span>
         </button>
-        <button class="rail-btn" :class="{ active: route === 'news-sources' }"
-                @click="window.location.hash = '#/news-sources'"
-                title="News Sources">
-          <span>☵</span>
-          <span class="rail-btn-label">Sources</span>
+        <button class="rail-btn" :class="{ active: route === 'news-boards' || route === 'news-sources' }"
+                @click="window.location.hash = '#/news-boards'"
+                title="News Boards">
+          <span>📋</span>
+          <span class="rail-btn-label">Boards</span>
         </button>
       </div>
 
@@ -1449,6 +1449,23 @@
         </div>
 
       </section>
+
+      <!-- ── News Boards ─────────────────────────── -->
+      <section x-show="route === 'news-boards'">
+        <h1>News Boards</h1>
+        <p class="text-muted" style="margin-bottom:2rem;">Create and manage news boards. Track sources, schedule publishing, and monitor live updates.</p>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem;">
+          <button class="btn-primary" @click="$dispatch('create-board')">+ New Board</button>
+          <a href="#/news-boards/sources" class="btn-secondary" style="text-decoration:none;display:inline-block;padding:0.5rem 1rem;border-radius:0.25rem;border:1px solid var(--gold);color:var(--gold);">Manage Sources</a>
+        </div>
+        <div class="text-muted" style="font-size:0.9rem;">No boards yet. Create your first board to start.</div>
+      </section>
+
+      <!-- ── News Sources (sub-route of boards) ──── -->
+      <section x-show="route === 'news-sources'">
+        <div style="margin-bottom:1.5rem;">
+          <a href="#/news-boards" style="color:var(--gold);text-decoration:none;font-size:0.9rem;">← Back to Boards</a>
+        </div>
 
       <!-- ── Live run view ───────────────────────── -->
       <section x-show="route === 'runs/detail'" x-data="runView()"
