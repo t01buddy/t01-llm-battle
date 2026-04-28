@@ -735,8 +735,8 @@
 
       <!-- Nav icons -->
       <div class="rail-nav">
-        <button class="rail-btn" :class="{ active: route === 'battles/detail' || route === 'battles' }"
-                @click="window.location.hash = params.id ? '#/battles/' + params.id : '#/battles'"
+        <button class="rail-btn" :class="{ active: route === 'battles/detail' || route === 'battles/new' }"
+                @click="resolveBattlesHash()"
                 title="Battles">
           <span>⚔</span>
           <span class="rail-btn-label">Battles</span>
@@ -791,14 +791,6 @@
         <span>⚠ No API keys configured. Battles require at least one active provider.</span>
         <button class="btn-warning" @click="$dispatch('open-providers-modal')">Configure API Keys →</button>
       </div>
-
-      <!-- Empty state when no battle selected -->
-      <section x-show="route === 'battles'" style="height:70%;display:flex;align-items:center;justify-content:center;">
-        <div style="text-align:center;">
-          <p class="text-muted" style="font-size:1rem;margin-bottom:1rem;">Select a battle from the sidebar or create a new one.</p>
-          <button class="btn-primary" @click="$dispatch('create-battle')">+ New Battle</button>
-        </div>
-      </section>
 
       <!-- ── Battle detail ───────────────────────── -->
       <section x-show="route === 'battles/detail'"
@@ -1461,7 +1453,7 @@
               <span class="badge-muted" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
             </template>
           </div>
-          <a :href="run && run.battle_id ? '#/battles/' + run.battle_id : '#/battles'"
+          <a :href="run && run.battle_id ? '#/battles/' + run.battle_id : '#/battles/new'"
              class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
         </div>
 
@@ -1589,7 +1581,7 @@
               class="ba-btn ba-btn-secondary" style="color:var(--ba-accent,#d4a02a);border-color:rgba(212,160,42,0.3);">
               Download Markdown
             </button>
-            <a :href="results && results.battle_id ? '#/battles/' + results.battle_id : '#/battles'"
+            <a :href="results && results.battle_id ? '#/battles/' + results.battle_id : '#/battles/new'"
                class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
           </div>
         </div>
@@ -1818,7 +1810,7 @@
       <section x-show="route === 'not-found'">
         <h1>Page not found</h1>
         <p class="text-muted">No route matches <code x-text="window.location.hash"></code>.
-          <a href="#/battles" style="color:var(--gold);text-decoration:none;">Go home</a>.
+          <a href="#/" style="color:var(--gold);text-decoration:none;">Go home</a>.
         </p>
       </section>
 

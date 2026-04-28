@@ -16,6 +16,24 @@ function app() {
       } catch(_) { this.hasActiveProvider = true; }
     },
 
+    async resolveBattlesHash() {
+      try {
+        const resp = await fetch('/battles');
+        const battles = (await resp.json()).filter(b => b && b.id);
+        if (battles.length === 0) {
+          window.location.hash = '/battles/new';
+          return;
+        }
+        const lastId = localStorage.getItem('t01-battle:lastBattleId');
+        if (lastId && battles.some(b => b.id === lastId)) {
+          window.location.hash = '/battles/' + lastId;
+        } else {
+          const sorted = battles.sort((a, b) => b.created_at > a.created_at ? 1 : -1);
+          window.location.hash = '/battles/' + sorted[0].id;
+        }
+      } catch(_) { window.location.hash = '/battles/new'; }
+    },
+
     async init() {
       this.parseRoute();
       await this.checkKeys();
@@ -25,16 +43,7 @@ function app() {
       window.addEventListener('set-active-tab', e => { this.activeTab = e.detail; });
       const h = window.location.hash;
       if (!h || h === '#/' || h === '#/battles' || h === '#/battles/new') {
-        try {
-          const resp = await fetch('/battles');
-          const battles = (await resp.json()).filter(b => b && b.id);
-          if (battles.length > 0) {
-            const sorted = battles.sort((a, b) => b.created_at > a.created_at ? 1 : -1);
-            window.location.hash = '/battles/' + sorted[0].id;
-          } else {
-            window.location.hash = '/battles';
-          }
-        } catch(_) { window.location.hash = '/battles'; }
+        await this.resolveBattlesHash();
       }
     },
 
@@ -43,9 +52,13 @@ function app() {
       const hash = raw || 'battles';
       const parts = hash.split('/');
 
-      if (hash === 'battles' || hash === '' || (parts[0] === 'battles' && parts[1] === 'new')) {
-        this.route = 'battles'; this.params = {};
+      if (hash === 'battles' || hash === '') {
+        this.resolveBattlesHash();
+        return;
+      } else if (parts[0] === 'battles' && parts[1] === 'new') {
+        this.route = 'battles/new'; this.params = {};
       } else if (parts[0] === 'battles' && parts[1]) {
+        localStorage.setItem('t01-battle:lastBattleId', parts[1]);
         this.route = 'battles/detail'; this.params = { id: parts[1] };
       } else if (parts[0] === 'runs' && parts[1]) {
         this.route = 'runs/detail'; this.params = { id: parts[1] };
