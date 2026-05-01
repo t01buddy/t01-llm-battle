@@ -136,7 +136,7 @@ function fighterList() {
           } catch(_) {}
           return { ...f, steps: [] };
         }));
-        this.fighters = withSteps;
+        this.fighters = withSteps.slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
         this._dispatchCount();
       } catch(e) { this.fightersError = e.message; }
       finally { this.loadingFighters = false; }
