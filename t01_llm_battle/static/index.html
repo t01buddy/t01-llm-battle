@@ -753,6 +753,12 @@
           <span>📋</span>
           <span class="rail-btn-label">Boards</span>
         </button>
+        <button class="rail-btn" :class="{ active: route === 'news-fighters' }"
+                @click="window.location.hash = '#/news-fighters'"
+                title="News Fighters">
+          <span>🤺</span>
+          <span class="rail-btn-label">Fighters</span>
+        </button>
       </div>
 
       <!-- Collapse toggle -->
@@ -1823,6 +1829,36 @@
         </template>
       </section>
 
+      <!-- ── News Fighters ─────────────────────── -->
+      <section x-show="route === 'news-fighters'" x-data="newsFighters()" x-init="load()">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.5rem;">
+          <h1 style="margin:0;">News Fighters</h1>
+        </div>
+
+        <div x-show="loading" class="text-muted">Loading…</div>
+
+        <template x-if="!loading && fighters.length === 0">
+          <div class="text-muted">No news fighters yet.</div>
+        </template>
+
+        <template x-if="!loading && fighters.length > 0">
+          <div class="card-list">
+            <template x-for="f in fighters" :key="f.id">
+              <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                <div>
+                  <div style="font-weight:600;" x-text="f.name"></div>
+                  <div style="font-size:0.8rem;color:var(--mid);" x-text="'Priority: ' + f.priority"></div>
+                  <span x-show="f.is_system" class="badge" style="background:var(--gold);color:#000;">system</span>
+                </div>
+                <button x-show="!f.is_system" class="btn-secondary"
+                        style="font-size:0.8rem;padding:3px 10px;color:var(--danger);"
+                        @click="deleteFighter(f.id)">Delete</button>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
+
       <!-- ── 404 ────────────────────────────────── -->
       <section x-show="route === 'not-found'">
         <h1>Page not found</h1>
@@ -1886,6 +1922,7 @@
   <script src="/js/results-view.js"></script>
   <script src="/js/app.js"></script>
   <script src="/js/news-sources.js"></script>
+  <script src="/js/news-fighters.js"></script>
   <script src="/js/providers-modal.js"></script>
 
   <!-- Providers Modal -->
