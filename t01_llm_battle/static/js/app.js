@@ -71,6 +71,8 @@ function app() {
       } else if (parts[0] === 'news-sources') {
         window.location.hash = '#/news-boards/sources';
         return;
+      } else if (parts[0] === 'news-fighters') {
+        this.route = 'news-fighters'; this.params = {};
       } else {
         this.route = 'not-found'; this.params = {};
       }
