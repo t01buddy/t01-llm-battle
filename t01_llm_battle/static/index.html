@@ -1453,12 +1453,6 @@
         <div class="text-muted" style="font-size:0.9rem;">No boards yet. Create your first board to start.</div>
       </section>
 
-      <!-- ── News Sources (sub-route of boards) ──── -->
-      <section x-show="route === 'news-sources'">
-        <div style="margin-bottom:1.5rem;">
-          <a href="#/news-boards" style="color:var(--gold);text-decoration:none;font-size:0.9rem;">← Back to Boards</a>
-        </div>
-
       <!-- ── Live run view ───────────────────────── -->
       <section x-show="route === 'runs/detail'" x-data="runView()"
                x-init="$watch('params.id', id => { if (id && route === 'runs/detail') init(id); }); if (params.id && route === 'runs/detail') init(params.id);">
