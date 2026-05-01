@@ -1443,14 +1443,47 @@
       </section>
 
       <!-- ── News Boards ─────────────────────────── -->
-      <section x-show="route === 'news-boards'">
+      <section x-show="route === 'news-boards'" x-data="newsBoards()" x-init="init()"
+               @create-board.window="showCreate = true">
         <h1>News Boards</h1>
         <p class="text-muted" style="margin-bottom:2rem;">Create and manage news boards. Track sources, schedule publishing, and monitor live updates.</p>
         <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem;">
           <button class="btn-primary" @click="$dispatch('create-board')">+ New Board</button>
           <a href="#/news-boards/sources" class="btn-secondary" style="text-decoration:none;display:inline-block;padding:0.5rem 1rem;border-radius:0.25rem;border:1px solid var(--gold);color:var(--gold);">Manage Sources</a>
         </div>
-        <div class="text-muted" style="font-size:0.9rem;">No boards yet. Create your first board to start.</div>
+
+        <!-- Create board form -->
+        <template x-if="showCreate">
+          <div class="card" style="margin-bottom:1.5rem;">
+            <h3 style="margin:0 0 1rem;">New Board</h3>
+            <div>
+              <label class="form-label">Name *</label>
+              <input class="form-input" x-model="form.name" placeholder="My News Board">
+            </div>
+            <div style="margin-top:0.75rem;">
+              <label class="form-label">Description</label>
+              <input class="form-input" x-model="form.description" placeholder="Optional description">
+            </div>
+            <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+              <button class="btn-primary" @click="createBoard()">Create</button>
+              <button class="btn-secondary" @click="showCreate = false">Cancel</button>
+            </div>
+            <template x-if="formError">
+              <p class="text-danger" style="margin-top:0.5rem;" x-text="formError"></p>
+            </template>
+          </div>
+        </template>
+
+        <div x-show="!loading && boards.length === 0" class="text-muted" style="font-size:0.9rem;">No boards yet. Create your first board to start.</div>
+        <template x-if="!loading && boards.length > 0">
+          <div class="card-list">
+            <template x-for="b in boards" :key="b.id">
+              <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+                <div style="font-weight:600;" x-text="b.name"></div>
+              </div>
+            </template>
+          </div>
+        </template>
       </section>
 
       <!-- ── News Sources (sub-route of boards) ──── -->
@@ -1885,6 +1918,7 @@
   <script src="/js/battle-results-tab.js"></script>
   <script src="/js/results-view.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/news-boards.js"></script>
   <script src="/js/news-sources.js"></script>
   <script src="/js/providers-modal.js"></script>
 
