@@ -88,12 +88,11 @@
     .icon-rail.expanded .rail-brand-label { display: inline; }
 
     .rail-nav {
-      flex: 1;
       width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 0.75rem 0;
+      padding: 0.75rem 0 0;
       gap: 0.25rem;
     }
 
@@ -155,9 +154,10 @@
       display: none;
       flex-direction: column;
       border-top: 1px solid var(--border);
-      flex: 1;
+      max-height: 50vh;
       overflow: hidden;
       min-height: 0;
+      width: 100%;
     }
     .icon-rail.expanded .left-battle-list { display: flex; }
 
@@ -739,6 +739,41 @@
           <span>⚔</span>
           <span class="rail-btn-label">Battles</span>
         </button>
+
+        <!-- Battle list (expanded sidebar only) -->
+        <div class="left-battle-list"
+             x-data="sidebarData()"
+             x-init="load()"
+             @battle-created.window="load()"
+             @battle-deleted.window="load()"
+             @provider-updated.window="load()"
+             @source-updated.window="load()"
+             @create-battle.window="newBattle()">
+          <div class="left-battle-list-header">
+            <span class="left-battle-list-title">Battles</span>
+            <button class="btn-new-battle" @click="newBattle()">+ New</button>
+          </div>
+          <div class="left-battle-list-items">
+            <template x-if="loading">
+              <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">Loading...</p>
+            </template>
+            <template x-if="!loading && battles.length === 0">
+              <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">No battles yet.</p>
+            </template>
+            <template x-for="b in battles" :key="b.id">
+              <div class="battle-item"
+                   :class="{ active: $root.params?.id === b.id }"
+                   @click="window.location.hash = '#/battles/' + b.id">
+                <span class="battle-item-name" x-text="b.name"></span>
+                <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
+                <span x-show="b.has_sources && b.run_count > 0" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;" x-text="b.run_count + ' run' + (b.run_count > 1 ? 's' : '')"></span>
+                <button class="btn-delete-battle" title="Delete"
+                        @click.stop="deleteBattle(b.id)">×</button>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <button class="rail-btn"
                 @click="$dispatch('open-providers-modal')"
                 title="Providers">
@@ -746,40 +781,6 @@
           <span class="rail-btn-label">Providers</span>
         </button>
 
-      </div>
-
-      <!-- Battle list (expanded sidebar only) -->
-      <div class="left-battle-list"
-           x-data="sidebarData()"
-           x-init="load()"
-           @battle-created.window="load()"
-           @battle-deleted.window="load()"
-           @provider-updated.window="load()"
-           @source-updated.window="load()"
-           @create-battle.window="newBattle()">
-        <div class="left-battle-list-header">
-          <span class="left-battle-list-title">Battles</span>
-          <button class="btn-new-battle" @click="newBattle()">+ New</button>
-        </div>
-        <div class="left-battle-list-items">
-          <template x-if="loading">
-            <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">Loading...</p>
-          </template>
-          <template x-if="!loading && battles.length === 0">
-            <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">No battles yet.</p>
-          </template>
-          <template x-for="b in battles" :key="b.id">
-            <div class="battle-item"
-                 :class="{ active: $root.params?.id === b.id }"
-                 @click="window.location.hash = '#/battles/' + b.id">
-              <span class="battle-item-name" x-text="b.name"></span>
-              <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
-              <span x-show="b.has_sources && b.run_count > 0" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;" x-text="b.run_count + ' run' + (b.run_count > 1 ? 's' : '')"></span>
-              <button class="btn-delete-battle" title="Delete"
-                      @click.stop="deleteBattle(b.id)">×</button>
-            </div>
-          </template>
-        </div>
       </div>
 
       <!-- Collapse toggle -->
