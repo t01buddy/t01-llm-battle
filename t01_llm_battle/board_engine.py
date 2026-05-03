@@ -302,6 +302,7 @@ async def execute_board_run(board_id: str, db_path=DB_PATH) -> str:
             for item in items[:src["max_items"]]:
                 item["source_name"] = src["name"]
                 item["source_id"] = src["id"]
+                item["source_affinity"] = src.get("fighter_affinity") or "[]"
                 all_raw.append(item)
 
         items_fetched = len(all_raw)
@@ -332,8 +333,36 @@ async def execute_board_run(board_id: str, db_path=DB_PATH) -> str:
 
         items_processed = len(deduped)
 
+        # Load fighter names for attribution
+        fighter_ids = json.loads(board["fighter_ids"] or "[]")
+        fighter_name_map: dict[str, str] = {}
+        if fighter_ids:
+            async with get_db(db_path) as db:
+                placeholders = ",".join("?" * len(fighter_ids))
+                cur = await db.execute(
+                    f"SELECT id, name FROM news_fighter WHERE id IN ({placeholders})",
+                    fighter_ids,
+                )
+                fighter_name_map = {r["id"]: r["name"] for r in await cur.fetchall()}
+
+        def _pick_fighter_name(item: dict) -> str:
+            """Pick fighter for item: prefer affinity match, else first board fighter."""
+            src_affinity = json.loads(item.get("source_affinity") or "[]")
+            for fid in src_affinity:
+                if fid in fighter_name_map:
+                    return fighter_name_map[fid]
+            # Fallback: first board fighter
+            for fid in fighter_ids:
+                if fid in fighter_name_map:
+                    return fighter_name_map[fid]
+            return ""
+
+        # Tag each item with its assigned fighter name
+        for item in deduped:
+            item["fighter_name"] = _pick_fighter_name(item)
+
         # Normalize and store items
-        norm_tasks = [_normalize_item(item, board, item.get("source_name", ""), db_path) for item in deduped]
+        norm_tasks = [_normalize_item(item, board, item["fighter_name"], db_path) for item in deduped]
         norm_results = await asyncio.gather(*norm_tasks, return_exceptions=True)
 
         async with get_db(db_path) as db:
@@ -349,7 +378,7 @@ async def execute_board_run(board_id: str, db_path=DB_PATH) -> str:
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (item_id, run_id, board_id, norm["title"], norm["summary"],
                      raw.get("url", ""), raw.get("source_name", ""),
-                     "", norm["category"], tags_json,
+                     raw.get("fighter_name", ""), norm["category"], tags_json,
                      norm["relevance_score"], raw.get("published_at"), now),
                 )
             # Update run as complete
