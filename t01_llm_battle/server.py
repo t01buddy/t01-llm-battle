@@ -14,11 +14,6 @@ from .routers.runs import router as runs_router
 from .routers.sources import router as sources_router
 from .routers.fighters import router as fighters_router, providers_router
 from .routers.providers import router as provider_mgmt_router
-from .routers.templates import router as templates_router
-from .routers.news_sources import router as news_sources_router
-from .routers.news_fighters import router as news_fighters_router
-from .routers.boards import router as boards_router
-from . import scheduler as board_scheduler
 
 log = logging.getLogger(__name__)
 
@@ -31,12 +26,7 @@ async def lifespan(app: FastAPI):
     cache = get_cache_info()
     if cache["age_seconds"] is None:
         asyncio.create_task(_background_pricing_refresh())
-    # Start board scheduler and register active boards
-    board_scheduler.start(db_path)
-    await board_scheduler.load_boards(db_path)
     yield
-    # Graceful shutdown
-    board_scheduler.stop()
 
 
 async def _background_pricing_refresh():
@@ -59,10 +49,6 @@ def create_app(db_path=DB_PATH) -> FastAPI:
     app.include_router(fighters_router)
     app.include_router(providers_router)
     app.include_router(provider_mgmt_router)
-    app.include_router(templates_router)
-    app.include_router(news_sources_router)
-    app.include_router(news_fighters_router)
-    app.include_router(boards_router)
 
     # Health check
     @app.get("/healthz")
