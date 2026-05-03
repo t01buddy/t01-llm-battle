@@ -10,6 +10,10 @@ function battleDetail() {
     judgeEnabled: false, judgeProvider: 'openai', judgeModel: 'gpt-4o', judgeModelCustom: '',
     judgeRubric: DEFAULT_RUBRIC, judgeSaving: false, judgeSaved: false, judgeError: null,
 
+    init() {
+      window.addEventListener('fighters-updated', e => { this.fighterCount = e.detail.count; });
+    },
+
     llmProviders() {
       const pi = window._providerInfoList || [];
       return pi.filter(p => p.provider_type === 'llm' && p.enabled);
