@@ -64,17 +64,11 @@ function app() {
         this.route = 'runs/detail'; this.params = { id: parts[1] };
       } else if (parts[0] === 'results' && parts[1]) {
         this.route = 'results/detail'; this.params = { id: parts[1] };
-      } else if (parts[0] === 'news-boards' && parts[1] === 'sources') {
-        this.route = 'news-sources'; this.params = {};
-      } else if (parts[0] === 'news-boards') {
-        this.route = 'news-boards'; this.params = {};
-      } else if (parts[0] === 'news-sources') {
-        window.location.hash = '#/news-boards/sources';
-        return;
       } else if (parts[0] === 'news-fighters') {
         this.route = 'news-fighters'; this.params = {};
       } else {
-        this.route = 'not-found'; this.params = {};
+        this.resolveBattlesHash();
+        return;
       }
     },
 

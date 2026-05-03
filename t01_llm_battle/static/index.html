@@ -55,8 +55,8 @@
       flex-shrink: 0;
     }
     .icon-rail.expanded {
-      width: 200px;
-      min-width: 200px;
+      width: 280px;
+      min-width: 280px;
     }
 
     .rail-brand {
@@ -150,28 +150,26 @@
     }
     .btn-rail-collapse:hover { background: var(--border); color: var(--high); }
 
-    /* ── Right Rail (Battle List) ─────────────────── */
-    .right-rail {
-      width: 260px;
-      min-width: 260px;
-      background: var(--sidebar-bg);
-      border-left: 1px solid var(--border);
-      display: flex;
+    /* ── Left Sidebar Battle List ────────────────── */
+    .left-battle-list {
+      display: none;
       flex-direction: column;
+      border-top: 1px solid var(--border);
+      flex: 1;
       overflow: hidden;
-      flex-shrink: 0;
+      min-height: 0;
     }
+    .icon-rail.expanded .left-battle-list { display: flex; }
 
-    .right-rail-header {
+    .left-battle-list-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
       flex-shrink: 0;
     }
-    .right-rail-title {
-      font-size: 0.7rem;
+    .left-battle-list-title {
+      font-size: 0.68rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.07em;
@@ -190,7 +188,7 @@
     }
     .btn-new-battle:hover { border-color: var(--gold); color: var(--gold); }
 
-    .right-rail-list {
+    .left-battle-list-items {
       flex: 1;
       overflow-y: auto;
       padding: 0.4rem 0.5rem;
@@ -431,7 +429,7 @@
       .icon-rail.expanded .rail-brand { justify-content: center; font-size: 1.3rem; padding: 1rem 0; }
       .icon-rail.expanded .rail-btn { justify-content: center; padding: 0.6rem 0; }
       .icon-rail.expanded .rail-collapse { justify-content: center; padding: 0.6rem 0; }
-      .right-rail { display: none; }
+      .icon-rail.expanded .left-battle-list { display: none; }
     }
 
     @media (max-width: 767px) {
@@ -747,18 +745,46 @@
           <span>⚙</span>
           <span class="rail-btn-label">Providers</span>
         </button>
-        <button class="rail-btn" :class="{ active: route === 'news-boards' || route === 'news-sources' }"
-                @click="window.location.hash = '#/news-boards'"
-                title="News Boards">
-          <span>📋</span>
-          <span class="rail-btn-label">Boards</span>
-        </button>
         <button class="rail-btn" :class="{ active: route === 'news-fighters' }"
                 @click="window.location.hash = '#/news-fighters'"
                 title="News Fighters">
           <span>🤺</span>
           <span class="rail-btn-label">Fighters</span>
         </button>
+      </div>
+
+      <!-- Battle list (expanded sidebar only) -->
+      <div class="left-battle-list"
+           x-data="sidebarData()"
+           x-init="load()"
+           @battle-created.window="load()"
+           @battle-deleted.window="load()"
+           @provider-updated.window="load()"
+           @source-updated.window="load()"
+           @create-battle.window="newBattle()">
+        <div class="left-battle-list-header">
+          <span class="left-battle-list-title">Battles</span>
+          <button class="btn-new-battle" @click="newBattle()">+ New</button>
+        </div>
+        <div class="left-battle-list-items">
+          <template x-if="loading">
+            <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">Loading...</p>
+          </template>
+          <template x-if="!loading && battles.length === 0">
+            <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">No battles yet.</p>
+          </template>
+          <template x-for="b in battles" :key="b.id">
+            <div class="battle-item"
+                 :class="{ active: $root.params?.id === b.id }"
+                 @click="window.location.hash = '#/battles/' + b.id">
+              <span class="battle-item-name" x-text="b.name"></span>
+              <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
+              <span x-show="b.has_sources && b.run_count > 0" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;" x-text="b.run_count + ' run' + (b.run_count > 1 ? 's' : '')"></span>
+              <button class="btn-delete-battle" title="Delete"
+                      @click.stop="deleteBattle(b.id)">×</button>
+            </div>
+          </template>
+        </div>
       </div>
 
       <!-- Collapse toggle -->
@@ -1449,50 +1475,6 @@
 
       </section>
 
-      <!-- ── News Boards ─────────────────────────── -->
-      <section x-show="route === 'news-boards'" x-data="newsBoards()" x-init="init()"
-               @create-board.window="showCreate = true">
-        <h1>News Boards</h1>
-        <p class="text-muted" style="margin-bottom:2rem;">Create and manage news boards. Track sources, schedule publishing, and monitor live updates.</p>
-        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem;">
-          <button class="btn-primary" @click="$dispatch('create-board')">+ New Board</button>
-          <a href="#/news-boards/sources" class="btn-secondary" style="text-decoration:none;display:inline-block;padding:0.5rem 1rem;border-radius:0.25rem;border:1px solid var(--gold);color:var(--gold);">Manage Sources</a>
-        </div>
-
-        <!-- Create board form -->
-        <template x-if="showCreate">
-          <div class="card" style="margin-bottom:1.5rem;">
-            <h3 style="margin:0 0 1rem;">New Board</h3>
-            <div>
-              <label class="form-label">Name *</label>
-              <input class="form-input" x-model="form.name" placeholder="My News Board">
-            </div>
-            <div style="margin-top:0.75rem;">
-              <label class="form-label">Description</label>
-              <input class="form-input" x-model="form.description" placeholder="Optional description">
-            </div>
-            <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-              <button class="btn-primary" @click="createBoard()">Create</button>
-              <button class="btn-secondary" @click="showCreate = false">Cancel</button>
-            </div>
-            <template x-if="formError">
-              <p class="text-danger" style="margin-top:0.5rem;" x-text="formError"></p>
-            </template>
-          </div>
-        </template>
-
-        <div x-show="!loading && boards.length === 0" class="text-muted" style="font-size:0.9rem;">No boards yet. Create your first board to start.</div>
-        <template x-if="!loading && boards.length > 0">
-          <div class="card-list">
-            <template x-for="b in boards" :key="b.id">
-              <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
-                <div style="font-weight:600;" x-text="b.name"></div>
-              </div>
-            </template>
-          </div>
-        </template>
-      </section>
-
       <!-- ── Live run view ───────────────────────── -->
       <section x-show="route === 'runs/detail'" x-data="runView()"
                x-init="$watch('params.id', id => { if (id && route === 'runs/detail') init(id); }); if (params.id && route === 'runs/detail') init(params.id);">
@@ -1755,108 +1737,6 @@
         </template>
       </section>
 
-      <!-- ── News Sources ───────────────────────── -->
-      <section x-show="route === 'news-sources'" x-data="newsSources()" x-init="load()">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.5rem;">
-          <h1 style="margin:0;">News Sources</h1>
-          <button class="btn-primary" @click="showAdd = true; resetForm()">+ Add Source</button>
-        </div>
-
-        <!-- Add source form -->
-        <template x-if="showAdd">
-          <div class="card" style="margin-bottom:1.5rem;">
-            <h3 style="margin:0 0 1rem;">New Source</h3>
-            <div class="form-grid-2">
-              <div>
-                <label class="form-label">Name *</label>
-                <input class="form-input" x-model="form.name" placeholder="My RSS Feed">
-              </div>
-              <div>
-                <label class="form-label">Type *</label>
-                <select class="form-input" x-model="form.source_type">
-                  <option value="url">URL</option>
-                  <option value="rss">RSS</option>
-                  <option value="api">API</option>
-                  <option value="social">Social</option>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Priority (1–10)</label>
-                <input class="form-input" type="number" min="1" max="10" x-model.number="form.priority">
-              </div>
-              <div>
-                <label class="form-label">Max Items</label>
-                <input class="form-input" type="number" min="1" x-model.number="form.max_items">
-              </div>
-              <div>
-                <label class="form-label">Tags (comma-separated)</label>
-                <input class="form-input" x-model="form.tags_input" placeholder="tech, ai, news">
-              </div>
-              <div>
-                <label class="form-label">Fighter Affinity (optional)</label>
-                <input class="form-input" x-model="form.fighter_affinity" placeholder="fighter-id">
-              </div>
-            </div>
-            <div style="margin-top:0.75rem;">
-              <label class="form-label">Config JSON</label>
-              <textarea class="form-input" rows="3" x-model="form.config_raw" placeholder='{"url": "https://example.com/feed"}'></textarea>
-            </div>
-            <div style="display:flex;gap:0.5rem;margin-top:1rem;">
-              <button class="btn-primary" @click="createSource()">Create</button>
-              <button class="btn-secondary" @click="showAdd = false">Cancel</button>
-            </div>
-            <template x-if="formError">
-              <p class="text-danger" style="margin-top:0.5rem;" x-text="formError"></p>
-            </template>
-          </div>
-        </template>
-
-        <template x-if="loading">
-          <p class="text-muted">Loading sources...</p>
-        </template>
-
-        <template x-if="!loading && sources.length === 0">
-          <p class="text-muted">No news sources yet.</p>
-        </template>
-
-        <!-- Sources table -->
-        <template x-if="sources.length > 0">
-          <div>
-            <template x-for="src in sources" :key="src.id">
-              <div class="card" style="margin-bottom:0.75rem;">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;">
-                  <div style="flex:1;">
-                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                      <strong x-text="src.name"></strong>
-                      <span class="badge" x-text="src.source_type"></span>
-                      <span x-show="src.is_system" class="badge" style="background:var(--gold);color:#000;">system</span>
-                      <span x-show="src.status === 'disabled'" class="badge-muted">disabled</span>
-                      <span style="font-size:0.8rem;color:var(--mid);">priority: <span x-text="src.priority"></span></span>
-                      <span style="font-size:0.8rem;color:var(--mid);">max: <span x-text="src.max_items"></span></span>
-                    </div>
-                    <div style="margin-top:0.3rem;font-size:0.8rem;color:var(--mid);" x-show="src.tags && src.tags.length > 0">
-                      Tags: <span x-text="src.tags.join(', ')"></span>
-                    </div>
-                    <div style="margin-top:0.2rem;font-size:0.8rem;color:var(--mid);" x-show="src.fighter_affinity">
-                      Affinity: <span x-text="src.fighter_affinity"></span>
-                    </div>
-                    <div style="margin-top:0.3rem;font-size:0.75rem;color:var(--danger);" x-show="src.last_error" x-text="'Error: ' + src.last_error"></div>
-                  </div>
-                  <div style="display:flex;gap:0.4rem;flex-shrink:0;">
-                    <button class="btn-secondary" style="font-size:0.8rem;padding:3px 10px;"
-                            @click="toggleDisable(src)">
-                      <span x-text="src.status === 'disabled' ? 'Enable' : 'Disable'"></span>
-                    </button>
-                    <button x-show="!src.is_system" class="btn-secondary" style="font-size:0.8rem;padding:3px 10px;color:var(--danger);"
-                            @click="deleteSource(src.id)">Delete</button>
-                  </div>
-                </div>
-              </div>
-            </template>
-          </div>
-        </template>
-      </section>
-
       <!-- ── News Fighters ─────────────────────── -->
       <section x-show="route === 'news-fighters'" x-data="newsFighters()" x-init="load()">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.5rem;">
@@ -1898,43 +1778,6 @@
     </main>
     </div><!-- end .main-wrapper -->
 
-    <!-- ── Right Rail (Battle List) ───────────────── -->
-    <aside class="right-rail"
-           x-data="sidebarData()"
-           x-init="load()"
-           @battle-created.window="load()"
-           @battle-deleted.window="load()"
-           @provider-updated.window="load()"
-           @source-updated.window="load()"
-           @create-battle.window="newBattle()">
-
-      <div class="right-rail-header">
-        <span class="right-rail-title">Battles</span>
-        <button class="btn-new-battle" @click="newBattle()">+ New</button>
-      </div>
-
-      <div class="right-rail-list">
-        <template x-if="loading">
-          <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">Loading...</p>
-        </template>
-        <template x-if="!loading && battles.length === 0">
-          <p class="text-muted" style="font-size:0.82rem;padding:4px 8px;">No battles yet.</p>
-        </template>
-        <template x-for="b in battles" :key="b.id">
-          <div class="battle-item"
-               :class="{ active: $root.params?.id === b.id }"
-               @click="window.location.hash = '#/battles/' + b.id">
-            <span class="battle-item-name" x-text="b.name"></span>
-            <span x-show="!b.has_sources" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;">new</span>
-            <span x-show="b.has_sources && b.run_count > 0" class="badge-muted" style="font-size:0.68rem;padding:1px 5px;" x-text="b.run_count + ' run' + (b.run_count > 1 ? 's' : '')"></span>
-            <button class="btn-delete-battle" title="Delete"
-                    @click.stop="deleteBattle(b.id)">×</button>
-          </div>
-        </template>
-      </div>
-
-    </aside>
-
   </div><!-- end .app-shell -->
 
   <script src="/vendor/alpine.min.js" defer></script>
@@ -1949,8 +1792,6 @@
   <script src="/js/battle-results-tab.js"></script>
   <script src="/js/results-view.js"></script>
   <script src="/js/app.js"></script>
-  <script src="/js/news-boards.js"></script>
-  <script src="/js/news-sources.js"></script>
   <script src="/js/news-fighters.js"></script>
   <script src="/js/providers-modal.js"></script>
 
