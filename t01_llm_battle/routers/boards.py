@@ -149,6 +149,26 @@ def _row_to_board(row, topics: list[BoardTopicOut]) -> BoardOut:
     )
 
 
+async def _validate_source_filter(source_filter: list[str]) -> None:
+    """Raise 422 if source_filter is non-empty but no active news_source matches any tag."""
+    if not source_filter:
+        return
+    async with get_db() as db:
+        cur = await db.execute(
+            "SELECT tags FROM news_source WHERE status = 'active'"
+        )
+        rows = await cur.fetchall()
+    all_tags: set[str] = set()
+    for row in rows:
+        all_tags.update(_json.loads(row["tags"] or "[]"))
+    unmatched = [t for t in source_filter if t not in all_tags]
+    if unmatched:
+        raise HTTPException(
+            status_code=422,
+            detail=f"source_filter contains tags that match no active source: {unmatched}",
+        )
+
+
 async def _get_board_or_404(board_id: str):
     async with get_db() as db:
         cur = await db.execute("SELECT * FROM board WHERE id = ?", (board_id,))
@@ -173,6 +193,7 @@ async def list_boards():
 
 @router.post("", response_model=BoardOut, status_code=201)
 async def create_board(body: BoardCreate):
+    await _validate_source_filter(body.source_filter)
     now = datetime.now(timezone.utc).isoformat()
     board_id = str(uuid.uuid4())
     async with get_db() as db:
@@ -206,6 +227,8 @@ async def update_board(board_id: str, body: BoardUpdate):
     row, _ = await _get_board_or_404(board_id)
     if bool(row["is_system"]):
         raise HTTPException(status_code=403, detail="System boards cannot be modified")
+    if body.source_filter is not None:
+        await _validate_source_filter(body.source_filter)
     now = datetime.now(timezone.utc).isoformat()
     updates = body.model_dump(exclude_none=True)
     if not updates:
