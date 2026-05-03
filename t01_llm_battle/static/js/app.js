@@ -64,8 +64,6 @@ function app() {
         this.route = 'runs/detail'; this.params = { id: parts[1] };
       } else if (parts[0] === 'results' && parts[1]) {
         this.route = 'results/detail'; this.params = { id: parts[1] };
-      } else if (parts[0] === 'news-fighters') {
-        this.route = 'news-fighters'; this.params = {};
       } else {
         this.resolveBattlesHash();
         return;
