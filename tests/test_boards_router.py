@@ -362,3 +362,56 @@ async def test_publish_static_endpoint(client, db_path, tmp_path):
 async def test_publish_unknown_board_returns_404(client):
     resp = await client.post("/boards/nonexistent-id/publish")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# source_filter validation (FR-26 bug fix)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_board_invalid_source_filter_returns_422(client):
+    """source_filter with tags matching no active news_source must return 422."""
+    resp = await client.post("/boards", json={"name": "Bad Filter", "source_filter": ["nonexistent-tag-xyz"]})
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert "nonexistent-tag-xyz" in detail
+
+
+@pytest.mark.asyncio
+async def test_create_board_empty_source_filter_allowed(client):
+    """Empty source_filter skips validation — board created successfully."""
+    resp = await client.post("/boards", json={"name": "No Filter", "source_filter": []})
+    assert resp.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_create_board_valid_source_filter_allowed(client):
+    """source_filter with tags matching a system news_source succeeds."""
+    resp = await client.post("/boards", json={"name": "Valid Filter", "source_filter": ["tech"]})
+    assert resp.status_code == 201
+    assert resp.json()["source_filter"] == ["tech"]
+
+
+@pytest.mark.asyncio
+async def test_update_board_invalid_source_filter_returns_422(client):
+    """Updating source_filter to invalid tags returns 422."""
+    resp = await client.post("/boards", json={"name": "Update Filter Board"})
+    assert resp.status_code == 201
+    board_id = resp.json()["id"]
+
+    resp = await client.put(f"/boards/{board_id}", json={"source_filter": ["no-such-tag-abc"]})
+    assert resp.status_code == 422
+    assert "no-such-tag-abc" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_update_board_omitted_source_filter_skips_validation(client):
+    """update_board with no source_filter field does not trigger validation."""
+    resp = await client.post("/boards", json={"name": "Skip Validation Board"})
+    assert resp.status_code == 201
+    board_id = resp.json()["id"]
+
+    resp = await client.put(f"/boards/{board_id}", json={"name": "Renamed"})
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Renamed"
