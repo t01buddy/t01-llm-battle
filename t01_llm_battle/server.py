@@ -14,8 +14,6 @@ from .routers.runs import router as runs_router
 from .routers.sources import router as sources_router
 from .routers.fighters import router as fighters_router, providers_router
 from .routers.providers import router as provider_mgmt_router
-from .routers.templates import router as templates_router
-
 log = logging.getLogger(__name__)
 
 
@@ -50,7 +48,6 @@ def create_app(db_path=DB_PATH) -> FastAPI:
     app.include_router(fighters_router)
     app.include_router(providers_router)
     app.include_router(provider_mgmt_router)
-    app.include_router(templates_router)
 
     # Health check
     @app.get("/healthz")
