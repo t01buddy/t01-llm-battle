@@ -17,7 +17,7 @@ Redesign the battle app UI from a 2-column text sidebar to a 3-column layout wit
 │  Icon  │ │ Battle Name    run-id     │   │  Right Rail   │
 │  Rail  │ └───────────────────────────┘   │               │
 │        │ ┌─ Tabs ────────────────────┐   │  BATTLES      │
-│  ☰ ←→  │ │ Setup │ Run │ Results    │   │  + New        │
+│  ☰ ←→  │ │ Setup │ Runs           │   │  + New        │
 │        │ └───────────────────────────┘   │               │
 │  ⚔ bat │                                │  ● Battle A   │
 │        │ ┌─ Tab Content ─────────────┐   │    new        │
@@ -33,7 +33,7 @@ Redesign the battle app UI from a 2-column text sidebar to a 3-column layout wit
 ```
 
 **Icon rail** (~64px): Collapsible sidebar with icon-only navigation.
-**Main content** (flex: 1): Topbar + tab bar + active tab content.
+**Main content** (flex: 1): Topbar + tab bar (Setup / Runs) + active tab content.
 **Right rail** (~320px): Battle list with active highlighting and status tags.
 
 ---
@@ -63,16 +63,34 @@ Replaces the current text sidebar. Collapsed by default on narrow viewports.
 
 ## Tab Bar
 
-Content area uses tabs instead of vertically stacked sections:
+Content area uses two tabs within battle detail:
 
 | Tab | Content |
 |-----|---------|
-| **Setup** | Sources upload + Fighters cards + Judge config |
-| **Run** | Run progress bar + source × fighter status grid |
-| **Results** | Fighter summary leaderboard + per-source breakdown |
+| **Setup** | Sources upload + Fighters cards + Judge config + Run Battle button |
+| **Runs** | List of all runs for this battle (newest first); click row → Run detail page |
 
-- Tab badges: Run tab shows spinner during active run; Results tab shows score count
+- "Run Battle" button on Setup navigates directly to `#/runs/{new_run_id}` after creating the run
 - Switching tabs preserves state (no re-fetch)
+
+## Run Detail Page (`#/runs/{run_id}`)
+
+A standalone page (not a tab) combining Progress and Results:
+
+```
+┌─ Run: abc12345 ────────────────── ← Back to Battle ──┐
+│  Status: running                                      │
+├─ Progress ────────────────────────────────────────────┤
+│  ████████████░░░░░░  62%                              │
+│              │ Fighter 1  │ Fighter 2                 │
+│  Source 1    │    ● done  │    ◌ run                  │
+│  Source 2    │    ◌ run   │    ○ wait                 │
+├─ Results (waiting for completion…) ───────────────────┤
+│  [shown once run is complete]                         │
+└───────────────────────────────────────────────────────┘
+```
+
+Once complete, Progress condenses to a status header and Results section becomes the focus.
 
 ---
 
@@ -140,7 +158,26 @@ Content area uses tabs instead of vertically stacked sections:
 
 ---
 
-## Run Tab
+## Runs Tab (within battle detail)
+
+```
+┌─ Runs ──────────────────────────────────────────────────────┐
+│  Started          Status    Duration  Fighters  Cost  Judge  │
+│─────────────────────────────────────────────────────────────│
+│  2026-05-05 14:22  complete  11.2s     2         $0.04  ✓   │
+│  2026-05-04 09:11  complete  8.7s      2         $0.03  ✓   │
+└─────────────────────────────────────────────────────────────┘
+
+Empty state: "No runs yet. Run a battle to see runs here."
+```
+
+Row click → navigates to `#/runs/{run_id}`
+
+---
+
+## Run Detail Page
+
+### Progress Section (while pending/running)
 
 ```
 ┌─ Run Progress ──────────────────────────────────────┐
@@ -159,11 +196,9 @@ Content area uses tabs instead of vertically stacked sections:
 ● done (green)  ◌ running (pulse)  ○ waiting (gray)  ✕ error (red)
 ```
 
----
+### Results Section (once complete)
 
-## Results Tab
-
-### Fighter Summary (Leaderboard)
+#### Fighter Summary (Leaderboard)
 
 ```
 ┌─ Fighter Summary ───────────────────────────────────────────┐
@@ -175,7 +210,7 @@ Content area uses tabs instead of vertically stacked sections:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Per-Source Breakdown
+#### Per-Source Breakdown
 
 ```
 ┌─ Source: "input-1.txt" ─────────────────────────────────────┐

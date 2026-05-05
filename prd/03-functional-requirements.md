@@ -14,14 +14,14 @@
 | FR-8 | Provider Management | Per-provider config: display name (optional, defaults to provider slug), API key, server URL / base URL (optional, for Ollama, LLM Studio, self-hosted); stored in SQLite; env vars override key at runtime; API key masked in UI |
 | FR-9 | Rate Limiting | Per-provider RPM throttling with bounded concurrency |
 | FR-10 | Run Execution | Parallel across fighters × sources; sequential within a fighter's steps |
-| FR-11 | Live Run View | Polling UI; step-level status per fighter per source item |
+| FR-11 | Live Run View | Polling UI; step-level status per fighter per source item. The live view is a **section within the Run detail page** (`#/runs/{id}`), not a standalone route/tab. |
 | FR-12 | LLM-as-Judge | Optional. When configured, scores final step output per fighter per source (0–10 + reasoning). When not configured, run completes without scoring. |
 | FR-13 | Markdown Report | Judge generates a markdown summary; rendered in browser via marked.js |
-| FR-14 | Results View | Fighter summary leaderboard table (rank, avg score, cost, tokens, time) + per-source breakdown with expandable output. When no judge, outputs shown without scores. See [09-ui-redesign.md](./09-ui-redesign.md). |
+| FR-14 | Runs & Results View | Battle detail has two tabs: **Setup** \| **Runs**. The Runs tab lists all runs (newest first) with run-level aggregates (status, started, duration, fighter count, source count, total cost, judge Y/N). Clicking a run row opens the **Run detail page** (`#/runs/{id}`): a single page combining a **Progress** section (live polling while `pending`/`running`) and a **Results** section (leaderboard + per-source breakdown + judge report, shown once `complete`). "Run Battle" on Setup navigates directly to the Run detail page. See [09-ui-redesign.md](./09-ui-redesign.md). |
 | FR-15 | SQLite Persistence | All battles, sources, fighters, steps, runs, results, judgments, api_keys |
 | FR-16 | Custom Model IDs | Override catalog slugs; pricing shown as "unknown" |
 | FR-19 | Provider Management UI | Modal overlay (opened from sidebar icon); lists LLM and tool providers with enable/disable toggle, key status, edit form for API key, display name, server URL; pricing refresh button; uninstall non-system providers |
-| FR-20 | App Layout | 3-column layout: collapsible icon rail sidebar (64px) + tabbed main content (Setup/Run/Results) + right rail battle list (320px). See [09-ui-redesign.md](./09-ui-redesign.md) for mockups. |
+| FR-20 | App Layout | 3-column layout: collapsible icon rail sidebar (64px) + tabbed main content (Setup/Runs) + right rail battle list (320px). See [09-ui-redesign.md](./09-ui-redesign.md) for mockups. |
 
 ---
 
@@ -175,11 +175,25 @@ Unknown keys are passed through to the provider as-is — forward-compatible wit
 
 ---
 
-## Detail: FR-14 Results View
+## Detail: FR-14 Runs & Results View
 
-- **Fighter Summary**: leaderboard table showing rank, fighter name, avg score, total cost, token count, latency, success/fail counts
-- **Per-Source Breakdown**: expandable cards per source item showing each fighter's output, score, cost, and tokens side-by-side
-- "Show output" toggle per fighter result to expand/collapse full output text
-- **When judge is configured**: scores shown in leaderboard and per-source cards
-- **When no judge is configured**: outputs shown without scores; users compare quality visually
-- Download Markdown button for judge report
+### Runs Tab (within battle detail)
+
+- Lists all runs for the current battle, newest first
+- Columns: Started, Status, Duration, Fighters, Sources, Total cost, Judge (Y/N)
+- Empty state: "No runs yet. Run a battle to see runs here."
+- Clicking a run row navigates to `#/runs/{run_id}`
+
+### Run Detail Page (`#/runs/{run_id}`)
+
+Combines Progress and Results in one page (no tab switch needed):
+
+- **Progress section**: live polling status grid (source × fighter); shown while status is `pending`/`running`; condenses to a status header once terminal
+- **Results section**: appears when run reaches `complete` (or shows "Waiting for completion..." placeholder while running)
+  - **Fighter Summary**: leaderboard table showing rank, fighter name, avg score, total cost, token count, latency, success/fail counts
+  - **Per-Source Breakdown**: expandable cards per source item showing each fighter's output, score, cost, and tokens side-by-side; "Show output" toggle per fighter
+  - **When judge is configured**: scores shown in leaderboard and per-source cards
+  - **When no judge is configured**: outputs shown without scores; users compare quality visually
+  - Download Markdown + Copy Report affordances
+- Polling stops once status is terminal
+- `#/results/{run_id}` (old bookmarks) redirects to `#/runs/{run_id}`
