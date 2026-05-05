@@ -795,10 +795,10 @@
     <!-- ── Main Wrapper ─────────────────────────────── -->
     <div class="main-wrapper">
 
-      <!-- Topbar (battle/run/results views) -->
-      <div class="main-topbar" x-show="route === 'battles/detail' || route === 'runs/detail' || route === 'results/detail'">
+      <!-- Topbar (battle/run views) -->
+      <div class="main-topbar" x-show="route === 'battles/detail' || route === 'runs/detail'">
         <span class="main-topbar-name"
-              x-text="route === 'battles/detail' ? 'Battle Setup' : route === 'runs/detail' ? 'Live Run' : 'Results'">
+              x-text="route === 'battles/detail' ? 'Battle Setup' : 'Run'">
         </span>
         <span class="main-topbar-id"
               x-text="params.id ? params.id.slice(0,8) + '...' : ''"></span>
@@ -807,8 +807,7 @@
       <!-- Tab bar (battle detail only) -->
       <div class="tab-bar" x-show="route === 'battles/detail'">
         <button class="tab-btn" :class="{ active: activeTab === 'setup' }" @click="activeTab = 'setup'">Setup</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'run' }" @click="activeTab = 'run'">Run</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'results' }" @click="activeTab = 'results'">Results</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'runs' }" @click="activeTab = 'runs'">Runs</button>
       </div>
 
     <!-- ── Main content ────────────────────────────── -->
@@ -1262,252 +1261,95 @@
 
         </div><!-- end tab: setup -->
 
-        <!-- Tab: Run -->
-        <div x-show="activeTab === 'run'">
-          <template x-if="!currentRunId">
+        <!-- Tab: Runs -->
+        <div x-show="activeTab === 'runs'"
+             x-data="runsTab()"
+             x-init="$watch('currentBattleId', id => { if (id && activeTab === 'runs') load(id); }); if (currentBattleId && activeTab === 'runs') load(currentBattleId);">
+
+          <template x-if="loading">
+            <p class="text-muted">Loading runs...</p>
+          </template>
+          <template x-if="error">
+            <div style="color:var(--ba-danger,#c00);font-size:0.88rem;" x-text="error"></div>
+          </template>
+          <template x-if="!loading && !error && runs.length === 0">
             <div class="placeholder" style="height:180px;">
               <div style="text-align:center;">
-                <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">No active run.</p>
-                <p class="text-muted" style="margin:0;font-size:0.82rem;">Use <strong>Run Battle</strong> in Setup to start.</p>
+                <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">No runs yet.</p>
+                <p class="text-muted" style="margin:0;font-size:0.82rem;">Run a battle to see runs here.</p>
               </div>
             </div>
           </template>
-          <template x-if="currentRunId">
-            <div>
-              <!-- Progress bar -->
-              <div class="ba-runbar-wrap">
-                <div class="ba-runbar-label">
-                  <span x-text="currentRun ? (currentRun.status === 'complete' ? 'Complete' : currentRun.status === 'error' ? 'Error' : 'Running...') : 'Starting...'"></span>
-                  <span x-text="runProgress() + '%'"></span>
-                </div>
-                <div class="ba-runbar">
-                  <div class="ba-runbar-fill" :class="{ running: currentRun && currentRun.status === 'running' }"
-                       :style="'width:' + runProgress() + '%'"></div>
-                </div>
-              </div>
-              <!-- Status grid -->
-              <template x-if="currentRun && runSources().length > 0 && runFighters().length > 0">
-                <div style="overflow-x:auto;">
-                  <table class="ba-rungrid">
-                    <thead>
-                      <tr>
-                        <th style="text-align:left;">Source</th>
-                        <template x-for="f in runFighters()" :key="f.fighter_id">
-                          <th x-text="f.fighter_name"></th>
-                        </template>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="s in runSources()" :key="s.source_id">
-                        <tr>
-                          <td style="text-align:left;font-family:var(--mono);font-size:0.82rem;" x-text="s.source_label"></td>
-                          <template x-for="f in runFighters()" :key="f.fighter_id">
-                            <td x-data="{ get cell() { return getRunCell(f.fighter_id, s.source_id); } }">
-                              <span class="ba-status-dot"
-                                    :class="cell ? (cell.status === 'complete' ? 'done' : cell.status === 'error' ? 'error' : cell.status === 'running' ? 'running' : 'waiting') : 'waiting'"
-                                    :title="cell ? cell.status : 'waiting'"
-                                    x-text="cell ? (cell.status === 'complete' ? '●' : cell.status === 'error' ? '✕' : cell.status === 'running' ? '◌' : '○') : '○'">
-                              </span>
-                            </td>
-                          </template>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-              </template>
-              <!-- Actions -->
-              <div style="margin-top:1rem;display:flex;gap:0.75rem;align-items:center;">
-                <template x-if="currentRun && currentRun.status === 'complete'">
-                  <a :href="'#/results/' + currentRunId"
-                     style="background:var(--success);color:#fff;padding:5px 14px;border-radius:6px;font-size:0.84rem;font-weight:600;text-decoration:none;">
-                    View Results →
-                  </a>
-                </template>
-                <template x-if="currentRun && (currentRun.status === 'running' || currentRun.status === 'pending')">
-                  <button @click="cancelRun()" class="btn-secondary"
-                          style="padding:5px 14px;font-size:0.84rem;color:var(--danger);border-color:var(--danger);">
-                    Cancel Run
-                  </button>
-                </template>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Tab: Results -->
-        <div x-show="activeTab === 'results'"
-             x-data="battleResultsTab()"
-             x-init="$watch('currentBattleId', id => { if (id && activeTab === 'results') load(id); }); if (currentBattleId && activeTab === 'results') load(currentBattleId);">
-
-          <template x-if="tabLoading">
-            <p class="text-muted">Loading results...</p>
-          </template>
-          <template x-if="tabError">
-            <div style="color:var(--ba-danger,#c00);font-size:0.88rem;" x-text="tabError"></div>
-          </template>
-          <template x-if="!tabLoading && !tabError && !results">
-            <div class="placeholder" style="height:180px;">
-              <div style="text-align:center;">
-                <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.9rem;">No results yet.</p>
-                <p class="text-muted" style="margin:0;font-size:0.82rem;">Run a battle to see results here.</p>
-              </div>
-            </div>
-          </template>
-
-          <template x-if="results">
-            <div>
-              <!-- Header -->
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-                <span class="badge-muted" x-text="results.run_id ? results.run_id.slice(0,8) + '...' : ''"></span>
-                <button @click="downloadMarkdown()" class="ba-btn ba-btn-secondary" style="font-size:0.82rem;">
-                  Download Markdown
-                </button>
-              </div>
-
-              <!-- Fighter Summary Leaderboard -->
-              <h2 style="font-size:1rem;margin:0 0 0.75rem;">Fighter Summary</h2>
-              <div class="ba-section" style="overflow-x:auto;margin-bottom:2rem;">
-                <table class="ba-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Fighter</th>
-                      <th style="text-align:right;">Avg Score</th>
-                      <th style="text-align:right;">Cost</th>
-                      <th style="text-align:right;">Tokens</th>
-                      <th style="text-align:right;">Time</th>
-                      <th style="text-align:right;">S/F</th>
+          <template x-if="runs.length > 0">
+            <div class="ba-section" style="overflow-x:auto;">
+              <table class="ba-table">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Started</th>
+                    <th style="text-align:left;">Status</th>
+                    <th style="text-align:right;">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="r in runs" :key="r.id">
+                    <tr style="cursor:pointer;" @click="navigate('#/runs/' + r.id)">
+                      <td style="font-size:0.84rem;" x-text="formatStarted(r.started_at)"></td>
+                      <td><span :style="statusColor(r.status)" x-text="r.status"></span></td>
+                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
+                          x-text="formatDuration(r.started_at, r.finished_at)"></td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
-                      <tr>
-                        <td>
-                          <span class="ba-rank-badge" :class="'rank-' + (idx+1)" x-text="idx+1"></span>
-                        </td>
-                        <td style="font-weight:600;" x-text="f.fighter_name"></td>
-                        <td style="text-align:right;">
-                          <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''"
-                                x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
-                        </td>
-                        <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
-                            x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
-                        <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
-                            x-text="(f.token_cost > 0 || f.credit_cost > 0) ? ((f.token_cost || 0) + (f.credit_cost || 0)).toFixed(4) : '—'"></td>
-                        <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.82rem;"
-                            x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
-                        <td style="text-align:right;">
-                          <span x-text="f.success_count"></span>/<span style="color:var(--danger,#c00);" x-text="f.failed_count"></span>
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Per-Source Breakdown -->
-              <h2 style="font-size:1rem;margin:0 0 0.75rem;">Per-Source Breakdown</h2>
-              <template x-for="source in sourceGroups()" :key="source.label">
-                <div class="ba-card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
-                  <div style="padding:9px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid var(--ba-border,#e5e5e5);background:var(--ba-bg-paper,#faf9f6);">
-                    <span x-text="source.label"></span>
-                  </div>
-                  <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
-                    <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
-                      <div :style="fi > 0 ? 'border-left:1px solid var(--ba-border,#e5e5e5);' : ''">
-                        <div style="padding:8px 14px;border-bottom:1px solid var(--ba-border,#e5e5e5);display:flex;align-items:center;justify-content:space-between;">
-                          <span style="font-weight:600;font-size:0.84rem;" x-text="fighter.fighter_name"></span>
-                          <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)"
-                                x-text="fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'"></span>
-                        </div>
-                        <div style="padding:10px 14px;">
-                          <template x-if="fighter.reasoning">
-                            <div style="font-size:0.78rem;color:var(--ba-text-mid,#6b7280);font-style:italic;margin-bottom:6px;line-height:1.4;" x-text="fighter.reasoning"></div>
-                          </template>
-                          <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
-                               style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--ba-accent,#d4a02a);margin-bottom:6px;user-select:none;">
-                            <span x-text="tabExpanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
-                          </div>
-                          <template x-if="tabExpanded[source.label + '::' + fighter.fighter_name]">
-                            <pre style="background:var(--ba-bg-paper,#faf9f6);border:1px solid var(--ba-border,#e5e5e5);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;"
-                                 x-text="fighter.final_output || '(no output)'"></pre>
-                          </template>
-                          <div style="font-size:0.76rem;color:var(--ba-text-mid,#6b7280);margin-top:6px;">
-                            <span x-text="fighter.step_count + ' step(s)'"></span>
-                            &nbsp;·&nbsp;
-                            <span style="font-family:var(--ba-font-mono,monospace);"
-                                  x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
-                            <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
-                              <span>&nbsp;·&nbsp;<span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
-                            </template>
-                            <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
-                              <span>&nbsp;·&nbsp;<span style="color:var(--ba-accent,#d4a02a);">credit-based</span></span>
-                            </template>
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Judge Report -->
-              <template x-if="results.report_markdown">
-                <div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-                    <h2 style="font-size:1rem;margin:0;">Judge Report</h2>
-                    <div style="display:flex;gap:0.5rem;">
-                      <button class="ba-btn ba-btn-secondary" @click="copyReport()" x-text="reportCopied ? 'Copied!' : 'Copy Markdown'" style="font-size:0.8rem;"></button>
-                      <button class="ba-btn ba-btn-secondary" @click="window.print()" style="font-size:0.8rem;">Print</button>
-                    </div>
-                  </div>
-                  <div class="ba-card" style="line-height:1.7;" x-html="DOMPurify.sanitize(marked.parse(results.report_markdown))"></div>
-                </div>
-              </template>
+                  </template>
+                </tbody>
+              </table>
             </div>
           </template>
         </div>
 
       </section>
 
-      <!-- ── Live run view ───────────────────────── -->
-      <section x-show="route === 'runs/detail'" x-data="runView()"
+      <!-- ── Run detail (progress + results) ─────── -->
+      <section x-show="route === 'runs/detail'" x-data="runDetail()"
                x-init="$watch('params.id', id => { if (id && route === 'runs/detail') init(id); }); if (params.id && route === 'runs/detail') init(params.id);">
 
+        <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
           <div style="display:flex;align-items:center;gap:0.75rem;">
-            <h1 style="margin:0;">Live Run</h1>
+            <span class="badge-muted" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
             <template x-if="run">
-              <span class="badge-muted" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
+              <span x-text="run.status"
+                :style="run.status === 'complete' ? 'color:var(--success);font-weight:600;font-size:0.88rem;' : run.status === 'error' ? 'color:var(--danger);font-weight:600;font-size:0.88rem;' : 'color:var(--gold);font-weight:600;font-size:0.88rem;'"></span>
             </template>
           </div>
-          <a :href="run && run.battle_id ? '#/battles/' + run.battle_id : '#/battles/new'"
-             class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
+          <div style="display:flex;gap:0.75rem;align-items:center;">
+            <button x-show="results" @click="downloadMarkdown()"
+              class="ba-btn ba-btn-secondary" style="font-size:0.82rem;color:var(--ba-accent,#d4a02a);border-color:rgba(212,160,42,0.3);">
+              Download Markdown
+            </button>
+            <a :href="run && run.battle_id ? '#/battles/' + run.battle_id : (results && results.battle_id ? '#/battles/' + results.battle_id : '#/battles/new')"
+               class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
+          </div>
         </div>
 
         <template x-if="error">
           <p class="text-danger" x-text="error"></p>
         </template>
-
         <template x-if="!run && !error">
-          <p class="text-muted">Loading run status...</p>
+          <p class="text-muted">Loading run...</p>
         </template>
 
-        <template x-if="run">
-          <div>
-            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
-              <span class="text-muted" style="font-size:0.88rem;">Status:</span>
-              <span x-text="run.status"
-                :style="run.status === 'complete' ? 'color:var(--success);font-weight:600;' : run.status === 'error' ? 'color:var(--danger);font-weight:600;' : 'color:var(--gold);font-weight:600;'"></span>
-              <template x-if="run.status === 'complete'">
-                <a :href="'#/results/' + runId"
-                   style="background:var(--success);color:#fff;padding:5px 14px;border-radius:6px;font-size:0.84rem;font-weight:600;text-decoration:none;">
-                  View Results →
-                </a>
-              </template>
+        <!-- Progress section (shown while running; condenses to status header once terminal) -->
+        <template x-if="run && !isTerminal()">
+          <div style="margin-bottom:1.5rem;">
+            <div class="ba-runbar-wrap">
+              <div class="ba-runbar-label">
+                <span x-text="run.status === 'running' ? 'Running...' : 'Starting...'"></span>
+                <span x-text="runProgress() + '%'"></span>
+              </div>
+              <div class="ba-runbar">
+                <div class="ba-runbar-fill" :class="{ running: run.status === 'running' }"
+                     :style="'width:' + runProgress() + '%'"></div>
+              </div>
             </div>
-
             <template x-if="sources().length > 0 && fighters().length > 0">
               <div style="overflow-x:auto;">
                 <table class="data-table">
@@ -1594,181 +1436,177 @@
             </template>
           </div>
         </template>
-      </section>
 
-      <!-- ── Results view ────────────────────────── -->
-      <section x-show="route === 'results/detail'" x-data="resultsView()"
-               x-init="$watch('route', r => { if (r === 'results/detail' && params.id) load(params.id); }); if (route === 'results/detail' && params.id) load(params.id);">
-
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
-          <div style="display:flex;align-items:center;gap:0.75rem;">
-            <h1 style="margin:0;">Results</h1>
-            <span class="badge-muted" x-text="runId ? runId.slice(0,8) + '...' : ''"></span>
-          </div>
-          <div style="display:flex;gap:0.75rem;align-items:center;">
-            <button @click="downloadMarkdown()" x-show="results"
-              class="ba-btn ba-btn-secondary" style="color:var(--ba-accent,#d4a02a);border-color:rgba(212,160,42,0.3);">
-              Download Markdown
-            </button>
-            <a :href="results && results.battle_id ? '#/battles/' + results.battle_id : '#/battles/new'"
-               class="text-muted" style="text-decoration:none;font-size:0.86rem;">← Back to Battle</a>
-          </div>
-        </div>
-
-        <template x-if="loading">
-          <p class="text-muted">Loading results...</p>
-        </template>
-        <template x-if="error">
-          <div style="color:var(--ba-danger,#c00);font-size:0.88rem;" x-text="error"></div>
-        </template>
-
-        <template x-if="results">
+        <!-- Results section -->
+        <template x-if="run && isTerminal()">
           <div>
-            <!-- Fighter Summary Leaderboard -->
-            <h2 style="font-size:1rem;margin:0 0 0.75rem;">Fighter Summary</h2>
-            <div class="ba-section" style="overflow-x:auto;margin-bottom:2rem;">
-              <table class="ba-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Fighter</th>
-                    <th style="text-align:right;">Avg Score</th>
-                    <th style="text-align:right;">Total Cost</th>
-                    <th style="text-align:right;">Token Cost</th>
-                    <th style="text-align:right;">Credit Cost</th>
-                    <th style="text-align:right;">Time</th>
-                    <th style="text-align:right;">Success</th>
-                    <th style="text-align:right;">Failed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
-                    <tr>
-                      <td>
-                        <span class="ba-rank-badge" :class="'rank-' + (idx+1)" x-text="idx+1"></span>
-                      </td>
-                      <td style="font-weight:600;" x-text="f.fighter_name"></td>
-                      <td style="text-align:right;">
-                        <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''"
-                              x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
-                      </td>
-                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;"
-                          x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
-                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;color:var(--ba-text-mid,#6b7280);"
-                          x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
-                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;color:var(--ba-accent,#d4a02a);"
-                          x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
-                      <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;"
-                          x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
-                      <td style="text-align:right;" x-text="f.success_count"></td>
-                      <td style="text-align:right;color:var(--danger,#c00);" x-text="f.failed_count"></td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
+            <!-- Loading / waiting -->
+            <template x-if="resultsLoading">
+              <p class="text-muted">Loading results...</p>
+            </template>
+            <template x-if="resultsError">
+              <div style="color:var(--ba-danger,#c00);font-size:0.88rem;" x-text="resultsError"></div>
+            </template>
+            <template x-if="!resultsLoading && !resultsError && !results && run.status !== 'complete'">
+              <div class="placeholder" style="height:120px;">
+                <p class="text-muted" style="margin:0;font-size:0.9rem;" x-text="'Run ' + run.status + ' — no results available.'"></p>
+              </div>
+            </template>
 
-            <!-- Per-Source Breakdown -->
-            <h2 style="font-size:1rem;margin:0 0 0.75rem;">Per-Source Breakdown</h2>
-            <template x-for="source in sourceGroups()" :key="source.label">
-              <div class="ba-card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
-                <div style="padding:9px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid var(--ba-border,#e5e5e5);background:var(--ba-bg-paper,#faf9f6);">
-                  <span x-text="source.label"></span>
+            <template x-if="results">
+              <div>
+                <!-- Fighter Summary Leaderboard -->
+                <h2 style="font-size:1rem;margin:0 0 0.75rem;">Fighter Summary</h2>
+                <div class="ba-section" style="overflow-x:auto;margin-bottom:2rem;">
+                  <table class="ba-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Fighter</th>
+                        <th style="text-align:right;">Avg Score</th>
+                        <th style="text-align:right;">Total Cost</th>
+                        <th style="text-align:right;">Token Cost</th>
+                        <th style="text-align:right;">Credit Cost</th>
+                        <th style="text-align:right;">Time</th>
+                        <th style="text-align:right;">Success</th>
+                        <th style="text-align:right;">Failed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(f, idx) in fighterSummary()" :key="f.fighter_name">
+                        <tr>
+                          <td><span class="ba-rank-badge" :class="'rank-' + (idx+1)" x-text="idx+1"></span></td>
+                          <td style="font-weight:600;" x-text="f.fighter_name"></td>
+                          <td style="text-align:right;">
+                            <span :style="f.avg_score !== null ? scoreColor(f.avg_score) : ''"
+                                  x-text="f.avg_score !== null ? f.avg_score.toFixed(2) : '—'"></span>
+                          </td>
+                          <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;"
+                              x-text="f.pricing_unknown ? 'unknown' : '$' + f.total_cost.toFixed(4)"></td>
+                          <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;color:var(--ba-text-mid,#6b7280);"
+                              x-text="f.token_cost > 0 ? '$' + f.token_cost.toFixed(4) : '—'"></td>
+                          <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;color:var(--ba-accent,#d4a02a);"
+                              x-text="f.credit_cost > 0 ? '$' + f.credit_cost.toFixed(4) : '—'"></td>
+                          <td style="text-align:right;font-family:var(--ba-font-mono,monospace);font-size:0.83rem;"
+                              x-text="f.total_latency_ms > 0 ? (f.total_latency_ms / 1000).toFixed(1) + 's' : '—'"></td>
+                          <td style="text-align:right;" x-text="f.success_count"></td>
+                          <td style="text-align:right;color:var(--danger,#c00);" x-text="f.failed_count"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
                 </div>
-                <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
-                  <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
-                    <div :style="fi > 0 ? 'border-left:1px solid var(--ba-border,#e5e5e5);' : ''">
-                      <div style="padding:8px 14px;border-bottom:1px solid var(--ba-border,#e5e5e5);display:flex;align-items:center;justify-content:space-between;">
-                        <span style="font-weight:600;font-size:0.84rem;" x-text="fighter.fighter_name"></span>
-                        <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)"
-                              x-text="fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'"></span>
-                      </div>
-                      <div style="padding:10px 14px;">
-                        <template x-if="fighter.reasoning">
-                          <div style="font-size:0.78rem;color:var(--ba-text-mid,#6b7280);font-style:italic;margin-bottom:6px;line-height:1.4;"
-                               x-text="fighter.reasoning"></div>
-                        </template>
-                        <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
-                             style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--ba-accent,#d4a02a);margin-bottom:6px;user-select:none;">
-                          <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
-                        </div>
-                        <template x-if="expanded[source.label + '::' + fighter.fighter_name]">
-                          <pre style="background:var(--ba-bg-paper,#faf9f6);border:1px solid var(--ba-border,#e5e5e5);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;"
-                               x-text="fighter.final_output || '(no output)'"></pre>
-                        </template>
-                        <div style="font-size:0.76rem;color:var(--ba-text-mid,#6b7280);margin-top:6px;">
-                          <span x-text="fighter.step_count + ' step(s)'"></span>
-                          <template x-if="fighter.total_latency_ms > 0">
-                            <span>&nbsp;·&nbsp;<span style="font-family:var(--ba-font-mono,monospace);" x-text="formatDuration(fighter.total_latency_ms)"></span></span>
-                          </template>
-                          &nbsp;·&nbsp;
-                          <span style="font-family:var(--ba-font-mono,monospace);"
-                                x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
-                          <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
-                            <span>&nbsp;·&nbsp;<span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
-                          </template>
-                          <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
-                            <span>&nbsp;·&nbsp;<span style="color:var(--ba-accent,#d4a02a);">credit-based</span></span>
-                          </template>
-                        </div>
-                        <!-- Per-step breakdown (only when multiple steps have latency data) -->
-                        <template x-if="fighter.step_results && fighter.step_results.length > 1">
-                          <div style="margin-top:6px;">
-                            <div @click="toggleSteps(source.label + '::' + fighter.fighter_name)"
-                                 style="cursor:pointer;font-size:0.76rem;color:var(--ba-accent,#d4a02a);user-select:none;margin-bottom:4px;">
-                              <span x-text="stepsExpanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide step timing' : '▶ Show step timing'"></span>
+
+                <!-- Per-Source Breakdown -->
+                <h2 style="font-size:1rem;margin:0 0 0.75rem;">Per-Source Breakdown</h2>
+                <template x-for="source in sourceGroups()" :key="source.label">
+                  <div class="ba-card" style="padding:0;overflow:hidden;margin-bottom:1rem;">
+                    <div style="padding:9px 14px;font-weight:600;font-size:0.88rem;border-bottom:1px solid var(--ba-border,#e5e5e5);background:var(--ba-bg-paper,#faf9f6);">
+                      <span x-text="source.label"></span>
+                    </div>
+                    <div :style="'display:grid;grid-template-columns:repeat(' + source.fighters.length + ', 1fr);gap:0;'">
+                      <template x-for="(fighter, fi) in source.fighters" :key="fighter.fighter_name">
+                        <div :style="fi > 0 ? 'border-left:1px solid var(--ba-border,#e5e5e5);' : ''">
+                          <div style="padding:8px 14px;border-bottom:1px solid var(--ba-border,#e5e5e5);display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-weight:600;font-size:0.84rem;" x-text="fighter.fighter_name"></span>
+                            <span :style="'font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:4px;' + scoreColor(fighter.score)"
+                                  x-text="fighter.score !== null && fighter.score !== undefined ? fighter.score.toFixed(1) : 'N/A'"></span>
+                          </div>
+                          <div style="padding:10px 14px;">
+                            <template x-if="fighter.reasoning">
+                              <div style="font-size:0.78rem;color:var(--ba-text-mid,#6b7280);font-style:italic;margin-bottom:6px;line-height:1.4;" x-text="fighter.reasoning"></div>
+                            </template>
+                            <div @click="toggleExpand(source.label + '::' + fighter.fighter_name)"
+                                 style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--ba-accent,#d4a02a);margin-bottom:6px;user-select:none;">
+                              <span x-text="expanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide output' : '▶ Show output'"></span>
                             </div>
-                            <template x-if="stepsExpanded[source.label + '::' + fighter.fighter_name]">
-                              <table style="width:100%;border-collapse:collapse;font-size:0.74rem;font-family:var(--ba-font-mono,monospace);">
-                                <thead>
-                                  <tr style="color:var(--ba-text-mid,#6b7280);">
-                                    <th style="text-align:left;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">#</th>
-                                    <th style="text-align:left;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Step</th>
-                                    <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Duration</th>
-                                    <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">In/Out tokens</th>
-                                    <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Cost</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <template x-for="(step, si) in fighter.step_results" :key="si">
-                                    <tr>
-                                      <td style="padding:2px 6px;color:var(--ba-text-mid,#6b7280);" x-text="step.step_index + 1"></td>
-                                      <td style="padding:2px 6px;" x-text="step.step_label"></td>
-                                      <td style="text-align:right;padding:2px 6px;" x-text="formatDuration(step.latency_ms)"></td>
-                                      <td style="text-align:right;padding:2px 6px;color:var(--ba-text-mid,#6b7280);"
-                                          x-text="(step.input_tokens || step.output_tokens) ? (step.input_tokens || 0) + ' / ' + (step.output_tokens || 0) : '—'"></td>
-                                      <td style="text-align:right;padding:2px 6px;"
-                                          x-text="step.cost_usd !== null && step.cost_usd !== undefined ? '$' + step.cost_usd.toFixed(4) : '—'"></td>
-                                    </tr>
-                                  </template>
-                                </tbody>
-                              </table>
+                            <template x-if="expanded[source.label + '::' + fighter.fighter_name]">
+                              <pre style="background:var(--ba-bg-paper,#faf9f6);border:1px solid var(--ba-border,#e5e5e5);border-radius:4px;padding:10px;font-size:0.78rem;white-space:pre-wrap;word-break:break-word;margin:0;max-height:300px;overflow-y:auto;"
+                                   x-text="fighter.final_output || '(no output)'"></pre>
+                            </template>
+                            <div style="font-size:0.76rem;color:var(--ba-text-mid,#6b7280);margin-top:6px;">
+                              <span x-text="fighter.step_count + ' step(s)'"></span>
+                              <template x-if="fighter.total_latency_ms > 0">
+                                <span>&nbsp;·&nbsp;<span style="font-family:var(--ba-font-mono,monospace);" x-text="formatDuration(fighter.total_latency_ms)"></span></span>
+                              </template>
+                              &nbsp;·&nbsp;
+                              <span style="font-family:var(--ba-font-mono,monospace);"
+                                    x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
+                              <template x-if="fighter.total_input_tokens || fighter.total_output_tokens">
+                                <span>&nbsp;·&nbsp;<span x-text="(fighter.total_input_tokens || 0) + ' in / ' + (fighter.total_output_tokens || 0) + ' out tokens'"></span></span>
+                              </template>
+                              <template x-if="(!fighter.total_input_tokens && !fighter.total_output_tokens) && fighter.total_cost_usd">
+                                <span>&nbsp;·&nbsp;<span style="color:var(--ba-accent,#d4a02a);">credit-based</span></span>
+                              </template>
+                            </div>
+                            <!-- Per-step breakdown (only when multiple steps have latency data) -->
+                            <template x-if="fighter.step_results && fighter.step_results.length > 1">
+                              <div style="margin-top:6px;">
+                                <div @click="toggleSteps(source.label + '::' + fighter.fighter_name)"
+                                     style="cursor:pointer;font-size:0.76rem;color:var(--ba-accent,#d4a02a);user-select:none;margin-bottom:4px;">
+                                  <span x-text="stepsExpanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide step timing' : '▶ Show step timing'"></span>
+                                </div>
+                                <template x-if="stepsExpanded[source.label + '::' + fighter.fighter_name]">
+                                  <table style="width:100%;border-collapse:collapse;font-size:0.74rem;font-family:var(--ba-font-mono,monospace);">
+                                    <thead>
+                                      <tr style="color:var(--ba-text-mid,#6b7280);">
+                                        <th style="text-align:left;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">#</th>
+                                        <th style="text-align:left;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Step</th>
+                                        <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Duration</th>
+                                        <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">In/Out tokens</th>
+                                        <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Cost</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <template x-for="(step, si) in fighter.step_results" :key="si">
+                                        <tr>
+                                          <td style="padding:2px 6px;color:var(--ba-text-mid,#6b7280);" x-text="step.step_index + 1"></td>
+                                          <td style="padding:2px 6px;" x-text="step.step_label"></td>
+                                          <td style="text-align:right;padding:2px 6px;" x-text="formatDuration(step.latency_ms)"></td>
+                                          <td style="text-align:right;padding:2px 6px;color:var(--ba-text-mid,#6b7280);"
+                                              x-text="(step.input_tokens || step.output_tokens) ? (step.input_tokens || 0) + ' / ' + (step.output_tokens || 0) : '—'"></td>
+                                          <td style="text-align:right;padding:2px 6px;"
+                                              x-text="step.cost_usd !== null && step.cost_usd !== undefined ? '$' + step.cost_usd.toFixed(4) : '—'"></td>
+                                        </tr>
+                                      </template>
+                                    </tbody>
+                                  </table>
+                                </template>
+                              </div>
                             </template>
                           </div>
-                        </template>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Judge Report -->
+                <template x-if="results.report_markdown">
+                  <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                      <h2 style="font-size:1rem;margin:0;">Judge Report</h2>
+                      <div style="display:flex;gap:0.5rem;">
+                        <button class="ba-btn ba-btn-secondary" @click="copyReportMarkdown()"
+                                x-text="reportCopied ? 'Copied!' : 'Copy Markdown'" style="font-size:0.8rem;"></button>
+                        <button class="ba-btn ba-btn-secondary" @click="window.print()" style="font-size:0.8rem;">Print</button>
                       </div>
                     </div>
-                  </template>
-                </div>
-              </div>
-            </template>
-
-            <!-- Judge Report -->
-            <template x-if="results.report_markdown">
-              <div>
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-                  <h2 style="font-size:1rem;margin:0;">Judge Report</h2>
-                  <div style="display:flex;gap:0.5rem;">
-                    <button class="ba-btn ba-btn-secondary" @click="copyReportMarkdown()"
-                            x-text="reportCopied ? 'Copied!' : 'Copy Markdown'" style="font-size:0.8rem;"></button>
-                    <button class="ba-btn ba-btn-secondary" @click="window.print()" style="font-size:0.8rem;">Print</button>
+                    <div class="ba-card" style="line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
                   </div>
-                </div>
-                <div class="ba-card" style="line-height:1.7;" x-html="renderMarkdown(results.report_markdown)"></div>
+                </template>
               </div>
             </template>
           </div>
         </template>
+
+        <!-- Waiting for completion placeholder (terminal but results loading) -->
+        <template x-if="run && !isTerminal() && !results">
+          <div class="placeholder" style="height:100px;margin-top:1rem;">
+            <p class="text-muted" style="margin:0;font-size:0.88rem;">Waiting for completion...</p>
+          </div>
+        </template>
+
       </section>
 
 
@@ -1795,7 +1633,6 @@
   <script src="/js/fighter-list.js"></script>
   <script src="/js/run-view.js"></script>
   <script src="/js/battle-results-tab.js"></script>
-  <script src="/js/results-view.js"></script>
   <script src="/js/app.js"></script>
 
   <script src="/js/providers-modal.js"></script>
