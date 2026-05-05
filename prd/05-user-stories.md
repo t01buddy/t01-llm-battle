@@ -9,11 +9,11 @@
 | US-5 | Any user | Upload markdown files as sources | I can test with my actual documentation or prompts |
 | US-6 | Any user | Enter my API keys once in the UI | I don't have to set env vars every time |
 | US-7 | Any user | Configure temperature and tools per step | I can test OpenAI web_search in step 1 vs not using it |
-| US-8 | Any user | Watch live results appear step by step | I'm not staring at a blank screen during a long run |
+| US-8 | Any user | Watch live results appear step by step on the Run detail page | I'm not staring at a blank screen during a long run (the live Progress section is part of the same page as Results — no navigation needed once the run completes) |
 | US-9 | Any user | Edit the judge rubric | I can score based on my domain's definition of "good" |
 | US-10 | Power user | Enter a custom model ID not in the catalog | I can test new models as soon as providers ship them |
 | US-11 | Any user | See a markdown report summarising fighter rankings | I can share findings with a colleague by copy-pasting the markdown |
-| US-12 | Any user | Drill down into each step's input/output | I can debug which step in a pipeline caused a poor result |
+| US-12 | Any user | Drill down into each step's input/output on the Run detail page | I can debug which step in a pipeline caused a poor result (the same page hosts both live progress and results, so drill-down is continuous from running → complete) |
 | US-13 | Developer | Use Serper search as step 1, GPT-4o as step 2 | I can compare pipelines that include web search |
 | US-14 | Developer | See credit costs alongside token costs in results | I can compare total cost of mixed LLM+tool pipelines |
 | US-15 | Any user | Manage providers in the sidebar (enable/disable, edit API key, server URL) | I can configure my providers without touching env vars or config files |
