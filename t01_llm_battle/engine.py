@@ -269,12 +269,12 @@ async def execute_run(run_id: str, db_path=DB_PATH) -> None:
     # all_errored if every result was False or an exception
     all_errored = all(r is not True for r in results)
 
-    # Mark run as complete (or error if ALL fighter_results errored)
+    # Mark run as complete — skip if already cancelled (cancel_run may have written status)
     finished_at = datetime.now(timezone.utc).isoformat()
     run_status = "error" if all_errored else "complete"
     async with get_db(db_path) as db:
         await db.execute(
-            "UPDATE run SET status = ?, finished_at = ? WHERE id = ?",
+            "UPDATE run SET status = ?, finished_at = ? WHERE id = ? AND status != 'cancelled'",
             (run_status, finished_at, run_id),
         )
         await db.commit()
