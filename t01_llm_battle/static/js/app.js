@@ -63,7 +63,9 @@ function app() {
       } else if (parts[0] === 'runs' && parts[1]) {
         this.route = 'runs/detail'; this.params = { id: parts[1] };
       } else if (parts[0] === 'results' && parts[1]) {
-        this.route = 'results/detail'; this.params = { id: parts[1] };
+        // Redirect old #/results/{id} bookmarks to #/runs/{id}
+        window.location.hash = '/runs/' + parts[1];
+        return;
       } else {
         this.resolveBattlesHash();
         return;

@@ -3,7 +3,6 @@ function battleDetail() {
   return {
     sources: [], uploading: false, error: null,
     running: false, fighterCount: 0, runError: null, currentBattleId: null,
-    currentRunId: null, currentRun: null, runPolling: null,
     battleName: '', nameInput: '', nameSaving: false,
     showTextForm: false, textItems: [{ content: '', label: '' }], addingText: false,
     // Judge state
@@ -130,67 +129,8 @@ function battleDetail() {
         });
         if (!resp.ok) throw new Error(await resp.text());
         const data = await resp.json();
-        this.currentRunId = data.run_id;
-        this.currentRun = null;
-        this.stopRunPolling();
-        this.startRunPolling();
-        window.dispatchEvent(new CustomEvent('set-active-tab', { detail: 'run' }));
+        window.location.hash = '#/runs/' + data.run_id;
       } catch(e) { this.runError = e.message; this.running = false; }
-    },
-
-    startRunPolling() {
-      this.fetchRunStatus();
-      this.runPolling = setInterval(() => this.fetchRunStatus(), 2000);
-    },
-    stopRunPolling() {
-      if (this.runPolling) { clearInterval(this.runPolling); this.runPolling = null; }
-    },
-    async fetchRunStatus() {
-      if (!this.currentRunId) return;
-      try {
-        const resp = await fetch('/runs/' + this.currentRunId + '/status');
-        if (!resp.ok) throw new Error(await resp.text());
-        this.currentRun = await resp.json();
-        if (this.currentRun.status === 'complete' || this.currentRun.status === 'error' || this.currentRun.status === 'cancelled') {
-          this.stopRunPolling();
-          this.running = false;
-        }
-      } catch(e) { this.stopRunPolling(); this.running = false; }
-    },
-    async cancelRun() {
-      if (!this.currentRunId) return;
-      try {
-        const resp = await fetch('/runs/' + this.currentRunId + '/cancel', { method: 'POST' });
-        if (!resp.ok) throw new Error(await resp.text());
-        this.currentRun = await resp.json();
-        this.stopRunPolling();
-        this.running = false;
-      } catch(e) { /* ignore cancel errors */ }
-    },
-    runProgress() {
-      if (!this.currentRun || !this.currentRun.fighter_results) return 0;
-      const total = this.currentRun.fighter_results.length;
-      if (!total) return 0;
-      const done = this.currentRun.fighter_results.filter(fr => fr.status === 'complete' || fr.status === 'error').length;
-      return Math.round((done / total) * 100);
-    },
-    runSources() {
-      if (!this.currentRun || !this.currentRun.fighter_results) return [];
-      const seen = new Set();
-      return this.currentRun.fighter_results.filter(fr => {
-        if (seen.has(fr.source_id)) return false; seen.add(fr.source_id); return true;
-      }).map(fr => ({ source_id: fr.source_id, source_label: fr.source_label || fr.source_id }));
-    },
-    runFighters() {
-      if (!this.currentRun || !this.currentRun.fighter_results) return [];
-      const seen = new Set();
-      return this.currentRun.fighter_results.filter(fr => {
-        if (seen.has(fr.fighter_id)) return false; seen.add(fr.fighter_id); return true;
-      }).map(fr => ({ fighter_id: fr.fighter_id, fighter_name: fr.fighter_name || fr.fighter_id }));
-    },
-    getRunCell(fighter_id, source_id) {
-      if (!this.currentRun || !this.currentRun.fighter_results) return null;
-      return this.currentRun.fighter_results.find(fr => fr.fighter_id === fighter_id && fr.source_id === source_id) || null;
     },
 
     async upload(event, battleId) {
