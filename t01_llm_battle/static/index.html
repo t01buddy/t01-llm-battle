@@ -1698,6 +1698,9 @@
                         </template>
                         <div style="font-size:0.76rem;color:var(--ba-text-mid,#6b7280);margin-top:6px;">
                           <span x-text="fighter.step_count + ' step(s)'"></span>
+                          <template x-if="fighter.total_latency_ms > 0">
+                            <span>&nbsp;·&nbsp;<span style="font-family:var(--ba-font-mono,monospace);" x-text="formatDuration(fighter.total_latency_ms)"></span></span>
+                          </template>
                           &nbsp;·&nbsp;
                           <span style="font-family:var(--ba-font-mono,monospace);"
                                 x-text="fighter.total_cost_usd === null && (fighter.total_input_tokens || fighter.total_output_tokens) ? 'unknown pricing' : '$' + (fighter.total_cost_usd || 0).toFixed(4) + ' total'"></span>
@@ -1708,6 +1711,41 @@
                             <span>&nbsp;·&nbsp;<span style="color:var(--ba-accent,#d4a02a);">credit-based</span></span>
                           </template>
                         </div>
+                        <!-- Per-step breakdown (only when multiple steps have latency data) -->
+                        <template x-if="fighter.step_results && fighter.step_results.length > 1">
+                          <div style="margin-top:6px;">
+                            <div @click="toggleSteps(source.label + '::' + fighter.fighter_name)"
+                                 style="cursor:pointer;font-size:0.76rem;color:var(--ba-accent,#d4a02a);user-select:none;margin-bottom:4px;">
+                              <span x-text="stepsExpanded[source.label + '::' + fighter.fighter_name] ? '▼ Hide step timing' : '▶ Show step timing'"></span>
+                            </div>
+                            <template x-if="stepsExpanded[source.label + '::' + fighter.fighter_name]">
+                              <table style="width:100%;border-collapse:collapse;font-size:0.74rem;font-family:var(--ba-font-mono,monospace);">
+                                <thead>
+                                  <tr style="color:var(--ba-text-mid,#6b7280);">
+                                    <th style="text-align:left;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">#</th>
+                                    <th style="text-align:left;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Step</th>
+                                    <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Duration</th>
+                                    <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">In/Out tokens</th>
+                                    <th style="text-align:right;padding:2px 6px;border-bottom:1px solid var(--ba-border,#e5e5e5);">Cost</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <template x-for="(step, si) in fighter.step_results" :key="si">
+                                    <tr>
+                                      <td style="padding:2px 6px;color:var(--ba-text-mid,#6b7280);" x-text="step.step_index + 1"></td>
+                                      <td style="padding:2px 6px;" x-text="step.step_label"></td>
+                                      <td style="text-align:right;padding:2px 6px;" x-text="formatDuration(step.latency_ms)"></td>
+                                      <td style="text-align:right;padding:2px 6px;color:var(--ba-text-mid,#6b7280);"
+                                          x-text="(step.input_tokens || step.output_tokens) ? (step.input_tokens || 0) + ' / ' + (step.output_tokens || 0) : '—'"></td>
+                                      <td style="text-align:right;padding:2px 6px;"
+                                          x-text="step.cost_usd !== null && step.cost_usd !== undefined ? '$' + step.cost_usd.toFixed(4) : '—'"></td>
+                                    </tr>
+                                  </template>
+                                </tbody>
+                              </table>
+                            </template>
+                          </div>
+                        </template>
                       </div>
                     </div>
                   </template>

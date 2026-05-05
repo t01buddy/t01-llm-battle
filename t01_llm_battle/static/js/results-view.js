@@ -1,10 +1,10 @@
 // ── Results view ─────────────────────────────────────────
 function resultsView() {
   return {
-    runId: null, results: null, expanded: {}, error: null, loading: false,
+    runId: null, results: null, expanded: {}, stepsExpanded: {}, error: null, loading: false,
 
     async load(runId) {
-      this.runId = runId; this.results = null; this.error = null; this.expanded = {}; this.loading = true;
+      this.runId = runId; this.results = null; this.error = null; this.expanded = {}; this.stepsExpanded = {}; this.loading = true;
       try {
         const resp = await fetch('/runs/' + runId + '/results');
         if (!resp.ok) throw new Error(await resp.text());
@@ -14,6 +14,13 @@ function resultsView() {
     },
 
     toggleExpand(key) { this.expanded[key] = !this.expanded[key]; },
+    toggleSteps(key) { this.stepsExpanded[key] = !this.stepsExpanded[key]; },
+
+    formatDuration(ms) {
+      if (ms === null || ms === undefined) return '—';
+      if (ms < 1000) return ms + 'ms';
+      return (ms / 1000).toFixed(1) + 's';
+    },
 
     fighterSummary() {
       if (!this.results || !this.results.summary) return [];

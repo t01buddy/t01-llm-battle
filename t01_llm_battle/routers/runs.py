@@ -395,6 +395,46 @@ async def get_run_results(run_id: str):
             for r in await cursor.fetchall()
         }
 
+    # Fetch per-step detail for results view (latency, tokens, cost per step)
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT
+                sr.fighter_id,
+                sr.source_id,
+                COALESCE(fs.position, 0) AS step_index,
+                COALESCE(fs.label, 'step ' || (COALESCE(fs.position, 0) + 1)) AS step_label,
+                sr.latency_ms,
+                sr.input_tokens,
+                sr.output_tokens,
+                sr.cost_usd,
+                sr.output_text,
+                sr.error
+            FROM step_result sr
+            LEFT JOIN fighter_step fs ON fs.id = sr.step_id
+            WHERE sr.run_id = ?
+            ORDER BY sr.fighter_id, sr.source_id, step_index
+            """,
+            (run_id,),
+        )
+        sr_detail_rows = [dict(r) for r in await cursor.fetchall()]
+
+    sr_detail: dict[tuple[str, str], list[dict]] = {}
+    for sr in sr_detail_rows:
+        key = (sr["fighter_id"], sr["source_id"])
+        sr_detail.setdefault(key, []).append(
+            {
+                "step_index": sr["step_index"],
+                "step_label": sr["step_label"],
+                "latency_ms": sr["latency_ms"],
+                "input_tokens": sr["input_tokens"],
+                "output_tokens": sr["output_tokens"],
+                "cost_usd": sr["cost_usd"],
+                "output_text": sr["output_text"],
+                "error": sr["error"],
+            }
+        )
+
     summary = []
     for fr in fr_rows:
         key = (fr["fighter_id"], fr["source_id"])
@@ -415,6 +455,7 @@ async def get_run_results(run_id: str):
                 "total_output_tokens": agg["agg_output_tokens"] if agg else fr["total_output_tokens"],
                 "final_output": final_output,
                 "step_count": agg["step_count"] if agg else 0,
+                "step_results": sr_detail.get(key, []),
                 "status": fr["status"],
             }
         )
