@@ -46,16 +46,36 @@ async def upload_source(
     """
     await _battle_exists(battle_id)
 
+    MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
     created: list[dict] = []
 
     async with get_db() as db:
         if file is not None:
             filename = file.filename or "upload"
             raw = await file.read()
+            if len(raw) > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum upload size is 10 MB.",
+                )
 
-            if filename.lower().endswith(".csv"):
+            ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+            if ext not in ("txt", "md", "csv"):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Unsupported file type. Only .txt, .md, and .csv files are accepted.",
+                )
+
+            if ext == "csv":
                 # Each row becomes a separate source item
-                text_content = raw.decode("utf-8-sig")
+                try:
+                    text_content = raw.decode("utf-8-sig")
+                except UnicodeDecodeError:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="File is not valid UTF-8 text.",
+                    )
                 reader = csv.reader(io.StringIO(text_content))
                 rows = list(reader)
 
@@ -79,7 +99,13 @@ async def upload_source(
                     created.append({"id": source_id, "label": row_label})
             else:
                 # Text / markdown — one item per file
-                content = raw.decode("utf-8")
+                try:
+                    content = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="File is not valid UTF-8 text.",
+                    )
                 source_id = str(uuid.uuid4())
                 position = await _next_position(db, battle_id)
                 await db.execute(
