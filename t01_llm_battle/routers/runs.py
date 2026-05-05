@@ -403,7 +403,7 @@ async def get_run_results(run_id: str):
                 sr.fighter_id,
                 sr.source_id,
                 COALESCE(fs.position, 0) AS step_index,
-                COALESCE(fs.label, 'step ' || (COALESCE(fs.position, 0) + 1)) AS step_label,
+                'step ' || (COALESCE(fs.position, 0) + 1) AS step_label,
                 sr.latency_ms,
                 sr.input_tokens,
                 sr.output_tokens,
