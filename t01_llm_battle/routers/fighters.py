@@ -18,8 +18,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import json
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from ..db import get_db, DB_PATH
 from ..providers.registry import list_providers, get_provider
@@ -65,6 +67,17 @@ class StepCreate(BaseModel):
     provider: str
     model_id: str
     provider_config: str = "{}"
+
+    @field_validator("provider_config")
+    @classmethod
+    def validate_provider_config_is_json(cls, v: str) -> str:
+        try:
+            parsed = json.loads(v)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ValueError(f"provider_config must be valid JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("provider_config must be a JSON object, not an array or scalar")
+        return v
 
 
 class StepOut(BaseModel):
