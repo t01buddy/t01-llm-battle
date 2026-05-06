@@ -164,16 +164,9 @@
     .left-battle-list-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.5rem 0.75rem;
+      justify-content: flex-end;
+      padding: 0.35rem 0.75rem;
       flex-shrink: 0;
-    }
-    .left-battle-list-title {
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--low);
     }
     .btn-new-battle {
       background: none;
@@ -750,7 +743,6 @@
              @source-updated.window="load()"
              @create-battle.window="newBattle()">
           <div class="left-battle-list-header">
-            <span class="left-battle-list-title">Battles</span>
             <button class="btn-new-battle" @click="newBattle()">+ New</button>
           </div>
           <div class="left-battle-list-items">
