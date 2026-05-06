@@ -77,7 +77,7 @@ async def create_run(body: CreateRunRequest):
     # Kick off background execution
     start_run_background(run_id)
 
-    return {"run_id": run_id, "status": "running"}
+    return {"run_id": run_id, "status": "pending"}
 
 
 @router.get("/{run_id}/status")
