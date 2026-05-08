@@ -163,3 +163,33 @@ async def test_delete_source_wrong_battle_returns_404(client, db_path):
 
     resp = await client.delete(f"/battles/{battle_b}/sources/{source_id}")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_raw_text_upload_creates_source(client, db_path):
+    """POSTing a text form field creates one source item (FR-3)."""
+    battle_id = await _create_battle(db_path)
+
+    resp = await client.post(
+        f"/battles/{battle_id}/sources",
+        data={"text": "hello from raw text", "label": "my-text"},
+    )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["label"] == "my-text"
+
+
+@pytest.mark.asyncio
+async def test_raw_text_upload_over_limit_returns_413(client, db_path):
+    """Text field larger than 10 MB is rejected with 413 (FR-3, NFR Reliability)."""
+    battle_id = await _create_battle(db_path)
+
+    oversized = "x" * (10 * 1024 * 1024 + 1)
+    resp = await client.post(
+        f"/battles/{battle_id}/sources",
+        data={"text": oversized},
+    )
+
+    assert resp.status_code == 413
+    assert "10 MB" in resp.json()["detail"]
