@@ -116,6 +116,11 @@ async def upload_source(
                 created.append({"id": source_id, "label": filename})
 
         elif text is not None:
+            if len(text.encode("utf-8")) > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail="Source text too large. Maximum is 10 MB.",
+                )
             item_label = label or f"Source {datetime.now(timezone.utc).isoformat()}"
             source_id = str(uuid.uuid4())
             async with get_db() as db2:
