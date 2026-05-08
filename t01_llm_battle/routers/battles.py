@@ -254,21 +254,5 @@ async def delete_battle(battle_id: str) -> None:
         if row is None:
             raise HTTPException(status_code=404, detail="Battle not found")
 
-        # Delete child records first (schema uses REFERENCES without ON DELETE CASCADE)
-        await db.execute(
-            "DELETE FROM step_result WHERE run_id IN (SELECT id FROM run WHERE battle_id = ?)",
-            (battle_id,),
-        )
-        await db.execute(
-            "DELETE FROM fighter_result WHERE run_id IN (SELECT id FROM run WHERE battle_id = ?)",
-            (battle_id,),
-        )
-        await db.execute("DELETE FROM run WHERE battle_id = ?", (battle_id,))
-        await db.execute(
-            "DELETE FROM fighter_step WHERE fighter_id IN (SELECT id FROM fighter WHERE battle_id = ?)",
-            (battle_id,),
-        )
-        await db.execute("DELETE FROM fighter WHERE battle_id = ?", (battle_id,))
-        await db.execute("DELETE FROM battle_source WHERE battle_id = ?", (battle_id,))
         await db.execute("DELETE FROM battle WHERE id = ?", (battle_id,))
         await db.commit()
