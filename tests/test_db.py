@@ -1,3 +1,6 @@
+import sqlite3
+from unittest.mock import patch, AsyncMock
+
 import pytest
 import aiosqlite
 from t01_llm_battle.db import init_db, get_db
@@ -83,3 +86,33 @@ async def test_foreign_keys_enforced(tmp_path):
         except aiosqlite.IntegrityError:
             raised = True
     assert raised, "Expected IntegrityError for FK violation — foreign_keys pragma may be OFF"
+
+
+@pytest.mark.asyncio
+async def test_init_db_migration_already_applied_is_swallowed(tmp_path):
+    """'duplicate column name' / 'already exists' OperationalError is silently skipped (FR-15)."""
+    import t01_llm_battle.db as db_module
+
+    db_path = str(tmp_path / "test.db")
+    # First call applies schema + migrations cleanly
+    await init_db(db_path)
+    # Second call: every migration hits 'already exists' — must not raise
+    await init_db(db_path)
+
+
+@pytest.mark.asyncio
+async def test_init_db_unexpected_migration_error_is_raised(tmp_path):
+    """Unexpected OperationalError (not 'already applied') propagates out of init_db (NFR Reliability)."""
+    import t01_llm_battle.db as db_module
+
+    db_path = str(tmp_path / "test.db")
+
+    # Inject a migration that triggers a real unexpected error
+    bad_sql = "SELECT * FROM nonexistent_table_xyz"
+    original = db_module._MIGRATIONS_SQL
+    try:
+        db_module._MIGRATIONS_SQL = [bad_sql]
+        with pytest.raises(sqlite3.OperationalError, match="nonexistent_table_xyz"):
+            await init_db(db_path)
+    finally:
+        db_module._MIGRATIONS_SQL = original
