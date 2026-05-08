@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS battle (
 
 CREATE TABLE IF NOT EXISTS battle_source (
     id         TEXT PRIMARY KEY,
-    battle_id  TEXT NOT NULL REFERENCES battle(id),
+    battle_id  TEXT NOT NULL REFERENCES battle(id) ON DELETE CASCADE,
     label      TEXT NOT NULL,
     content    TEXT NOT NULL,
     position   INTEGER NOT NULL
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS battle_source (
 
 CREATE TABLE IF NOT EXISTS fighter (
     id         TEXT PRIMARY KEY,
-    battle_id  TEXT NOT NULL REFERENCES battle(id),
+    battle_id  TEXT NOT NULL REFERENCES battle(id) ON DELETE CASCADE,
     name       TEXT NOT NULL,
     is_manual  INTEGER NOT NULL DEFAULT 0,
     position   INTEGER NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS fighter (
 
 CREATE TABLE IF NOT EXISTS fighter_step (
     id              TEXT PRIMARY KEY,
-    fighter_id      TEXT NOT NULL REFERENCES fighter(id),
+    fighter_id      TEXT NOT NULL REFERENCES fighter(id) ON DELETE CASCADE,
     position        INTEGER NOT NULL,
     system_prompt   TEXT,
     provider        TEXT NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS fighter_step (
 
 CREATE TABLE IF NOT EXISTS run (
     id               TEXT PRIMARY KEY,
-    battle_id        TEXT NOT NULL REFERENCES battle(id),
+    battle_id        TEXT NOT NULL REFERENCES battle(id) ON DELETE CASCADE,
     status           TEXT NOT NULL DEFAULT 'pending',
     started_at       TEXT NOT NULL,
     finished_at      TEXT,
@@ -59,10 +59,10 @@ CREATE TABLE IF NOT EXISTS run (
 
 CREATE TABLE IF NOT EXISTS step_result (
     id             TEXT PRIMARY KEY,
-    run_id         TEXT NOT NULL REFERENCES run(id),
-    fighter_id     TEXT NOT NULL REFERENCES fighter(id),
-    step_id        TEXT NOT NULL REFERENCES fighter_step(id),
-    source_id      TEXT NOT NULL REFERENCES battle_source(id),
+    run_id         TEXT NOT NULL REFERENCES run(id) ON DELETE CASCADE,
+    fighter_id     TEXT NOT NULL REFERENCES fighter(id) ON DELETE CASCADE,
+    step_id        TEXT NOT NULL REFERENCES fighter_step(id) ON DELETE CASCADE,
+    source_id      TEXT NOT NULL REFERENCES battle_source(id) ON DELETE CASCADE,
     input_text     TEXT NOT NULL,
     output_text    TEXT,
     input_tokens   INTEGER,
@@ -75,9 +75,9 @@ CREATE TABLE IF NOT EXISTS step_result (
 
 CREATE TABLE IF NOT EXISTS fighter_result (
     id                   TEXT PRIMARY KEY,
-    run_id               TEXT NOT NULL REFERENCES run(id),
-    fighter_id           TEXT NOT NULL REFERENCES fighter(id),
-    source_id            TEXT NOT NULL REFERENCES battle_source(id),
+    run_id               TEXT NOT NULL REFERENCES run(id) ON DELETE CASCADE,
+    fighter_id           TEXT NOT NULL REFERENCES fighter(id) ON DELETE CASCADE,
+    source_id            TEXT NOT NULL REFERENCES battle_source(id) ON DELETE CASCADE,
     final_output         TEXT,
     total_cost_usd       REAL,
     total_latency_ms     INTEGER,
@@ -128,6 +128,93 @@ _MIGRATIONS_SQL = [
     "DROP TABLE IF EXISTS board",
     "DROP TABLE IF EXISTS news_fighter",
     "DROP TABLE IF EXISTS news_source",
+    # v0.3: add ON DELETE CASCADE to all FK constraints
+    # SQLite cannot ALTER COLUMN, so each table is recreated. Wrapped in
+    # a single PRAGMA foreign_keys=OFF block via executescript; individual
+    # statements are added here and executed with ignore-on-error semantics.
+    "PRAGMA foreign_keys = OFF",
+    "ALTER TABLE battle_source RENAME TO _battle_source_old",
+    """CREATE TABLE IF NOT EXISTS battle_source (
+    id         TEXT PRIMARY KEY,
+    battle_id  TEXT NOT NULL REFERENCES battle(id) ON DELETE CASCADE,
+    label      TEXT NOT NULL,
+    content    TEXT NOT NULL,
+    position   INTEGER NOT NULL
+)""",
+    "INSERT INTO battle_source SELECT * FROM _battle_source_old",
+    "DROP TABLE _battle_source_old",
+    "ALTER TABLE fighter RENAME TO _fighter_old",
+    """CREATE TABLE IF NOT EXISTS fighter (
+    id         TEXT PRIMARY KEY,
+    battle_id  TEXT NOT NULL REFERENCES battle(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    is_manual  INTEGER NOT NULL DEFAULT 0,
+    position   INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT ''
+)""",
+    "INSERT INTO fighter SELECT * FROM _fighter_old",
+    "DROP TABLE _fighter_old",
+    "ALTER TABLE fighter_step RENAME TO _fighter_step_old",
+    """CREATE TABLE IF NOT EXISTS fighter_step (
+    id              TEXT PRIMARY KEY,
+    fighter_id      TEXT NOT NULL REFERENCES fighter(id) ON DELETE CASCADE,
+    position        INTEGER NOT NULL,
+    system_prompt   TEXT,
+    provider        TEXT NOT NULL,
+    model_id        TEXT NOT NULL,
+    provider_config TEXT NOT NULL DEFAULT '{}',
+    created_at      TEXT NOT NULL DEFAULT ''
+)""",
+    "INSERT INTO fighter_step SELECT * FROM _fighter_step_old",
+    "DROP TABLE _fighter_step_old",
+    "ALTER TABLE run RENAME TO _run_old",
+    """CREATE TABLE IF NOT EXISTS run (
+    id               TEXT PRIMARY KEY,
+    battle_id        TEXT NOT NULL REFERENCES battle(id) ON DELETE CASCADE,
+    status           TEXT NOT NULL DEFAULT 'pending',
+    started_at       TEXT NOT NULL,
+    finished_at      TEXT,
+    report_markdown  TEXT
+)""",
+    "INSERT INTO run SELECT * FROM _run_old",
+    "DROP TABLE _run_old",
+    "ALTER TABLE step_result RENAME TO _step_result_old",
+    """CREATE TABLE IF NOT EXISTS step_result (
+    id             TEXT PRIMARY KEY,
+    run_id         TEXT NOT NULL REFERENCES run(id) ON DELETE CASCADE,
+    fighter_id     TEXT NOT NULL REFERENCES fighter(id) ON DELETE CASCADE,
+    step_id        TEXT NOT NULL REFERENCES fighter_step(id) ON DELETE CASCADE,
+    source_id      TEXT NOT NULL REFERENCES battle_source(id) ON DELETE CASCADE,
+    input_text     TEXT NOT NULL,
+    output_text    TEXT,
+    input_tokens   INTEGER,
+    output_tokens  INTEGER,
+    latency_ms     INTEGER,
+    cost_usd       REAL,
+    error          TEXT,
+    created_at     TEXT NOT NULL
+)""",
+    "INSERT INTO step_result SELECT * FROM _step_result_old",
+    "DROP TABLE _step_result_old",
+    "ALTER TABLE fighter_result RENAME TO _fighter_result_old",
+    """CREATE TABLE IF NOT EXISTS fighter_result (
+    id                   TEXT PRIMARY KEY,
+    run_id               TEXT NOT NULL REFERENCES run(id) ON DELETE CASCADE,
+    fighter_id           TEXT NOT NULL REFERENCES fighter(id) ON DELETE CASCADE,
+    source_id            TEXT NOT NULL REFERENCES battle_source(id) ON DELETE CASCADE,
+    final_output         TEXT,
+    total_cost_usd       REAL,
+    total_latency_ms     INTEGER,
+    total_input_tokens   INTEGER,
+    total_output_tokens  INTEGER,
+    status               TEXT NOT NULL DEFAULT 'pending',
+    judge_score          REAL,
+    judge_reasoning      TEXT,
+    created_at           TEXT NOT NULL
+)""",
+    "INSERT INTO fighter_result SELECT * FROM _fighter_result_old",
+    "DROP TABLE _fighter_result_old",
+    "PRAGMA foreign_keys = ON",
 ]
 
 
