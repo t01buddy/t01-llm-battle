@@ -413,3 +413,46 @@ async def test_cancel_propagates_to_inflight_steps(tmp_path):
         )
         row = await cursor.fetchone()
     assert row["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_step_timeout_marks_error_with_message(tmp_path):
+    """A hanging provider.run() is cancelled by asyncio.wait_for; step_result error = 'step timeout (>Xs)' (FR-10)."""
+    import asyncio as _asyncio
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    battle_id, source_id = await _seed_battle(db_path)
+    fighter_id = await _seed_fighter(db_path, battle_id)
+    await _seed_step(db_path, fighter_id, position=1)
+    run_id = await _seed_run(db_path, battle_id)
+
+    async def hang_forever(request):
+        await _asyncio.sleep(9999)
+
+    mock_provider = MagicMock()
+    mock_provider.run = hang_forever
+
+    with (
+        patch("t01_llm_battle.engine.get_provider", return_value=mock_provider),
+        patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
+        patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(None, ""))),
+        patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="")),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
+        patch("t01_llm_battle.engine.PER_STEP_TIMEOUT_S", 0.05),
+    ):
+        await execute_run(run_id, db_path)
+
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT error FROM step_result WHERE run_id = ?", (run_id,)
+        )
+        step_row = await cursor.fetchone()
+        fr_cursor = await db.execute(
+            "SELECT status FROM fighter_result WHERE run_id = ?", (run_id,)
+        )
+        fr_row = await fr_cursor.fetchone()
+
+    assert step_row["error"] is not None
+    assert "timeout" in step_row["error"]
+    assert fr_row["status"] == "error"
