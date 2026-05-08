@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
 import aiosqlite
+
+logger = logging.getLogger(__name__)
+
+# sqlite3 error substrings that indicate a migration was already applied.
+_ALREADY_APPLIED = (
+    "duplicate column name",
+    "already exists",
+    "table _",  # RENAME TO already ran; old table doesn't exist
+    "no such table: _",  # old table was already dropped
+)
 
 DB_PATH: Path = Path.home() / ".t01-llm-battle" / "battles.db"
 
@@ -235,8 +247,13 @@ async def init_db(db_path: str | Path = DB_PATH) -> None:
             try:
                 await db.execute(sql)
                 await db.commit()
-            except Exception:
-                pass  # migration already applied
+            except sqlite3.OperationalError as exc:
+                msg = str(exc).lower()
+                if any(pat in msg for pat in _ALREADY_APPLIED):
+                    logger.debug("migration already applied (skipped): %s", exc)
+                    await db.rollback()
+                else:
+                    raise
 
     await _migrate_plaintext_keys(db_path)
 
