@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 import time
 import uuid
 from datetime import datetime, timezone
+
+PER_STEP_TIMEOUT_S: float = float(os.environ.get("T01_STEP_TIMEOUT_S", "300"))
 
 from .db import DB_PATH, get_db, resolve_api_key
 from .judge import score_response, generate_report
@@ -114,7 +117,9 @@ async def _execute_pair(
                 request.api_key = api_key
             await rate_limiter.acquire(step["provider"])
             t0 = time.monotonic()
-            result: ProviderResult = await provider.run(request)
+            result: ProviderResult = await asyncio.wait_for(
+                provider.run(request), timeout=PER_STEP_TIMEOUT_S
+            )
             latency_ms = int((time.monotonic() - t0) * 1000)
 
             async with get_db(db_path) as db:
@@ -147,6 +152,24 @@ async def _execute_pair(
             step_input = result.content
             final_output = result.content
 
+        except asyncio.TimeoutError:
+            timeout_msg = f"step timeout (>{int(PER_STEP_TIMEOUT_S)}s)"
+            async with get_db(db_path) as db:
+                await db.execute(
+                    "INSERT INTO step_result "
+                    "(id, run_id, fighter_id, step_id, source_id, "
+                    "input_text, output_text, input_tokens, output_tokens, "
+                    "latency_ms, cost_usd, error, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        sr_id, run_id, fighter_id, step_id, source_id,
+                        step_input, None, None, None, None, None,
+                        timeout_msg, sr_now,
+                    ),
+                )
+                await db.commit()
+            had_error = True
+            break
         except Exception as exc:
             async with get_db(db_path) as db:
                 await db.execute(
