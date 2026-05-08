@@ -524,3 +524,57 @@ async def test_get_run_results_step_drill_down(client, db_path):
     assert step_results[0]["output_text"] == "step1 out"
     assert step_results[1]["step_index"] == 1
     assert step_results[1]["output_text"] == "step2 out"
+
+
+@pytest.mark.asyncio
+async def test_manual_submit_does_not_overwrite_cancelled_run(client, db_path):
+    """Late manual submission must not overwrite a cancelled run status with 'complete'."""
+    now = datetime.now(timezone.utc).isoformat()
+    battle_id = str(uuid.uuid4())
+    run_id = str(uuid.uuid4())
+    fighter_id = str(uuid.uuid4())
+    source_id = str(uuid.uuid4())
+    fr_id = str(uuid.uuid4())
+
+    async with get_db(db_path) as db:
+        await db.execute(
+            "INSERT INTO battle (id, name, judge_provider, judge_model, judge_rubric, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (battle_id, "Cancel Guard Battle", "", "", "", now),
+        )
+        await db.execute(
+            "INSERT INTO battle_source (id, battle_id, label, content, position) VALUES (?, ?, ?, ?, ?)",
+            (source_id, battle_id, "q1", "What is 2+2?", 1),
+        )
+        await db.execute(
+            "INSERT INTO fighter (id, battle_id, name, is_manual, position, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (fighter_id, battle_id, "Human", 1, 1, now),
+        )
+        # Run is already cancelled before manual submit arrives
+        await db.execute(
+            "INSERT INTO run (id, battle_id, status, started_at) VALUES (?, ?, ?, ?)",
+            (run_id, battle_id, "cancelled", now),
+        )
+        await db.execute(
+            "INSERT INTO fighter_result "
+            "(id, run_id, fighter_id, source_id, status, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (fr_id, run_id, fighter_id, source_id, "awaiting_input", now),
+        )
+        await db.commit()
+
+    with patch("t01_llm_battle.routers.runs.score_response", return_value=(None, None)), \
+         patch("t01_llm_battle.routers.runs.generate_report", return_value="report"):
+        resp = await client.post(
+            f"/runs/{run_id}/steps/{fr_id}/submit",
+            json={"content": "The answer is 4."},
+        )
+
+    assert resp.status_code == 200
+
+    # Run must remain cancelled — not overwritten to 'complete'
+    async with get_db(db_path) as db:
+        cursor = await db.execute("SELECT status FROM run WHERE id = ?", (run_id,))
+        run_row = await cursor.fetchone()
+        assert run_row["status"] == "cancelled"
