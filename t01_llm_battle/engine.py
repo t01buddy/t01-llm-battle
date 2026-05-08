@@ -75,6 +75,19 @@ async def _execute_pair(
     final_output: str | None = None
 
     for step in steps:
+        # Check for cancellation before each step — abort without wasting API credits
+        async with get_db(db_path) as db:
+            cursor = await db.execute("SELECT status FROM run WHERE id = ?", (run_id,))
+            run_row = await cursor.fetchone()
+        if run_row and run_row["status"] == "cancelled":
+            async with get_db(db_path) as db:
+                await db.execute(
+                    "UPDATE fighter_result SET status = 'cancelled' WHERE id = ?",
+                    (fr_id,),
+                )
+                await db.commit()
+            return False
+
         step_id = step["id"]
         sr_id = str(uuid.uuid4())
         sr_now = datetime.now(timezone.utc).isoformat()
