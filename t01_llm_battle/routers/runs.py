@@ -285,7 +285,7 @@ async def submit_manual_step(
         finished_at = datetime.now(timezone.utc).isoformat()
         async with get_db() as db:
             await db.execute(
-                "UPDATE run SET status = 'complete', finished_at = ? WHERE id = ?",
+                "UPDATE run SET status = 'complete', finished_at = ? WHERE id = ? AND status != 'cancelled'",
                 (finished_at, run_id),
             )
             await db.commit()
