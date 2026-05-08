@@ -362,3 +362,54 @@ async def test_manual_fighter_does_not_call_provider(tmp_path):
 
     mock_get_provider.assert_not_called()
     mock_acquire.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_cancel_propagates_to_inflight_steps(tmp_path):
+    """If run is cancelled mid-execution, remaining steps are skipped (FR-10 cancel)."""
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+
+    battle_id, source_id = await _seed_battle(db_path)
+    fighter_id = await _seed_fighter(db_path, battle_id)
+    await _seed_step(db_path, fighter_id, position=1)
+    await _seed_step(db_path, fighter_id, position=2)
+    run_id = await _seed_run(db_path, battle_id)
+
+    # Simulate cancellation: after the first provider.run call, mark run as cancelled in DB.
+    call_count = 0
+
+    async def cancel_after_first(request):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # Cancel the run in the DB before returning, so the next step check aborts
+            async with get_db(db_path) as db:
+                await db.execute(
+                    "UPDATE run SET status = 'cancelled' WHERE id = ?", (run_id,)
+                )
+                await db.commit()
+        return _make_result("output")
+
+    mock_provider = MagicMock()
+    mock_provider.run = cancel_after_first
+
+    with (
+        patch("t01_llm_battle.engine.get_provider", return_value=mock_provider),
+        patch("t01_llm_battle.engine.rate_limiter.acquire", new=AsyncMock()),
+        patch("t01_llm_battle.engine.score_response", new=AsyncMock(return_value=(8.0, "good"))),
+        patch("t01_llm_battle.engine.generate_report", new=AsyncMock(return_value="report")),
+        patch("t01_llm_battle.engine._resolve_api_key", new=AsyncMock(return_value=None)),
+    ):
+        await execute_run(run_id, db_path)
+
+    # Only step 1 ran — step 2 was skipped due to cancel check
+    assert call_count == 1
+
+    # fighter_result should be 'cancelled'
+    async with get_db(db_path) as db:
+        cursor = await db.execute(
+            "SELECT status FROM fighter_result WHERE run_id = ?", (run_id,)
+        )
+        row = await cursor.fetchone()
+    assert row["status"] == "cancelled"
