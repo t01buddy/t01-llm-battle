@@ -185,3 +185,171 @@ async def test_list_fighters(client, db_path):
     assert resp.status_code == 200
     names = {f["name"] for f in resp.json()}
     assert names == {"Alpha", "Beta"}
+
+
+# --- DELETE /battles/{battle_id}/fighters/{fighter_id} ---
+
+@pytest.mark.asyncio
+async def test_delete_fighter_happy_path(client, db_path):
+    """DELETE fighter returns 204 and fighter is no longer listed."""
+    battle_id = await _create_battle(db_path)
+    fighter_resp = await client.post(
+        f"/battles/{battle_id}/fighters",
+        json={"name": "Doomed", "is_manual": False, "position": 1},
+    )
+    fighter_id = fighter_resp.json()["id"]
+
+    del_resp = await client.delete(f"/battles/{battle_id}/fighters/{fighter_id}")
+    assert del_resp.status_code == 204
+
+    list_resp = await client.get(f"/battles/{battle_id}/fighters")
+    assert all(f["id"] != fighter_id for f in list_resp.json())
+
+
+@pytest.mark.asyncio
+async def test_delete_fighter_unknown_id_404(client, db_path):
+    """DELETE fighter with unknown fighter_id returns 404."""
+    battle_id = await _create_battle(db_path)
+    resp = await client.delete(f"/battles/{battle_id}/fighters/{uuid.uuid4()}")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_fighter_wrong_battle_404(client, db_path):
+    """DELETE fighter on wrong battle_id returns 404."""
+    battle_id = await _create_battle(db_path)
+    other_battle_id = await _create_battle(db_path)
+    fighter_resp = await client.post(
+        f"/battles/{battle_id}/fighters",
+        json={"name": "Belongs Elsewhere", "is_manual": False, "position": 1},
+    )
+    fighter_id = fighter_resp.json()["id"]
+
+    resp = await client.delete(f"/battles/{other_battle_id}/fighters/{fighter_id}")
+    assert resp.status_code == 404
+
+
+# --- PUT /battles/{battle_id}/fighters/{fighter_id}/steps/{step_id} ---
+
+async def _create_fighter_with_step(client, battle_id):
+    fighter_resp = await client.post(
+        f"/battles/{battle_id}/fighters",
+        json={"name": "StepOwner", "is_manual": False, "position": 1},
+    )
+    fighter_id = fighter_resp.json()["id"]
+    step_resp = await client.post(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps",
+        json={"position": 1, "provider": "openai", "model_id": "gpt-4o-mini"},
+    )
+    step_id = step_resp.json()["id"]
+    return fighter_id, step_id
+
+
+@pytest.mark.asyncio
+async def test_update_step_happy_path(client, db_path):
+    """PUT step updates model_id and returns the updated step."""
+    battle_id = await _create_battle(db_path)
+    fighter_id, step_id = await _create_fighter_with_step(client, battle_id)
+
+    resp = await client.put(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}",
+        json={"position": 1, "provider": "anthropic", "model_id": "claude-3-haiku"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["model_id"] == "claude-3-haiku"
+    assert data["provider"] == "anthropic"
+
+
+@pytest.mark.asyncio
+async def test_update_step_unknown_step_404(client, db_path):
+    """PUT step with unknown step_id returns 404."""
+    battle_id = await _create_battle(db_path)
+    fighter_resp = await client.post(
+        f"/battles/{battle_id}/fighters",
+        json={"name": "Lone", "is_manual": False, "position": 1},
+    )
+    fighter_id = fighter_resp.json()["id"]
+
+    resp = await client.put(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps/{uuid.uuid4()}",
+        json={"position": 1, "provider": "openai", "model_id": "gpt-4o"},
+    )
+    assert resp.status_code == 404
+
+
+# --- DELETE /battles/{battle_id}/fighters/{fighter_id}/steps/{step_id} ---
+
+@pytest.mark.asyncio
+async def test_delete_step_happy_path(client, db_path):
+    """DELETE step returns 204 and step no longer appears on fighter."""
+    battle_id = await _create_battle(db_path)
+    fighter_id, step_id = await _create_fighter_with_step(client, battle_id)
+
+    del_resp = await client.delete(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}"
+    )
+    assert del_resp.status_code == 204
+
+    get_resp = await client.get(f"/battles/{battle_id}/fighters/{fighter_id}")
+    assert all(s["id"] != step_id for s in get_resp.json()["steps"])
+
+
+@pytest.mark.asyncio
+async def test_delete_step_unknown_id_404(client, db_path):
+    """DELETE step with unknown step_id returns 404."""
+    battle_id = await _create_battle(db_path)
+    fighter_resp = await client.post(
+        f"/battles/{battle_id}/fighters",
+        json={"name": "Lone2", "is_manual": False, "position": 1},
+    )
+    fighter_id = fighter_resp.json()["id"]
+
+    resp = await client.delete(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps/{uuid.uuid4()}"
+    )
+    assert resp.status_code == 404
+
+
+# --- PATCH /battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}/move ---
+
+@pytest.mark.asyncio
+async def test_move_step_down(client, db_path):
+    """PATCH move step down swaps positions correctly."""
+    battle_id = await _create_battle(db_path)
+    fighter_resp = await client.post(
+        f"/battles/{battle_id}/fighters",
+        json={"name": "Mover", "is_manual": False, "position": 1},
+    )
+    fighter_id = fighter_resp.json()["id"]
+
+    step_ids = []
+    for pos in [1, 2]:
+        s = await client.post(
+            f"/battles/{battle_id}/fighters/{fighter_id}/steps",
+            json={"position": pos, "provider": "openai", "model_id": "gpt-4o-mini"},
+        )
+        step_ids.append(s.json()["id"])
+
+    first_step_id = step_ids[0]
+    resp = await client.patch(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps/{first_step_id}/move",
+        params={"direction": "down"},
+    )
+    assert resp.status_code == 200
+    positions = {s["id"]: s["position"] for s in resp.json()}
+    # first step moved to position 2
+    assert positions[first_step_id] == 2
+
+
+@pytest.mark.asyncio
+async def test_move_step_invalid_direction_400(client, db_path):
+    """PATCH move step with invalid direction returns 400."""
+    battle_id = await _create_battle(db_path)
+    fighter_id, step_id = await _create_fighter_with_step(client, battle_id)
+
+    resp = await client.patch(
+        f"/battles/{battle_id}/fighters/{fighter_id}/steps/{step_id}/move",
+        params={"direction": "sideways"},
+    )
+    assert resp.status_code == 400
