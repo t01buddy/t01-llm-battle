@@ -118,3 +118,111 @@ async def test_get_providers_reflects_disabled_state(client):
     r = await client.get("/providers")
     openai = next(p for p in r.json() if p["name"] == "openai")
     assert openai["enabled"] is False
+
+
+# --- POST /providers/pricing/refresh (FR-18) ---
+
+@pytest.mark.asyncio
+async def test_pricing_refresh_happy_path(client, monkeypatch, tmp_path):
+    """POST /providers/pricing/refresh returns 200 with updated_at and models_updated."""
+    import httpx as httpx_module
+    import t01_llm_battle.routers.providers as providers_module
+
+    raw_payload = {
+        "openai/gpt-4o": {
+            "litellm_provider": "openai",
+            "input_cost_per_token": 0.000005,
+            "output_cost_per_token": 0.000015,
+        },
+        "anthropic/claude-3-opus": {
+            "litellm_provider": "anthropic",
+            "input_cost_per_token": 0.000015,
+            "output_cost_per_token": 0.000075,
+        },
+    }
+
+    class _MockResponse:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return raw_payload
+
+    class _MockClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def get(self, url): return _MockResponse()
+
+    monkeypatch.setattr(httpx_module, "AsyncClient", lambda **kw: _MockClient())
+    cache_file = tmp_path / "llm_pricing.json"
+    monkeypatch.setattr(providers_module, "_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(providers_module, "_CACHE_FILE", cache_file)
+
+    r = await client.post("/providers/pricing/refresh")
+    assert r.status_code == 200
+    data = r.json()
+    assert "updated_at" in data
+    assert data["models_updated"] == 2
+    assert cache_file.exists()
+    import json
+    saved = json.loads(cache_file.read_text())
+    assert "openai/gpt-4o" in saved
+    assert saved["openai/gpt-4o"]["input_per_million"] == pytest.approx(5.0)
+
+
+@pytest.mark.asyncio
+async def test_pricing_refresh_502_on_fetch_failure(client, monkeypatch):
+    """POST /providers/pricing/refresh returns 502 when httpx raises."""
+    import httpx as httpx_module
+    import t01_llm_battle.routers.providers as providers_module
+
+    class _FailingClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def get(self, url): raise httpx_module.ConnectError("timeout")
+
+    monkeypatch.setattr(httpx_module, "AsyncClient", lambda **kw: _FailingClient())
+
+    r = await client.post("/providers/pricing/refresh")
+    assert r.status_code == 502
+    assert "LiteLLM" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_pricing_refresh_skips_unknown_provider(client, monkeypatch, tmp_path):
+    """Entries with no litellm_provider mapping are excluded from the cache."""
+    import httpx as httpx_module
+    import t01_llm_battle.routers.providers as providers_module
+
+    raw_payload = {
+        "unknown-provider/model-x": {
+            "litellm_provider": "some_unknown_llm",
+            "input_cost_per_token": 0.001,
+            "output_cost_per_token": 0.002,
+        },
+        "openai/gpt-4o-mini": {
+            "litellm_provider": "openai",
+            "input_cost_per_token": 0.00000015,
+            "output_cost_per_token": 0.0000006,
+        },
+    }
+
+    class _MockResponse:
+        def raise_for_status(self): pass
+        def json(self): return raw_payload
+
+    class _MockClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def get(self, url): return _MockResponse()
+
+    monkeypatch.setattr(httpx_module, "AsyncClient", lambda **kw: _MockClient())
+    cache_file = tmp_path / "llm_pricing.json"
+    monkeypatch.setattr(providers_module, "_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(providers_module, "_CACHE_FILE", cache_file)
+
+    r = await client.post("/providers/pricing/refresh")
+    assert r.status_code == 200
+    assert r.json()["models_updated"] == 1
+    import json
+    saved = json.loads(cache_file.read_text())
+    assert "openai/gpt-4o-mini" in saved
+    assert not any("unknown" in k for k in saved)
