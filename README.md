@@ -1,6 +1,8 @@
 # t01-llm-battle
 
-**A tiny tool to help you pick the right approach for your AI project.**
+**Pick models with evidence, not vibes.**
+
+A tiny local tool for comparing LLMs and multi-step pipelines on your real prompts by quality, cost, and latency.
 
 [![PyPI version](https://img.shields.io/pypi/v/t01-llm-battle)](https://pypi.org/project/t01-llm-battle/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
