@@ -4,6 +4,8 @@
 
 A tiny local tool for comparing LLMs and multi-step pipelines on your real prompts by quality, cost, and latency.
 
+Public docs: [Manual](docs/manual.md) · [Showcases](docs/showcases.md)
+
 [![PyPI version](https://img.shields.io/pypi/v/t01-llm-battle)](https://pypi.org/project/t01-llm-battle/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Python >=3.11](https://img.shields.io/badge/python-%3E%3D3.11-blue)](https://www.python.org/)
