@@ -1022,14 +1022,24 @@
                                     <template x-if="editStepProviderType() === 'llm'">
                                       <div>
                                         <label style="font-size:12px;">Model <span class="text-danger">*</span></label>
-                                        <select x-model="editStep.model_id" class="ba-select" style="font-size:12px;">
-                                          <template x-for="m in editStepProviderModels()" :key="m.id">
-                                            <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
-                                          </template>
-                                          <option value="">Custom…</option>
-                                        </select>
-                                        <template x-if="editStep.model_id === ''">
-                                          <input type="text" x-model="editStep.model_id_custom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:12px;">
+                                        <template x-if="editStepProviderModels().length > 0">
+                                          <div>
+                                            <select x-model="editStep.model_id" class="ba-select" style="font-size:12px;">
+                                              <template x-for="m in editStepProviderModels()" :key="m.id">
+                                                <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                              </template>
+                                              <option value="">Custom…</option>
+                                            </select>
+                                            <template x-if="editStep.model_id === ''">
+                                              <input type="text" x-model="editStep.model_id_custom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:12px;">
+                                            </template>
+                                          </div>
+                                        </template>
+                                        <template x-if="editStepProviderModels().length === 0">
+                                          <div>
+                                            <input type="text" x-model="editStep.model_id" placeholder="e.g. gpt-4o" class="ba-input" style="font-size:12px;">
+                                            <p style="margin:2px 0 0;font-size:11px;color:var(--ba-text-mid);">Run pricing sync to populate models</p>
+                                          </div>
                                         </template>
                                       </div>
                                     </template>
@@ -1140,14 +1150,24 @@
                           <template x-if="stepProviderType() === 'llm'">
                             <div>
                               <label style="font-size:12px;">Model <span class="text-danger">*</span></label>
-                              <select x-model="newStep.model_id" required class="ba-select" style="font-size:12px;">
-                                <template x-for="m in stepProviderModels()" :key="m.id">
-                                  <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
-                                </template>
-                                <option value="">Custom…</option>
-                              </select>
-                              <template x-if="newStep.model_id === ''">
-                                <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:12px;">
+                              <template x-if="stepProviderModels().length > 0">
+                                <div>
+                                  <select x-model="newStep.model_id" required class="ba-select" style="font-size:12px;">
+                                    <template x-for="m in stepProviderModels()" :key="m.id">
+                                      <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                    </template>
+                                    <option value="">Custom…</option>
+                                  </select>
+                                  <template x-if="newStep.model_id === ''">
+                                    <input type="text" x-model="newStep.model_id_custom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:12px;">
+                                  </template>
+                                </div>
+                              </template>
+                              <template x-if="stepProviderModels().length === 0">
+                                <div>
+                                  <input type="text" x-model="newStep.model_id" required placeholder="e.g. gpt-4o" class="ba-input" style="font-size:12px;">
+                                  <p style="margin:2px 0 0;font-size:11px;color:var(--ba-text-mid);">Run pricing sync to populate models</p>
+                                </div>
                               </template>
                             </div>
                           </template>
