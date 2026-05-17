@@ -985,12 +985,32 @@
                               <!-- Inline edit form -->
                               <template x-if="activeEditStepId === step.id">
                                 <div style="background:var(--ba-bg-card);border:1px solid var(--ba-accent);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;">
-                                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                    <div style="flex:0 0 auto;">
-                                      <label style="font-size:11px;">Provider</label>
-                                      <select class="ba-select" x-effect="$el.value = editStep.provider" @change="editStep.provider = $event.target.value" style="font-size:12px;padding:3px 6px;">
-                                        <template x-for="p in providerInfoList.filter(pi => pi.enabled)" :key="p.name">
-                                          <option :value="p.name" x-text="p.display_name" :selected="p.name === editStep.provider"></option>
+                                  <template x-if="editStepProviderType() === 'llm'">
+                                    <div>
+                                      <label style="font-size:12px;">System Prompt <span style="font-weight:400;color:var(--ba-text-mid);">(optional)</span></label>
+                                      <textarea x-model="editStep.system_prompt" rows="2"
+                                        placeholder="You are a helpful assistant..."
+                                        class="ba-input" style="resize:vertical;font-size:12px;"></textarea>
+                                    </div>
+                                  </template>
+
+                                  <div class="form-grid-2">
+                                    <div>
+                                      <label style="font-size:12px;">Provider <span class="text-danger">*</span></label>
+                                      <select class="ba-select" x-effect="$el.value = editStep.provider" @change="editStep.provider = $event.target.value" style="font-size:12px;">
+                                        <template x-if="providerInfoList.filter(p => p.provider_type === 'llm' && p.enabled).length > 0">
+                                          <optgroup label="LLM Providers">
+                                            <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'llm' && pi.enabled)" :key="p.name">
+                                              <option :value="p.name" x-text="p.display_name" :selected="p.name === editStep.provider"></option>
+                                            </template>
+                                          </optgroup>
+                                        </template>
+                                        <template x-if="providerInfoList.filter(p => p.provider_type === 'tool' && p.enabled).length > 0">
+                                          <optgroup label="Tool Providers">
+                                            <template x-for="p in providerInfoList.filter(pi => pi.provider_type === 'tool' && pi.enabled)" :key="p.name">
+                                              <option :value="p.name" x-text="p.display_name" :selected="p.name === editStep.provider"></option>
+                                            </template>
+                                          </optgroup>
                                         </template>
                                         <template x-if="providerInfoList.length === 0">
                                           <template x-for="p in providers" :key="p">
@@ -999,41 +1019,70 @@
                                         </template>
                                       </select>
                                     </div>
-                                    <template x-if="editStepProviderType() !== 'tool'">
-                                      <div style="flex:1;min-width:120px;">
-                                        <label style="font-size:11px;">Model</label>
-                                        <input type="text" x-model="editStep.model_id" class="ba-input" style="font-size:12px;padding:3px 6px;" placeholder="e.g. gpt-4o">
+                                    <template x-if="editStepProviderType() === 'llm'">
+                                      <div>
+                                        <label style="font-size:12px;">Model <span class="text-danger">*</span></label>
+                                        <select x-model="editStep.model_id" class="ba-select" style="font-size:12px;">
+                                          <template x-for="m in editStepProviderModels()" :key="m.id">
+                                            <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
+                                          </template>
+                                          <option value="">Custom…</option>
+                                        </select>
+                                        <template x-if="editStep.model_id === ''">
+                                          <input type="text" x-model="editStep.model_id_custom" placeholder="Enter custom model ID" class="ba-input" style="margin-top:4px;font-size:12px;">
+                                        </template>
                                       </div>
                                     </template>
                                     <template x-if="editStepProviderType() === 'tool'">
-                                      <div style="flex:1;min-width:120px;">
-                                        <label style="font-size:11px;">Function <span class="text-danger">*</span></label>
-                                        <select x-model="editStep.model_id" class="ba-select" style="font-size:12px;padding:3px 6px;">
+                                      <div>
+                                        <label style="font-size:12px;">Function <span class="text-danger">*</span></label>
+                                        <select x-model="editStep.model_id" class="ba-select" style="font-size:12px;">
                                           <template x-for="m in editStepProviderModels()" :key="m.id">
-                                            <option :value="m.id" x-text="m.id"></option>
+                                            <option :value="m.id" :title="m.pricing_label" x-text="m.id + ' — ' + m.pricing_label"></option>
                                           </template>
                                         </select>
                                       </div>
                                     </template>
+                                    <template x-if="editStepProviderType() === null">
+                                      <div>
+                                        <label style="font-size:12px;">Model <span class="text-danger">*</span></label>
+                                        <input type="text" x-model="editStep.model_id" placeholder="e.g. gpt-4o" class="ba-input" style="font-size:12px;">
+                                      </div>
+                                    </template>
                                   </div>
-                                  <template x-if="editStepProviderType() !== 'tool'">
+
+                                  <template x-if="editStepPricingHint()">
+                                    <p style="margin:0;font-size:11px;color:var(--ba-accent);background:var(--ba-accent-muted);border:1px solid rgba(212,160,42,0.2);border-radius:4px;padding:4px 8px;" x-text="editStepPricingHint()"></p>
+                                  </template>
+
+                                  <template x-if="editStepNativeTools().length > 0">
                                     <div>
-                                      <label style="font-size:11px;">System Prompt <span style="font-weight:400;color:var(--ba-text-mid);">(optional)</span></label>
-                                      <textarea x-model="editStep.system_prompt" rows="2" class="ba-input" style="font-size:12px;resize:vertical;" placeholder="You are a helpful assistant..."></textarea>
+                                      <label style="font-size:12px;">Tools <span style="font-weight:400;color:var(--ba-text-mid);">(optional)</span></label>
+                                      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                        <template x-for="tool in editStepNativeTools()" :key="tool">
+                                          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;margin:0;">
+                                            <input type="checkbox" :value="tool" x-model="editStep.selected_tools">
+                                            <span x-text="tool"></span>
+                                          </label>
+                                        </template>
+                                      </div>
                                     </div>
                                   </template>
+
                                   <div>
-                                    <label style="font-size:11px;">Provider Config <span style="font-weight:400;color:var(--ba-text-mid);">(JSON)</span></label>
-                                    <input type="text" x-model="editStep.provider_config" class="ba-input" style="font-size:12px;font-family:monospace;padding:3px 6px;" placeholder="{}">
+                                    <label style="font-size:12px;">Provider Config <span style="font-weight:400;color:var(--ba-text-mid);">(JSON, optional)</span></label>
+                                    <textarea x-model="editStep.provider_config" rows="2" placeholder="{}" class="ba-input" style="resize:vertical;font-family:monospace;font-size:12px;"></textarea>
                                   </div>
+
                                   <template x-if="editStepError">
                                     <p class="text-danger" style="margin:0;font-size:12px;" x-text="editStepError"></p>
                                   </template>
+
                                   <div style="display:flex;gap:8px;">
-                                    <button @click="saveEditStep(fighter.id, step)" class="ba-btn ba-btn-primary" :disabled="savingStep" style="font-size:12px;padding:4px 10px;">
+                                    <button @click="saveEditStep(fighter.id, step)" class="ba-btn ba-btn-primary" :disabled="savingStep" style="font-size:12px;">
                                       <span x-text="savingStep ? 'Saving...' : 'Save'"></span>
                                     </button>
-                                    <button @click="cancelEditStep()" class="ba-btn ba-btn-secondary" style="font-size:12px;padding:4px 10px;">Cancel</button>
+                                    <button @click="cancelEditStep()" class="ba-btn ba-btn-secondary" style="font-size:12px;">Cancel</button>
                                     <button @click="deleteStep(fighter.id, step.id)" class="ba-btn ba-btn-ghost" style="margin-left:auto;font-size:12px;color:var(--ba-danger);">Delete step</button>
                                   </div>
                                 </div>
