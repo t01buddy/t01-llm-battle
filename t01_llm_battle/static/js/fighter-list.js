@@ -50,11 +50,28 @@ function fighterList() {
       const info = this.providerInfoList.find(p => p.name === this.editStep.provider);
       return info ? info.models : [];
     },
+    editStepPricingHint() {
+      const mid = this.editStep.model_id;
+      if (!mid) return null;
+      const m = this.editStepProviderModels().find(x => x.id === mid);
+      return m ? m.pricing_label : null;
+    },
+    editStepNativeTools() {
+      const info = this.providerInfoList.find(p => p.name === this.editStep.provider);
+      return (info && info.native_tools) ? info.native_tools : [];
+    },
 
     startEditStep(step) {
       const provider = step.provider;
       const model_id = step.model_id;
-      this.editStep = { system_prompt: step.system_prompt || '', provider: provider, model_id: model_id, provider_config: step.provider_config || '{}' };
+      let selected_tools = [];
+      try {
+        const config = JSON.parse(step.provider_config || '{}');
+        if (config.tools && Array.isArray(config.tools)) {
+          selected_tools = config.tools;
+        }
+      } catch(_) {}
+      this.editStep = { system_prompt: step.system_prompt || '', provider: provider, model_id: model_id, model_id_custom: '', provider_config: step.provider_config || '{}', selected_tools: selected_tools };
       this.editStepError = null;
       this.$nextTick(() => {
         this.activeEditStepId = step.id;
@@ -71,9 +88,15 @@ function fighterList() {
       if (!this.battleId || !fighterId || !step.id) return;
       this.savingStep = true; this.editStepError = null;
       try {
+        const finalModelId = this.editStep.model_id === '' ? this.editStep.model_id_custom : this.editStep.model_id;
+        let configObj = {};
+        try { configObj = JSON.parse(this.editStep.provider_config || '{}'); } catch(_) {}
+        if (this.editStep.selected_tools && this.editStep.selected_tools.length > 0) {
+          configObj.tools = this.editStep.selected_tools;
+        }
         const resp = await fetch(`/battles/${this.battleId}/fighters/${fighterId}/steps/${step.id}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ position: step.position, system_prompt: this.editStep.system_prompt || null, provider: this.editStep.provider, model_id: this.editStep.model_id, provider_config: this.editStep.provider_config || '{}' })
+          body: JSON.stringify({ position: step.position, system_prompt: this.editStep.system_prompt || null, provider: this.editStep.provider, model_id: finalModelId, provider_config: JSON.stringify(configObj) })
         });
         if (!resp.ok) throw new Error(await resp.text());
         const updated = await resp.json();
